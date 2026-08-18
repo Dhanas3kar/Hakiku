@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="readme-assets/srm-connect-icon.png" width="180" alt="SRM Connect app icon">
+<img src="readme_assets/srm-connect-icon.png" width="180" alt="SRM Connect app icon">
 
 # SRM CONNECT
 
