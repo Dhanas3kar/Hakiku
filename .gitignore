@@ -1,0 +1,363 @@
+# ============================================================
+# SRM CONNECT — ROOT GITIGNORE
+# ============================================================
+
+# ------------------------------------------------------------
+# Environment & Secrets
+# ------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.template
+
+*.pem
+*.key
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# ------------------------------------------------------------
+# Node.js / JavaScript / TypeScript
+# ------------------------------------------------------------
+node_modules/
+.npm/
+.pnpm-store/
+.yarn/
+.yarn-cache/
+
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+*.tsbuildinfo
+
+# ------------------------------------------------------------
+# Build / Compilation
+# ------------------------------------------------------------
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+.turbo/
+.cache/
+.parcel-cache/
+.vite/
+
+# NestJS
+apps/api/dist/
+apps/api/.nest/
+
+# ------------------------------------------------------------
+# Test / Coverage
+# ------------------------------------------------------------
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
+playwright/.cache/
+
+*.lcov
+
+# Jest
+jest-results/
+jest-coverage/
+
+# ------------------------------------------------------------
+# Database / Local Database Files
+# ------------------------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+
+# Drizzle generated migration snapshots
+# IMPORTANT:
+# Keep actual migration SQL files tracked if your project
+# uses migrations in production.
+apps/api/drizzle/meta/_journal.json
+
+# If your workflow generates local-only migration artifacts:
+# apps/api/drizzle/meta/
+
+# ------------------------------------------------------------
+# Local Uploads / User Generated Media
+# ------------------------------------------------------------
+uploads/
+upload/
+uploads/**
+storage/
+storage/**
+tmp/
+temp/
+
+# Profile avatars / covers
+apps/api/uploads/
+apps/api/storage/
+
+# Post / message media
+apps/api/uploads/users/
+apps/api/storage/users/
+
+# ------------------------------------------------------------
+# Logs
+# ------------------------------------------------------------
+logs/
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ------------------------------------------------------------
+# Docker
+# ------------------------------------------------------------
+docker-compose.override.yml
+docker-compose.local.yml
+
+# Docker volumes / local state
+.docker/
+docker-data/
+postgres-data/
+redis-data/
+
+# ------------------------------------------------------------
+# Redis
+# ------------------------------------------------------------
+dump.rdb
+appendonly.aof
+nodes.conf
+
+# ------------------------------------------------------------
+# OS Files
+# ------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+
+# ------------------------------------------------------------
+# Windows
+# ------------------------------------------------------------
+$RECYCLE.BIN/
+*.stackdump
+
+# ------------------------------------------------------------
+# Linux
+# ------------------------------------------------------------
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ------------------------------------------------------------
+# macOS
+# ------------------------------------------------------------
+.AppleDouble
+.LSOverride
+
+# ------------------------------------------------------------
+# IDE — VS Code
+# ------------------------------------------------------------
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# ------------------------------------------------------------
+# JetBrains
+# ------------------------------------------------------------
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# ------------------------------------------------------------
+# Visual Studio
+# ------------------------------------------------------------
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ------------------------------------------------------------
+# Vim / Neovim
+# ------------------------------------------------------------
+*.swp
+*.swo
+*~
+
+# ------------------------------------------------------------
+# Emacs
+# ------------------------------------------------------------
+*~
+\#*\#
+.\#*
+
+# ------------------------------------------------------------
+# TypeScript / ESLint / Prettier caches
+# ------------------------------------------------------------
+.eslintcache
+.stylelintcache
+.prettiercache
+*.eslintcache
+
+# ------------------------------------------------------------
+# Python (if used for AI/ML utilities)
+# ------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+
+.venv/
+venv/
+env/
+ENV/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+*.pkl
+*.pickle
+*.joblib
+
+# ------------------------------------------------------------
+# Jupyter
+# ------------------------------------------------------------
+.ipynb_checkpoints/
+
+# ------------------------------------------------------------
+# AI / ML Generated Artifacts
+# ------------------------------------------------------------
+models/
+checkpoints/
+weights/
+runs/
+wandb/
+mlruns/
+
+*.h5
+*.keras
+*.pt
+*.pth
+*.onnx
+
+# ------------------------------------------------------------
+# Security / Certificates / Local Auth
+# ------------------------------------------------------------
+secrets/
+private/
+credentials/
+*.secret
+*.secrets
+
+# ------------------------------------------------------------
+# Generated API / Swagger Files
+# ------------------------------------------------------------
+swagger.json
+openapi.json
+
+# ------------------------------------------------------------
+# Temporary Files
+# ------------------------------------------------------------
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+*.rej
+
+*.pid
+*.seed
+
+# ------------------------------------------------------------
+# Generated Reports
+# ------------------------------------------------------------
+reports/
+artifacts/
+screenshots/
+*.html
+
+# ------------------------------------------------------------
+# Local Development Config
+# ------------------------------------------------------------
+.local/
+.local.*
+*.local
+
+# ------------------------------------------------------------
+# Environment-specific Docker files
+# ------------------------------------------------------------
+docker-compose.dev.yml
+docker-compose.prod.yml
+
+# Keep the main compose configuration tracked
+!docker-compose.yml
+
+# ------------------------------------------------------------
+# Package Manager Lock Files
+# ------------------------------------------------------------
+# DO NOT ignore package-lock.json / pnpm-lock.yaml / yarn.lock.
+# Lock files should normally be committed for reproducible builds.
+
+# ------------------------------------------------------------
+# Generated Documentation / AI Artifacts
+# ------------------------------------------------------------
+.ai/
+.ai-cache/
+.cursor/
+.claude/
+
+# ------------------------------------------------------------
+# Local task / planning artifacts
+# ------------------------------------------------------------
+.task/
+.task-cache/
+
+# ------------------------------------------------------------
+# Misc Generated Files
+# ------------------------------------------------------------
+*.generated.*
+*.generated.ts
+*.generated.js
+
+# ------------------------------------------------------------
+# Local environment metadata
+# ------------------------------------------------------------
+.vercel/
+.netlify/
+
+# ------------------------------------------------------------
+# Vercel local files
+# ------------------------------------------------------------
+.vercel/project.json
+
+# ------------------------------------------------------------
+# Firebase / Supabase local state if introduced later
+# ------------------------------------------------------------
+.firebase/
+.supabase/
+
+# ------------------------------------------------------------
+# Backup / Conflict Files
+# ------------------------------------------------------------
+*.orig
+*.rej
+*.patch
+*.merge
+*.conflict
+
+# ------------------------------------------------------------
+# Merge / OS temporary files
+# ------------------------------------------------------------
+.#*
+*.swp
+*.swo
