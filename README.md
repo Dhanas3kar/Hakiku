@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="readme-assets/srm-connect-icon.png" width="180" alt="SRM Connect app icon">
+
 # SRM CONNECT
 
 ### The Social Layer of Campus Life
