@@ -1,443 +1,339 @@
-# SRM Connect
+<div align="center">
 
-<p align="center">
-  <strong>A private, student-first social network for the SRM ecosystem.</strong><br>
-  <sub>Identity. Relationships. Content. Discovery. Community. Messaging.</sub>
-</p>
+# SRM CONNECT
 
-<p align="center">
-  <a href="https://github.com/Dhanas3kar/SRM-Connect"><img src="https://img.shields.io/badge/Repository-SRM--Connect-111827?style=flat-square&logo=github&logoColor=white" alt="Repository"></a>
-  <img src="https://img.shields.io/badge/Backend-NestJS-E0234E?style=flat-square&logo=nestjs&logoColor=white" alt="NestJS">
-  <img src="https://img.shields.io/badge/Database-PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white" alt="PostgreSQL">
-  <img src="https://img.shields.io/badge/ORM-Drizzle-C5F74F?style=flat-square" alt="Drizzle">
-  <img src="https://img.shields.io/badge/Cache-Redis-DC382D?style=flat-square&logo=redis&logoColor=white" alt="Redis">
-  <img src="https://img.shields.io/badge/Real--Time-WebSockets-111827?style=flat-square" alt="WebSockets">
-</p>
+### The Social Layer of Campus Life
 
-<p align="center">
-  <a href="#product">Product</a> ·
-  <a href="#architecture">Architecture</a> ·
-  <a href="#capabilities">Capabilities</a> ·
-  <a href="#security-model">Security</a> ·
-  <a href="#development">Development</a> ·
-  <a href="#roadmap">Roadmap</a>
-</p>
+**Connect. Discover. Create. Belong.**
+
+<br>
+
+[![Status](https://img.shields.io/badge/status-active-111827?style=for-the-badge)](https://github.com/Dhanas3kar/SRM-Connect)
+[![Backend](https://img.shields.io/badge/backend-NestJS-111827?style=for-the-badge&logo=nestjs&logoColor=E0234E)](https://nestjs.com/)
+[![Database](https://img.shields.io/badge/database-PostgreSQL-111827?style=for-the-badge&logo=postgresql&logoColor=4169E1)](https://www.postgresql.org/)
+[![Cache](https://img.shields.io/badge/cache-Redis-111827?style=for-the-badge&logo=redis&logoColor=DC382D)](https://redis.io/)
+[![Realtime](https://img.shields.io/badge/realtime-WebSocket-111827?style=for-the-badge)](#real-time)
+[![Tests](https://img.shields.io/badge/tests-77%2B_verified-111827?style=for-the-badge)](#quality)
+
+<br>
+
+> A campus-first social platform designed around student identity, meaningful connections, content, discovery, community and real-time communication.
+
+<br>
+
+**[Explore the Repository](https://github.com/Dhanas3kar/SRM-Connect)**
+
+</div>
 
 ---
 
-## Product
+## A Different Kind of Campus Platform
 
-SRM Connect is a dedicated digital social layer for students.
+SRM Connect is not another collection of student utilities.
 
-It is not intended to be another academic portal, generic social-media clone, or student resource directory. The product is built around a narrower question:
-
-> What would a social network look like if the people, culture, conversations and opportunities of a university were the primary context?
-
-The platform combines verified student identity, a relationship graph, privacy-aware content, personalized discovery, real-time communication and campus-native community features.
-
-### Platform map
+It is designed as a **social infrastructure layer for campus life** where identity, relationships, content, discovery, community and messaging share one consistent security and data model.
 
 ```text
                          SRM CONNECT
-                              |
-              +---------------+---------------+
-              |                               |
-        STUDENT IDENTITY                SOCIAL GRAPH
-              |                               |
-       Profile / Skills                Follow / Connect
-       Interests / Campus              Block / Privacy
-              |                               |
-              +---------------+---------------+
-                              |
-                         CONTENT LAYER
-                              |
-             +----------------+----------------+
-             |                |                |
-            Posts            Feed          Discovery
-             |                |                |
-       Media / Likes      Ranking        People / Campus
-       Comments           Cursor         Community
-             |                |                |
-             +----------------+----------------+
-                              |
-                       COMMUNICATION
-                              |
-                 +------------+------------+
-                 |                         |
-             Notifications             Messaging
-                 |                         |
-             Outbox / Redis           WebSockets
+
+       IDENTITY ──────── RELATIONSHIPS ──────── COMMUNITY
+          │                    │                    │
+          ▼                    ▼                    ▼
+       PROFILE              NETWORK              POLLS
+       SKILLS               FOLLOWS           CONFESSIONS
+       INTERESTS            CONNECTIONS        CAMPUS PULSE
+          │                    │                    │
+          └────────────────────┼────────────────────┘
+                               ▼
+                            CONTENT
+                               │
+                 ┌─────────────┼─────────────┐
+                 ▼             ▼             ▼
+                POSTS         FEED        DISCOVERY
+                 │             │             │
+                 └─────────────┼─────────────┘
+                               ▼
+                           MESSAGING
+                               │
+                               ▼
+                         REAL-TIME CAMPUS
+```
+
+---
+
+## The Experience
+
+<div align="center">
+
+| DISCOVER | CONNECT | CREATE | COMMUNICATE |
+|:---:|:---:|:---:|:---:|
+| People discovery | Follow system | Posts | 1-to-1 messaging |
+| Personalized feed | Mutual connections | Media | Real-time delivery |
+| Campus discovery | Connection requests | Comments | Read receipts |
+| Skill matching | Block controls | Likes | Conversation state |
+
+</div>
+
+---
+
+## Product Surface
+
+### Identity
+
+A real student identity layer separated from authentication credentials.
+
+```text
+USER ACCOUNT
+     │
+     ▼
+┌─────────────────────────────┐
+│          PROFILE            │
+├─────────────────────────────┤
+│ username                    │
+│ display name                │
+│ campus / department         │
+│ degree / batch              │
+│ skills / interests          │
+│ avatar / cover              │
+│ visibility                  │
+└─────────────────────────────┘
+```
+
+### Network
+
+Relationships are explicit, queryable and protected.
+
+```text
+FOLLOW
+  │
+  ├── Following
+  └── Followers
+
+CONNECTION
+  │
+  ├── Request
+  ├── Accept
+  ├── Reject
+  └── Remove
+
+PRIVACY
+  │
+  └── Block
+       ├── Cascade cleanup
+       └── Generic 404 isolation
+```
+
+### Content
+
+Posts support text, media, visibility controls, likes and flat comments.
+
+```text
+                         POST
+                          │
+             ┌────────────┼────────────┐
+             ▼            ▼            ▼
+           TEXT          MEDIA       VISIBILITY
+                          │
+                    ┌─────┴─────┐
+                    ▼           ▼
+                  IMAGE        VIDEO
+
+             PUBLIC / CONNECTIONS_ONLY / PRIVATE
+```
+
+### Feed
+
+A deterministic ranking pipeline combines social and campus context.
+
+```text
+CANDIDATES
+    │
+    ├── Followed users
+    ├── Connections
+    ├── Campus / academic context
+    ├── Skill / interest overlap
+    └── Public discovery
+    │
+    ▼
+VISIBILITY FILTER
+    │
+    ├── Blocks
+    ├── Account status
+    ├── Soft deletion
+    └── Post visibility
+    │
+    ▼
+RANKING
+    │
+    ├── Relationship
+    ├── Academic relevance
+    ├── Skills / interests
+    ├── Engagement
+    └── Freshness
+    │
+    ▼
+CURSOR PAGINATION
+    │
+    ▼
+PERSONALIZED FEED
+```
+
+### Community
+
+Phase 9 introduces campus-native social experiences without turning SRM Connect into an academic portal.
+
+```text
+┌──────────────────┐
+│ CONFESSION HERO  │
+│ Anonymous campus │
+│ stories & voices │
+└────────┬─────────┘
+         │
+         ├──────────────┐
+         ▼              ▼
+   CAMPUS PULSE     HOT TAKES
+   activity         polls
+         │              │
+         └──────┬───────┘
+                ▼
+        PEOPLE DISCOVERY
+                │
+                ▼
+         CAMPUS INSIGHTS
 ```
 
 ---
 
 # Architecture
 
-SRM Connect follows a modular domain-oriented backend architecture.
+SRM Connect follows a modular backend architecture where each product capability owns its domain logic while sharing common infrastructure.
 
 ```mermaid
 flowchart TB
-    Client["Web Client"] --> API["NestJS API"]
+    CLIENT["Web / Mobile Client"]
 
-    API --> Auth["Authentication"]
-    API --> Network["Networking"]
-    API --> Profile["Profile"]
-    API --> Posts["Posts"]
-    API --> Feed["Feed"]
-    API --> Community["Community"]
-    API --> Messaging["Messaging"]
-    API --> Notifications["Notifications"]
+    API["NestJS API"]
 
-    Auth --> DB["PostgreSQL"]
-    Network --> DB
-    Profile --> DB
-    Posts --> DB
-    Feed --> DB
-    Community --> DB
-    Messaging --> DB
-    Notifications --> DB
+    AUTH["Authentication"]
+    NETWORK["Networking"]
+    PROFILE["Profile & Identity"]
+    POSTS["Posts & Media"]
+    FEED["Feed & Discovery"]
+    NOTIFY["Notifications"]
+    MESSAGE["Messaging"]
+    COMMUNITY["Community"]
 
-    Auth --> Redis["Redis"]
-    Feed --> Redis
-    Community --> Redis
-    Notifications --> Redis
-    Messaging --> Redis
+    DB[("PostgreSQL")]
+    REDIS[("Redis")]
+    WS["WebSocket Gateway"]
+    OUTBOX["Transactional Outbox"]
 
-    Profile --> Storage["StorageProvider"]
-    Posts --> Storage
-    Messaging --> Storage
-```
+    CLIENT --> API
 
-### Architectural principles
+    API --> AUTH
+    API --> NETWORK
+    API --> PROFILE
+    API --> POSTS
+    API --> FEED
+    API --> NOTIFY
+    API --> MESSAGE
+    API --> COMMUNITY
 
-| Principle | Implementation |
-|---|---|
-| Domain separation | Independent NestJS modules and services |
-| Authentication boundary | JWT, rotating sessions and secure cookies |
-| Data integrity | PostgreSQL constraints and transactions |
-| ORM | Drizzle ORM |
-| Caching | Redis |
-| Real-time | WebSocket gateways |
-| Durable events | Transactional outbox |
-| Media | StorageProvider abstraction |
-| Pagination | Deterministic cursor pagination |
-| Privacy | Centralized access and block checks |
-| Testing | Unit plus PostgreSQL/Redis-backed E2E |
+    AUTH --> DB
+    NETWORK --> DB
+    PROFILE --> DB
+    POSTS --> DB
+    FEED --> DB
+    NOTIFY --> DB
+    MESSAGE --> DB
+    COMMUNITY --> DB
 
----
+    AUTH --> REDIS
+    FEED --> REDIS
+    NOTIFY --> REDIS
+    MESSAGE --> REDIS
 
-# Capabilities
+    NETWORK --> OUTBOX
+    POSTS --> OUTBOX
+    OUTBOX --> DB
+    OUTBOX --> REDIS
 
-## Authentication and session security
-
-```text
-Registration
-     |
-     v
-OTP Verification
-     |
-     v
-Authenticated Session
-     |
-     +---- Access JWT
-     |
-     +---- Rotating Refresh Session
-     |
-     v
-Session Family
-     |
-     +---- ACTIVE
-     +---- ROTATED
-     +---- REVOKED
-```
-
-Includes OTP hashing, Redis throttling, refresh-token rotation, token-family reuse detection, audit logging and CSRF protection.
-
----
-
-## Student identity
-
-Authentication credentials and social identity are deliberately separated.
-
-```text
-users
- |
- +-- Authentication
- +-- Security status
- +-- Email verification
- +-- Sessions
- |
- +-------- profiles
-             |
-             +-- Username
-             +-- Academic identity
-             +-- Bio
-             +-- Media
-             +-- Visibility
-             +-- Skills
-             +-- Interests
-```
-
-Profiles support strict usernames, academic context, skills, interests, profile visibility, media and completion tracking.
-
----
-
-## Social graph
-
-```text
-FOLLOW
-A -----------------------> B
-
-CONNECTION
-A <======================> B
-
-BLOCK
-A - - - - - - - - - - -X B
-```
-
-Following is unidirectional. Connections are explicit bilateral relationships. Blocking is an overriding isolation mechanism that removes active social relationships and prevents future interaction.
-
-### Connection state machine
-
-```text
-NONE
-  |
-  | request
-  v
-PENDING
-  |
-  +------ reject ------> REJECTED
-  |
-  +------ cancel ------> CANCELLED
-  |
-  +------ accept ------> CONNECTED
-                             |
-                             | remove
-                             v
-                           NONE
+    MESSAGE --> WS
+    NOTIFY --> WS
 ```
 
 ---
 
-## Posts and media
-
-Posts support text, images, video, likes, comments, visibility controls and soft deletion.
-
-```text
-POST
- |
- +-- content
- +-- visibility
- |
- +-- post_media[]
-       |
-       +-- IMAGE
-       +-- VIDEO
-```
-
-Post visibility:
-
-| Visibility | Access |
-|---|---|
-| `PUBLIC` | Active authenticated students |
-| `CONNECTIONS_ONLY` | Author and mutual connections |
-| `PRIVATE` | Author only |
-
-Media validation uses MIME checks, size limits and magic-byte signatures before storage.
-
----
-
-## Personalized feed
-
-The feed is not a simple chronological list.
+# Domain Architecture
 
 ```mermaid
-flowchart LR
-    F["Following"] --> C["Candidate Pool"]
-    N["Connections"] --> C
-    A["Academic Context"] --> C
-    T["Skills / Interests"] --> C
-    D["Public Discovery"] --> C
+graph LR
+    U["Users"]
 
-    C --> V["Visibility Filter"]
-    V --> R["Deterministic Ranking"]
-    R --> P["Cursor Pagination"]
-    P --> H["Batch Hydration"]
-    H --> OUT["Feed Response"]
+    P["Profiles"]
+    F["Follows"]
+    C["Connections"]
+    B["Blocks"]
+
+    POST["Posts"]
+    MEDIA["Post Media"]
+    LIKE["Post Likes"]
+    COMMENT["Comments"]
+
+    FEED["Feed Engine"]
+
+    CONV["Conversations"]
+    MSG["Messages"]
+    READ["Read Receipts"]
+
+    NOTIF["Notifications"]
+    OUT["Notification Outbox"]
+
+    COMM["Community"]
+    POLL["Polls"]
+    CONF["Confessions"]
+
+    U --> P
+    U --> F
+    U --> C
+    U --> B
+
+    U --> POST
+    POST --> MEDIA
+    POST --> LIKE
+    POST --> COMMENT
+
+    F --> FEED
+    C --> FEED
+    P --> FEED
+    POST --> FEED
+
+    C --> CONV
+    CONV --> MSG
+    MSG --> READ
+
+    POST --> OUT
+    C --> OUT
+    F --> OUT
+    OUT --> NOTIF
+
+    U --> COMM
+    COMM --> POLL
+    COMM --> CONF
 ```
-
-Ranking combines relationship strength, academic context, skill and interest overlap, engagement and freshness.
-
-The retrieval architecture is separated from ranking so future ranking models can evolve without rewriting feed retrieval.
 
 ---
 
-## Discovery
+# Data Model
 
-Discovery surfaces relevant students and public content using:
-
-- Campus
-- Department
-- Batch
-- Skills
-- Interests
-- Relationship state
-- Public content
-
-Candidate retrieval is bounded to avoid uncontrolled database scans.
-
----
-
-## Notifications
-
-Notifications use a transactional outbox rather than relying solely on in-memory events.
-
-```mermaid
-sequenceDiagram
-    participant Domain as Domain Service
-    participant DB as PostgreSQL
-    participant Worker as Outbox Worker
-    participant Redis as Redis
-    participant Client as Client
-
-    Domain->>DB: Write domain change
-    Domain->>DB: Write notification_outbox
-    Worker->>DB: Claim pending event
-    Worker->>DB: Check privacy and preferences
-    Worker->>DB: Create notification
-    Worker->>DB: Record idempotency event
-    Worker->>DB: Mark processed
-    Worker->>Redis: Publish delivery event
-    Redis->>Client: Real-time notification
-```
-
-This provides durable processing, retries, idempotency, preference suppression, block-aware delivery and offline REST retrieval.
-
----
-
-## Real-time messaging
-
-Messaging is constrained by the relationship graph.
-
-```text
-                    Can A message B?
-                           |
-                           v
-                 Is A connected to B?
-                     /                              No             Yes
-                   |               |
-                  403              v
-                              Is either blocked?
-                                /                                      Yes         No
-                               |           |
-                              404          v
-                                      MESSAGE ALLOWED
-```
-
-Messaging supports 1-to-1 conversations, WebSocket delivery, cursor pagination, unread tracking, read receipts, editing, soft deletion and media attachments.
-
----
-
-## Community
-
-The community layer is designed to make SRM Connect feel native to campus life.
-
-### Confession Hero
-
-A dedicated anonymous, short-lived campus surface for community moments.
-
-```text
-+-----------------------------------------------------------+
-|                       CONFESSION HERO                     |
-|                                                           |
-|        "The library at 2 AM has its own ecosystem."       |
-|                                                           |
-|                         CAMPUS                            |
-+-----------------------------------------------------------+
-```
-
-Public responses omit author identity while ownership remains available internally for moderation.
-
-### People Worth Knowing
-
-Recommendations based on mutual connections, shared skills, shared interests, department, campus and batch.
-
-### Campus Pulse
-
-A compact snapshot of recent platform activity.
-
-### Campus Insights
-
-Contextual statistics scoped to campus and academic context with privacy thresholds.
-
-### SRM Hot Takes
-
-Campus-native polls focused on opinions and participation.
-
-### Community reporting
-
-A unified reporting foundation for content and users.
-
----
-
-# Security model
-
-Security is a cross-cutting architectural concern.
-
-```text
-                 BLOCK
-                   |
-        +----------+----------+
-        |                     |
-     FOLLOW              CONNECTION
-        |                     |
-        +----------+----------+
-                   |
-                CONTENT
-                   |
-             NOTIFICATION
-                   |
-               MESSAGE
-```
-
-A block can override downstream social capabilities.
-
-### Account states
-
-```text
-ACTIVE
-  |
-  +--> Normal interaction
-
-SUSPENDED
-  |
-  +--> Mutations restricted
-  +--> Content visibility restricted
-
-BANNED
-  |
-  +--> Mutations denied
-  +--> Content excluded
-
-DEACTIVATED
-  |
-  +--> Mutations denied
-  +--> Public content excluded
-```
-
-The backend consistently applies ownership checks, connection checks, bidirectional block checks, account-state checks, generic `404` responses where existence disclosure is unsafe, database uniqueness and transactional state transitions.
-
----
-
-# Database architecture
+The database is designed around explicit relationships rather than overloaded documents.
 
 ```mermaid
 erDiagram
     USERS ||--o| PROFILES : owns
     USERS ||--o{ FOLLOWS : follows
-    USERS ||--o{ CONNECTION_REQUESTS : requests
-    USERS ||--o{ CONNECTIONS : connects
-    USERS ||--o{ BLOCKS : blocks
+    USERS ||--o{ CONNECTION_REQUESTS : sends
+    USERS ||--o{ BLOCKS : creates
 
     USERS ||--o{ POSTS : authors
     POSTS ||--o{ POST_MEDIA : contains
@@ -446,250 +342,377 @@ erDiagram
 
     PROFILES ||--o{ PROFILE_SKILLS : has
     SKILLS ||--o{ PROFILE_SKILLS : assigned
+
     PROFILES ||--o{ PROFILE_INTERESTS : has
     INTERESTS ||--o{ PROFILE_INTERESTS : assigned
 
-    USERS ||--o{ NOTIFICATIONS : receives
-    USERS ||--o{ NOTIFICATION_PREFERENCES : configures
-    NOTIFICATION_OUTBOX ||--o| NOTIFICATION_EVENTS : processes
-
-    USERS ||--o{ CONVERSATION_PARTICIPANTS : participates
+    USERS ||--o{ CONVERSATION_PARTICIPANTS : joins
     CONVERSATIONS ||--o{ CONVERSATION_PARTICIPANTS : contains
     CONVERSATIONS ||--o{ MESSAGES : contains
     MESSAGES ||--o{ MESSAGE_MEDIA : contains
     MESSAGES ||--o{ MESSAGE_READ_RECEIPTS : receives
-```
 
-Database integrity is enforced through foreign keys, composite primary keys, unique and partial indexes, check constraints, canonical ordering and transactions.
-
----
-
-# Performance
-
-The platform avoids the N+1 query pattern through bounded candidate retrieval and batch hydration.
-
-```text
-Candidate queries
-       |
-       v
-Unique post IDs
-Unique author IDs
-       |
-       +-------------------+
-       |                   |
-       v                   v
-Batch profiles       Batch media
-       |
-       +-------------------+
-       |                   |
-       v                   v
-Batch likes        Batch follows
-       |
-       v
-Batch connections
-       |
-       v
-Normalized response
-```
-
-Feed, notifications, relationships and messages use deterministic cursor pagination instead of offset pagination.
-
-Example:
-
-```json
-{
-  "createdAt": "2026-08-18T08:30:00.000Z",
-  "id": "uuid"
-}
-```
-
-Feed cursors additionally include the ranking score:
-
-```json
-{
-  "score": 87.42,
-  "createdAt": "2026-08-18T08:30:00.000Z",
-  "id": "uuid"
-}
-```
-
-Ordering remains deterministic:
-
-```text
-score DESC
-    |
-created_at DESC
-    |
-id DESC
+    USERS ||--o{ NOTIFICATIONS : receives
+    USERS ||--o{ NOTIFICATIONS : triggers
+    NOTIFICATION_OUTBOX ||--o{ NOTIFICATION_EVENTS : processes
 ```
 
 ---
 
-# Repository structure
+# Real-Time
+
+SRM Connect uses two real-time domains.
+
+```text
+                     REAL-TIME LAYER
+                           │
+              ┌────────────┴────────────┐
+              ▼                         ▼
+       /notifications               /messages
+              │                         │
+              ▼                         ▼
+        Notification               Messaging
+          Gateway                  Gateway
+              │                         │
+              └────────────┬────────────┘
+                           ▼
+                         Redis
+                           │
+                    Pub/Sub Delivery
+                           │
+                           ▼
+                       Connected
+                         Clients
+```
+
+Notifications are persisted before delivery. Messaging uses connection authorization and block isolation before a message can cross the domain boundary.
+
+---
+
+# Notification Reliability
+
+Phase 7 uses a transactional outbox rather than relying solely on in-memory events.
+
+```mermaid
+sequenceDiagram
+    participant Domain as Domain Service
+    participant DB as PostgreSQL
+    participant Worker as Outbox Worker
+    participant Redis as Redis
+    participant WS as WebSocket
+    participant User as Client
+
+    Domain->>DB: Business transaction
+    Domain->>DB: Insert outbox event
+    DB-->>Domain: Commit
+
+    Worker->>DB: Poll pending events
+    Worker->>DB: Check idempotency
+    Worker->>DB: Create notification
+    Worker->>DB: Mark event processed
+
+    Worker->>Redis: Publish delivery
+    Redis->>WS: Deliver event
+    WS->>User: notification
+```
+
+This gives the notification system a durable source of truth even when the recipient is offline.
+
+---
+
+# Messaging
+
+Messaging is intentionally restricted to active mutual connections.
+
+```mermaid
+flowchart TD
+    A["Message Request"] --> B{"Authenticated?"}
+
+    B -- No --> X["401"]
+    B -- Yes --> C{"Blocked?"}
+
+    C -- Yes --> Y["404"]
+    C -- No --> D{"Mutually Connected?"}
+
+    D -- No --> Z["403"]
+    D -- Yes --> E["Persist Message"]
+
+    E --> F["Update Conversation"]
+    F --> G["Redis Delivery"]
+    G --> H["WebSocket"]
+    H --> I["Recipient"]
+```
+
+The authorization rule is simple by design:
+
+**Connection is required. Block overrides connection.**
+
+---
+
+# Security Model
+
+Security is not a separate layer added at the end. It is embedded into each domain.
+
+```text
+AUTHENTICATION
+      │
+      ▼
+ACCOUNT STATUS
+      │
+      ├── ACTIVE
+      ├── SUSPENDED
+      ├── BANNED
+      └── DEACTIVATED
+      │
+      ▼
+RELATIONSHIP AUTHORIZATION
+      │
+      ├── Follow
+      ├── Connection
+      └── Block
+      │
+      ▼
+RESOURCE VISIBILITY
+      │
+      ├── Public
+      ├── Connections Only
+      └── Private
+      │
+      ▼
+DOMAIN ACTION
+      │
+      ├── Post
+      ├── Comment
+      ├── Message
+      └── Notification
+```
+
+### Privacy Principles
+
+| Boundary | Behaviour |
+|---|---|
+| Block | Generic `404` isolation |
+| Suspended account | Mutations denied |
+| Banned account | Content excluded |
+| Deactivated account | Content excluded |
+| Private profile | Owner/admin only |
+| Connections-only profile | Full profile for connections |
+| Connections-only post | Visible to mutual connections |
+| Private post | Author only |
+| Messaging | Active connection required |
+| Notification | Block and preference suppression |
+
+---
+
+# Performance Engineering
+
+The platform is designed around predictable query behaviour.
+
+### Cursor Pagination
+
+No feed, timeline or conversation relies on deep `OFFSET` pagination.
+
+```text
+(score DESC, created_at DESC, id DESC)
+(created_at DESC, id DESC)
+```
+
+Composite cursors provide deterministic ordering even when records share timestamps.
+
+### N+1 Prevention
+
+```text
+BAD
+
+Post 1 ──► Profile query
+Post 2 ──► Profile query
+Post 3 ──► Profile query
+...
+Post N ──► Profile query
+
+
+SRM CONNECT
+
+Posts ───────────┐
+Profiles ────────┤
+Media ───────────┤──► Bounded batch hydration
+Likes ───────────┤
+Relationships ───┘
+```
+
+### Bounded Candidate Retrieval
+
+The feed engine retrieves bounded candidate windows, merges them, applies visibility, ranks them, then paginates.
+
+This keeps feed generation predictable as the dataset grows.
+
+---
+
+# Product Roadmap
+
+```text
+PHASE 01
+Foundation
+    │
+    ▼
+PHASE 02
+Authentication & Security
+    │
+    ▼
+PHASE 03
+Networking
+    │
+    ▼
+PHASE 04
+Identity & Profiles
+    │
+    ▼
+PHASE 05
+Posts & Content
+    │
+    ▼
+PHASE 06
+Feed & Discovery
+    │
+    ▼
+PHASE 07
+Notifications & Real-Time Delivery
+    │
+    ▼
+PHASE 08
+Messaging & Conversations
+    │
+    ▼
+PHASE 09
+Community & Campus Culture
+```
+
+The architecture intentionally leaves room for future ranking improvements, richer moderation, group communication and additional campus-native experiences.
+
+---
+
+# Technology
+
+<div align="center">
+
+| Layer | Technology |
+|:---|:---|
+| Runtime | Node.js |
+| Framework | NestJS |
+| HTTP | Fastify |
+| Language | TypeScript |
+| Database | PostgreSQL |
+| ORM | Drizzle ORM |
+| Cache / Queue | Redis |
+| Authentication | JWT + opaque refresh sessions |
+| Real-Time | WebSocket / Socket.IO |
+| Validation | class-validator |
+| Testing | Jest + Supertest |
+| Infrastructure | Docker |
+| Media | StorageProvider abstraction |
+
+</div>
+
+---
+
+# Repository Structure
 
 ```text
 SRM-Connect/
-|
-+-- apps/
-|   |
-|   +-- api/
-|       |
-|       +-- src/
-|       |   +-- auth/
-|       |   +-- networking/
-|       |   +-- profile/
-|       |   +-- posts/
-|       |   +-- feed/
-|       |   +-- notifications/
-|       |   +-- messaging/
-|       |   +-- community/
-|       |   +-- db/
-|       |   +-- main.ts
-|       |
-|       +-- test/
-|
-+-- packages/
-|   +-- types/
-|
-+-- docker-compose.yml
-+-- package.json
-+-- package-lock.json
-+-- .gitignore
-+-- README.md
+│
+├── apps/
+│   └── api/
+│       ├── src/
+│       │   ├── auth/
+│       │   ├── networking/
+│       │   ├── profile/
+│       │   ├── posts/
+│       │   ├── feed/
+│       │   ├── notifications/
+│       │   ├── messaging/
+│       │   ├── community/
+│       │   └── db/
+│       │
+│       └── test/
+│           ├── auth.e2e-spec.ts
+│           ├── networking.e2e-spec.ts
+│           ├── profile.e2e-spec.ts
+│           ├── posts.e2e-spec.ts
+│           ├── feed.e2e-spec.ts
+│           ├── notifications.e2e-spec.ts
+│           ├── messaging.e2e-spec.ts
+│           └── community.e2e-spec.ts
+│
+├── docker-compose.yml
+├── package.json
+└── README.md
 ```
 
 ---
 
-# Technology foundation
+# Quality
 
-| Layer | Technology |
-|---|---|
-| Runtime | Node.js |
-| Backend | NestJS |
-| HTTP adapter | Fastify |
-| Database | PostgreSQL |
-| ORM | Drizzle ORM |
-| Cache and delivery | Redis |
-| Authentication | JWT + rotating sessions |
-| Real-time | WebSockets / Socket.IO |
-| Event processing | Transactional Outbox |
-| Media | StorageProvider abstraction |
-| Testing | Jest + infrastructure-backed E2E |
-| Infrastructure | Docker Compose |
-
----
-
-# API surface
-
-| Domain | Routes |
-|---|---|
-| Authentication | `/auth/*` |
-| Networking | `/networking/*` |
-| Profiles | `/profile/*` |
-| Skills | `/skills` |
-| Interests | `/interests` |
-| Posts | `/posts/*` |
-| Feed | `/feed`, `/feed/discover` |
-| Notifications | `/notifications/*` |
-| Messaging | `/messages/*` |
-| Community | `/confessions/*`, `/people/*`, `/campus/*`, `/polls/*` |
-
-Each domain owns its DTOs, authorization rules and business services.
-
----
-
-# Testing
-
-SRM Connect uses unit and integration testing together.
+The system is built with regression testing as part of the development process rather than as a final step.
 
 ```text
-                 TEST PYRAMID
-
-                    E2E
-               +-----------+
-               | PostgreSQL|
-               |   Redis   |
-               +-----------+
-                    /                    /                 Integration
-              +-----------+
-                   /                   /                   Unit
-          +---------------+
-          | Domain Logic  |
-          +---------------+
+                  CHANGE
+                    │
+                    ▼
+              UNIT TESTS
+                    │
+                    ▼
+             BUILD / TYPECHECK
+                    │
+                    ▼
+          DATABASE + REDIS E2E
+                    │
+                    ▼
+          FULL REGRESSION SUITE
+                    │
+                    ▼
+                 VERIFY
 ```
 
-The integration suite uses real PostgreSQL and Redis infrastructure for critical workflows.
-
-Important regression areas include authentication, relationship state transitions, block privacy, profile visibility, media ownership, post lifecycle, feed pagination, notification idempotency, messaging authorization, read receipts and community moderation.
+The current implementation has been validated across the completed phases with container-backed PostgreSQL and Redis integration tests.
 
 ---
 
 # Development
 
-## Prerequisites
+## Requirements
 
-- Node.js
-- npm
-- Docker Desktop
-
-## Clone
-
-```bash
-git clone https://github.com/Dhanas3kar/SRM-Connect.git
-cd SRM-Connect
+```text
+Node.js
+Docker Desktop
+PostgreSQL
+Redis
+npm
 ```
 
 ## Install
 
 ```bash
+git clone https://github.com/Dhanas3kar/SRM-Connect.git
+cd SRM-Connect
 npm install
 ```
-
-## Environment
-
-Create a local environment file from the example:
-
-```bash
-cp .env.example .env
-```
-
-PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-Never commit `.env`.
 
 ## Start infrastructure
 
 ```bash
 docker compose up -d
-docker compose ps
 ```
 
 ## Database
 
 ```bash
-npx drizzle-kit push --force
+npx drizzle-kit push
 ```
 
-For migration generation:
+## Run API
 
 ```bash
-npx drizzle-kit generate
-```
-
-## Development
-
-```bash
-npm run dev
-```
-
-## Build
-
-```bash
-npm run build
+npm run start:dev
 ```
 
 ## Unit tests
@@ -704,186 +727,94 @@ npm run test
 npm run test:e2e
 ```
 
----
-
-# Engineering conventions
-
-### Database changes
-
-```text
-Schema
-  |
-  v
-Migration
-  |
-  v
-Local verification
-  |
-  v
-Unit tests
-  |
-  v
-E2E regression
-```
-
-### Feature modules
-
-Prefer:
-
-```text
-module/
-|
-+-- controller
-+-- dto
-+-- services
-+-- guards / access
-+-- validators
-+-- tests
-```
-
-Keep unrelated business rules out of global services.
-
-### Server-side authority
-
-The client is never authoritative for:
-
-- Identity
-- Ownership
-- Connection state
-- Block state
-- Visibility
-- Notification ownership
-- Media ownership
-- Moderation permissions
-
----
-
-# Roadmap
-
-```text
-PHASE 2   Authentication & Session Security        COMPLETE
-    |
-PHASE 3   Networking & Relationship Graph          COMPLETE
-    |
-PHASE 4   Student Identity & Profiles              COMPLETE
-    |
-PHASE 5   Posts, Media & Interactions               COMPLETE
-    |
-PHASE 6   Feed, Discovery & Infinite Scroll        COMPLETE
-    |
-PHASE 7   Notifications & Real-Time Delivery       COMPLETE
-    |
-PHASE 8   Messaging & Conversations                COMPLETE
-    |
-PHASE 9   Community & Campus Culture                ACTIVE
-    |
-PHASE 10  Future Platform Expansion                  NEXT
-```
-
-Each phase builds on explicit contracts from the previous phase rather than introducing hidden coupling.
-
----
-
-# Design philosophy
-
-### Student context over generic mechanics
-
-The platform should feel native to campus life rather than being a generic social network with an SRM identity layer.
-
-### Privacy is structural
-
-Blocks, visibility, account state and ownership are enforced at service and database boundaries.
-
-### Relationships are first-class data
-
-Following, connections and blocking are independent primitives with explicit state transitions.
-
-### Real-time does not mean memory-only
-
-Important events are persisted through the outbox architecture before real-time delivery.
-
-### Pagination must be deterministic
-
-Feeds, messages, notifications and relationship lists should not depend on fragile offset pagination.
-
-### Storage should remain replaceable
-
-Local media storage is an implementation detail rather than a permanent cloud-provider dependency.
-
-### The system should be able to evolve
-
-Feed ranking, notification processing, media storage and real-time infrastructure are decoupled so they can be scaled or replaced independently.
-
----
-
-# Verification baseline
-
-Before merging a substantial feature:
+## Build
 
 ```bash
 npm run build
-npm run test
-npm run test:e2e
 ```
 
-A phase is not considered complete merely because its isolated tests pass. Existing platform functionality must continue to pass the regression suite.
+---
+
+# Design Principles
+
+### Identity is not authentication
+
+Credentials belong to the security domain. Student identity belongs to the social domain.
+
+### Relationships are explicit
+
+Follow, connection and block states are represented independently so each can evolve without corrupting the others.
+
+### Privacy is enforced server-side
+
+The client never decides whether a resource is visible.
+
+### Events must survive process failure
+
+The notification outbox provides durable event processing instead of trusting an in-memory event alone.
+
+### Real-time is an enhancement, not the source of truth
+
+WebSocket delivery improves immediacy. PostgreSQL remains the persistent source of truth.
+
+### Pagination must remain deterministic
+
+Every high-volume collection uses stable cursor semantics.
+
+### Product features must respect the social graph
+
+Community, feed, profiles, posts and messaging all reuse the same relationship and privacy boundaries.
 
 ---
 
-# Contributing
+# Visual Identity
 
-For feature work:
-
-1. Create a dedicated branch.
-2. Keep changes scoped to the relevant domain.
-3. Add or update unit tests.
-4. Add E2E coverage for externally observable behavior.
-5. Verify database changes.
-6. Run the complete regression suite.
-7. Keep secrets and local infrastructure state out of Git.
-8. Submit a focused pull request with architectural context.
-
----
-
-# Security
-
-If you discover a security issue, do not publish credentials, tokens, session data or exploit details in a public issue.
-
-Report security concerns privately to the project maintainer with:
-
-- Affected component.
-- Reproduction conditions.
-- Security impact.
-- Suggested mitigation, if known.
-
-Never commit:
+SRM Connect uses a dark-first visual language intended to feel closer to a modern social product than a conventional campus portal.
 
 ```text
-.env
-private keys
-access tokens
-refresh tokens
-database passwords
-cloud credentials
-production configuration
-private user media
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│                         SRM                                 │
+│                       CONNECT                               │
+│                                                             │
+│             A SOCIAL LAYER FOR CAMPUS                       │
+│                                                             │
+│                  DARK / LIGHT THEMES                        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+The interface is designed around strong contrast, restrained surfaces, clear hierarchy and a visual system that can scale across desktop and mobile experiences.
+
+---
+
+# Project Status
+
+```text
+Authentication             COMPLETE
+Networking                 COMPLETE
+Student Identity           COMPLETE
+Posts & Media              COMPLETE
+Feed & Discovery           COMPLETE
+Notifications              COMPLETE
+Real-Time Messaging        COMPLETE
+Community                  IN PROGRESS
 ```
 
 ---
 
-# License
+<div align="center">
 
-License information should be added once the project's licensing decision is finalized.
+## SRM CONNECT
 
-Until then, the repository should not imply permissions that have not been explicitly granted.
+**A campus network built around people, not pages.**
 
----
+<br>
 
-<p align="center">
-  <strong>SRM Connect</strong><br>
-  <sub>A campus-native social infrastructure for students.</sub>
-</p>
+[Repository](https://github.com/Dhanas3kar/SRM-Connect)
 
-<p align="center">
-  <a href="https://github.com/Dhanas3kar/SRM-Connect">View Repository</a>
-</p>
+<br>
+
+Built with TypeScript, NestJS, PostgreSQL, Redis and a security-first domain architecture.
+
+</div>
