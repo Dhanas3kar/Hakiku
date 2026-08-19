@@ -20,26 +20,34 @@ export function useAuth() {
   } = useQuery<UserProfile | null, ApiError>({
     queryKey: AUTH_QUERY_KEY,
     queryFn: () => profileApi.getMe(),
-    retry: false,
+    retry: (failureCount, err) => {
+      if (err.status === 401 || err.status === 403 || err.status === 404) return false
+      return failureCount < 3
+    },
     refetchOnMount: false,
     refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    refetchOnReconnect: true,
   })
 
   const logoutMutation = useMutation({
     mutationFn: () => authApi.logout(),
-    onSettled: () => {
+    onSettled: async () => {
       // Completely reset auth state and clear queries on logout
+      await queryClient.cancelQueries()
       queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY })
       queryClient.clear()
     },
   })
 
-  let status: 'loading' | 'authenticated' | 'unauthenticated' | 'needs_onboarding' = 'loading'
+  let status: 'loading' | 'authenticated' | 'unauthenticated' | 'needs_onboarding' | 'error' = 'loading'
   if (isPending) {
     status = 'loading'
   } else if (isError) {
-    status = 'unauthenticated'
+    if (error?.status === 401) {
+      status = 'unauthenticated'
+    } else {
+      status = profile ? 'authenticated' : 'error'
+    }
   } else if (profile === null) {
     status = 'needs_onboarding'
   } else if (profile) {

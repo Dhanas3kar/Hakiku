@@ -39,13 +39,17 @@ export interface NotificationPreference {
 
 export const notificationsApi = {
   getNotifications: async (params?: { cursor?: string; limit?: number; unreadOnly?: boolean }): Promise<PaginatedNotifications> => {
-    const response = await apiClient.get('/notifications', { params })
-    return response
+    const response = await apiClient.get<any>('/notifications', { params })
+    return {
+      items: response.data || [],
+      nextCursor: response.meta?.nextCursor || undefined,
+      hasMore: response.meta?.hasNextPage || false
+    }
   },
 
   getUnreadCount: async (): Promise<{ unreadCount: number }> => {
-    const response = await apiClient.get('/notifications/unread-count')
-    return response
+    const response = await apiClient.get<any>('/notifications/unread-count')
+    return { unreadCount: response.count || 0 }
   },
 
   markAllAsRead: async (): Promise<void> => {

@@ -40,13 +40,17 @@ export function ConfessionComposer() {
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="Share your deepest campus secrets..."
+          maxLength={500}
           className="w-full min-h-[100px] resize-none bg-surface-muted border-none rounded-xl p-3 text-sm text-foreground focus:ring-2 focus:ring-primary/50 placeholder:text-foreground-muted transition-all"
         />
         
-        <div className="flex justify-end mt-3">
+        <div className="flex justify-between items-center mt-3">
+          <span className={`text-xs ${content.length > 500 ? 'text-danger' : 'text-foreground-muted'}`}>
+            {content.length}/500
+          </span>
           <button 
             type="submit" 
-            disabled={!content.trim() || submitMutation.isPending}
+            disabled={!content.trim() || submitMutation.isPending || content.length > 500}
             className="flex items-center gap-2 px-4 py-2 bg-foreground text-background font-medium text-sm rounded-xl hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

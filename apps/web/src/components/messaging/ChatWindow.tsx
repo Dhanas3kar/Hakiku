@@ -1,11 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { messagingApi } from '../../api/messaging'
 import type { MessageItem } from '../../api/messaging'
 import { useSocket } from '../../hooks/useSocket'
 import { useAuth } from '../../hooks/useAuth'
-import { formatDistanceToNow, format } from 'date-fns'
-import { Loader2, Send, Image as ImageIcon, ArrowLeft, MoreVertical, Trash } from 'lucide-react'
+import { format } from 'date-fns'
+import { Loader2, Send, Image as ImageIcon, ArrowLeft } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useIntersectionObserver } from 'usehooks-ts'
 
@@ -48,7 +48,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
     getNextPageParam: (lastPage) => lastPage.nextCursorAt || undefined,
   })
 
-  const messages = data?.pages.flatMap((page) => page.items) ?? []
+  const messages = data?.pages.flatMap((page) => page.items || []) ?? []
 
   const { isIntersecting: isTopIntersecting, ref: topRef } = useIntersectionObserver({
     threshold: 0.1,
@@ -80,20 +80,20 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
 
         // Deduplication check
         const alreadyExists = oldData.pages.some((page: any) => 
-          page.items.some((msg: any) => msg.id === payload.id)
+          (page.items || []).some((msg: any) => msg.id === payload.id)
         )
         if (alreadyExists) return oldData
 
         // Remove the temporary optimistic message if it exists
         const cleanedPages = oldData.pages.map((page: any) => ({
           ...page,
-          items: page.items.filter((msg: any) => !msg.id.startsWith('temp-'))
+          items: (page.items || []).filter((msg: any) => !msg.id.startsWith('temp-'))
         }))
 
         // Add to the beginning of the first page (newest message)
         cleanedPages[0] = {
           ...cleanedPages[0],
-          items: [payload, ...cleanedPages[0].items],
+          items: [payload, ...(cleanedPages[0].items || [])],
         }
         return { ...oldData, pages: cleanedPages }
       })
@@ -162,7 +162,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
         const newPages = [...oldData.pages]
         newPages[0] = {
           ...newPages[0],
-          items: [optimisticMsg, ...newPages[0].items],
+          items: [optimisticMsg, ...(newPages[0].items || [])],
         }
         return { ...oldData, pages: newPages }
       })
@@ -170,7 +170,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
       setInputText('')
       return { previousMessages }
     },
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       queryClient.setQueryData(['messages', conversationId], context?.previousMessages)
     },
     onSettled: () => {
@@ -217,6 +217,16 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
         {status === 'pending' ? (
           <div className="flex justify-center p-8 w-full">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : status === 'error' ? (
+          <div className="flex flex-col items-center justify-center h-full w-full">
+            <p className="text-sm text-danger font-medium mb-2">Failed to load chat</p>
+            <button 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })}
+              className="text-xs text-primary hover:underline"
+            >
+              Try Again
+            </button>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-foreground-muted">

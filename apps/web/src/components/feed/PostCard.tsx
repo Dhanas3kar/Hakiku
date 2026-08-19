@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { Heart, MessageCircle, MoreVertical, Share2, Globe, Users, Lock, Trash2, Edit2, Flag } from 'lucide-react'
 import { CommentsSection } from './CommentsSection'
 import { ReportDialog } from '../community/ReportDialog'
+import { toast } from 'sonner'
 
 interface PostCardProps {
   post: PostItem
@@ -48,7 +49,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
           ...old,
           pages: old.pages.map((page: any) => ({
             ...page,
-            items: page.items.map((p: PostItem) => {
+            items: (page.items || []).map((p: PostItem) => {
               if (p.id === post.id) {
                 return {
                   ...p,
@@ -69,6 +70,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
           queryClient.setQueryData(queryKey, data)
         })
       }
+      toast.error(_err.message || 'Failed to like post')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
@@ -80,6 +82,9 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
     },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to delete post')
+    }
   })
 
   const handleLikeClick = () => {
@@ -92,6 +97,12 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
     }
   }
 
+  const authorName = post.author?.displayName || post.author?.fullName || 'Unknown User'
+  const authorUsername = post.author?.username || 'unknown'
+  const avatarUrl = post.author?.avatarUrl
+  const department = post.author?.department
+  const initial = authorName.charAt(0).toUpperCase()
+
   return (
     <article className="mb-4 rounded-xl border border-border bg-surface-elevated shadow-xs overflow-hidden">
       <div className="p-4 sm:p-5">
@@ -99,20 +110,20 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-muted border border-border shrink-0">
-              {post.author.avatarUrl ? (
-                <img src={post.author.avatarUrl} alt={post.author.displayName || post.author.fullName} className="h-full w-full object-cover" />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={authorName} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted">
-                  {(post.author.displayName || post.author.fullName || '?').charAt(0)}
+                  {initial}
                 </div>
               )}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-foreground text-sm sm:text-base leading-tight">
-                  {post.author.displayName || post.author.fullName}
+                  {authorName}
                 </span>
-                <span className="text-xs text-foreground-muted">@{post.author.username}</span>
+                <span className="text-xs text-foreground-muted">@{authorUsername}</span>
               </div>
               <div className="flex items-center gap-2 text-xs text-foreground-muted mt-0.5">
                 <span>{new Date(post.createdAt).toLocaleDateString()}</span>
@@ -121,10 +132,10 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
                   <VisibilityIcon className="h-3 w-3" />
                   <span className="sr-only">{VISIBILITY_LABELS[post.visibility] || 'Public'}</span>
                 </span>
-                {post.author.department && (
+                {department && (
                   <>
                     <span>•</span>
-                    <span className="truncate max-w-[120px]">{post.author.department}</span>
+                    <span className="truncate max-w-[120px]">{department}</span>
                   </>
                 )}
               </div>

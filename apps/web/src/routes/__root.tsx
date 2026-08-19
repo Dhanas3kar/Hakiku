@@ -4,6 +4,7 @@ import { TanStackDevtools } from '@tanstack/react-devtools'
 import { Providers } from '../components/Providers'
 import { NotFound } from '../components/NotFound'
 import { GlobalErrorBoundary } from '../components/GlobalErrorBoundary'
+import { Toaster } from 'sonner'
 
 import appCss from '../styles.css?url'
 
@@ -45,6 +46,7 @@ function RootDocument() {
         <GlobalErrorBoundary>
           <Providers>
             <Outlet />
+            <Toaster position="bottom-center" theme="system" richColors />
             <TanStackDevtools
               config={{
                 position: 'bottom-right',

@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { postsApi } from '../../api/posts'
 import { useAuth } from '../../hooks/useAuth'
-import { Trash2, Send, Flag } from 'lucide-react'
+import { Flag, Send } from 'lucide-react'
 import { ReportDialog } from '../community/ReportDialog'
+import { toast } from 'sonner'
 
 interface CommentsSectionProps {
   postId: string
@@ -29,10 +30,9 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
       queryClient.setQueriesData({ queryKey: ['feed'] }, (old: any) => {
         if (!old || !old.pages) return old
         return {
-          ...old,
           pages: old.pages.map((page: any) => ({
             ...page,
-            items: page.items.map((p: any) => {
+            items: (page.items || []).map((p: any) => {
               if (p.id === postId) {
                 return { ...p, commentCount: p.commentCount + 1 }
               }
@@ -42,10 +42,13 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
         }
       })
     },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to add comment')
+    }
   })
 
   const deleteCommentMutation = useMutation({
-    mutationFn: (commentId: string) => postsApi.deleteComment(postId, commentId),
+    mutationFn: (commentId: string) => postsApi.deleteComment(commentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['comments', postId] })
       // Update the post's comment count optimistically
@@ -55,7 +58,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
           ...old,
           pages: old.pages.map((page: any) => ({
             ...page,
-            items: page.items.map((p: any) => {
+            items: (page.items || []).map((p: any) => {
               if (p.id === postId) {
                 return { ...p, commentCount: Math.max(0, p.commentCount - 1) }
               }
@@ -65,6 +68,9 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
         }
       })
     },
+    onError: (err) => {
+      toast.error(err.message || 'Failed to delete comment')
+    }
   })
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -117,14 +123,19 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
 
       {/* Comments List */}
       <div className="space-y-3">
-        {comments.map((comment) => (
+        {comments.map((comment) => {
+          const authorName = comment.author?.displayName || comment.author?.fullName || 'Unknown User'
+          const avatarUrl = comment.author?.avatarUrl
+          const initial = authorName.charAt(0).toUpperCase()
+
+          return (
           <div key={comment.id} className="flex gap-2 group">
             <div className="h-8 w-8 overflow-hidden rounded-full bg-surface-muted border border-border shrink-0 mt-0.5">
-              {comment.author.avatarUrl ? (
-                <img src={comment.author.avatarUrl} alt={comment.author.displayName || comment.author.fullName} className="h-full w-full object-cover" />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={authorName} className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted text-xs">
-                  {(comment.author.displayName || comment.author.fullName || '?').charAt(0)}
+                  {initial}
                 </div>
               )}
             </div>
@@ -132,7 +143,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
               <div className="rounded-2xl bg-surface p-3 border border-border/50 text-sm">
                 <div className="flex items-center justify-between gap-2 mb-1">
                   <span className="font-semibold text-foreground">
-                    {comment.author.displayName || comment.author.fullName}
+                    {authorName}
                   </span>
                   <span className="text-xs text-foreground-muted shrink-0">
                     {new Date(comment.createdAt).toLocaleDateString()}
@@ -167,7 +178,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
               )}
             </div>
           </div>
-        ))}
+        )})}
         {comments.length === 0 && (
           <div className="text-center py-4 text-sm text-foreground-muted">
             No comments yet. Be the first!

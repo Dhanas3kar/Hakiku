@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postsApi, type PostVisibility, type PostMedia, type PostItem } from '../../api/posts'
 import { useAuth } from '../../hooks/useAuth'
-import { Image, Video, Globe, Users, Lock, X, Loader2, Send } from 'lucide-react'
+import { Image, X, Loader2, Globe, Users, Lock, Send } from 'lucide-react'
 
 interface PostComposerProps {
   onPostCreated?: (newPost: PostItem) => void

@@ -1,8 +1,9 @@
 import { createFileRoute, Outlet, useLocation, useRouter } from '@tanstack/react-router'
 import { ShellLayout } from '../layouts/ShellLayout'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth, AUTH_QUERY_KEY } from '../hooks/useAuth'
 import { Loader2 } from 'lucide-react'
 import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 
 export const Route = createFileRoute('/_authenticated')({
   component: AuthenticatedLayout,
@@ -13,9 +14,21 @@ function AuthenticatedLayout() {
   const { isAuthenticated, needsOnboarding, status } = auth
   const location = useLocation()
   const router = useRouter()
+  const queryClient = useQueryClient()
 
   useEffect(() => {
-    if (status === 'unauthenticated' || (!isAuthenticated && status !== 'loading')) {
+    const handleAuthExpired = () => {
+      queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY })
+      queryClient.clear()
+      router.navigate({ to: '/login', replace: true })
+    }
+
+    window.addEventListener('auth:expired', handleAuthExpired)
+    return () => window.removeEventListener('auth:expired', handleAuthExpired)
+  }, [queryClient, router])
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
       router.navigate({ to: '/login', search: { redirect: location.pathname }, replace: true })
     } else if (needsOnboarding && !location.pathname.startsWith('/onboarding')) {
       router.navigate({ to: '/onboarding', replace: true })
@@ -28,6 +41,20 @@ function AuthenticatedLayout() {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-background text-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="flex flex-col min-h-[100dvh] items-center justify-center bg-background text-foreground gap-4">
+        <p className="text-danger font-medium">{auth.error?.message || 'Failed to connect to the server'}</p>
+        <button 
+          onClick={() => auth.refetchSession()}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
+        >
+          Try Again
+        </button>
       </div>
     )
   }

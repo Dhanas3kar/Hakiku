@@ -1,17 +1,13 @@
-import { useState, useEffect } from 'react'
-import { Link, useParams } from '@tanstack/react-router'
+import { useEffect } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { messagingApi } from '../../api/messaging'
-import type { ConversationItem } from '../../api/messaging'
 import { useSocket } from '../../hooks/useSocket'
-import { useAuth } from '../../hooks/useAuth'
 import { formatDistanceToNow } from 'date-fns'
 import { Loader2, Plus, MessageSquare, Search } from 'lucide-react'
 import { useIntersectionObserver } from 'usehooks-ts'
 
 export function ConversationList() {
-  const { profile } = useAuth()
-  const currentUserId = profile?.id
   const { isConnected, messagingSocket } = useSocket()
   const queryClient = useQueryClient()
   
@@ -53,7 +49,7 @@ export function ConversationList() {
   useEffect(() => {
     if (!messagingSocket) return
 
-    const handleNewMessage = (payload: any) => {
+    const handleNewMessage = () => {
       // Invalidate to fetch latest previews and sort order
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
     }
@@ -65,7 +61,7 @@ export function ConversationList() {
     }
   }, [messagingSocket, queryClient])
 
-  const conversations = data?.pages.flatMap((page) => page.items) ?? []
+  const conversations = data?.pages.flatMap((page) => page.items || []) ?? []
 
   return (
     <div className="flex flex-col h-full">
@@ -98,6 +94,16 @@ export function ConversationList() {
         {status === 'pending' ? (
           <div className="flex justify-center p-8">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : status === 'error' ? (
+          <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+            <p className="text-sm text-danger font-medium mb-2">Failed to load messages</p>
+            <button 
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['conversations'] })}
+              className="text-xs text-primary hover:underline"
+            >
+              Try Again
+            </button>
           </div>
         ) : conversations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full p-8 text-center text-foreground-muted">

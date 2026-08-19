@@ -24,13 +24,6 @@ export default function Header() {
           >
             Home
           </Link>
-          <Link
-            to="/about"
-            className="nav-link"
-            activeProps={{ className: 'nav-link is-active' }}
-          >
-            About
-          </Link>
         </div>
 
         <div className="ml-auto flex items-center gap-2">

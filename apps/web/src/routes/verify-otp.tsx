@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate, Navigate } from '@tanstack/react-router'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/auth'
 import { useAuth } from '../hooks/useAuth'
@@ -116,7 +116,7 @@ function VerifyOtpPage() {
                 {otp.map((digit, index) => (
                   <input
                     key={index}
-                    ref={(el) => (inputRefs.current[index] = el)}
+                    ref={(el) => { inputRefs.current[index] = el }}
                     type="text"
                     inputMode="numeric"
                     maxLength={6} // To handle paste properly

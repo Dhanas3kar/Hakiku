@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import { communityApi } from '../../api/community'
 import type { Confession } from '../../api/community'
 import { ConfessionComposer } from './ConfessionComposer'
 import { useIntersectionObserver } from 'usehooks-ts'
 import { formatDistanceToNow } from 'date-fns'
-import { Loader2, MoreHorizontal, Flag, MessageSquare } from 'lucide-react'
+import { Loader2, MoreHorizontal, Flag } from 'lucide-react'
 import { ReportDialog } from './ReportDialog'
 
 export function ConfessionFeed() {

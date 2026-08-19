@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate, useRouter, Navigate } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate, Navigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/auth'
@@ -20,7 +20,7 @@ export const Route = createFileRoute('/login')({
 
 function LoginPage() {
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, needsOnboarding } = useAuth()
   const [email, setEmail] = useState('')
   const { redirect } = Route.useSearch()
 
@@ -36,7 +36,7 @@ function LoginPage() {
 
   // Redirect if already authenticated
   if (isAuthenticated) {
-    return <Navigate to={redirect || '/'} replace />
+    return <Navigate to={needsOnboarding ? '/onboarding' : (redirect || '/')} replace />
   }
 
   const handleSubmit = (e: React.FormEvent) => {

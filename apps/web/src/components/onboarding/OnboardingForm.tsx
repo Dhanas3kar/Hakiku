@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { profileApi } from '../../api/profile'
-import type { UserProfile } from '../../api/profile'
 import { useAuth } from '../../hooks/useAuth'
 
 export function OnboardingForm() {

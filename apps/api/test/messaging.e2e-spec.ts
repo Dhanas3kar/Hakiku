@@ -187,9 +187,9 @@ describe('Messaging Module (e2e)', () => {
         .set('Authorization', `Bearer ${userA.token}`);
 
       expect(response.status).toBe(HttpStatus.OK);
-      expect(response.body.data.length).toBeGreaterThan(0);
-      expect(response.body.data[0]).toHaveProperty('targetUser');
-      expect(response.body.data[0].targetUser.id).toBe(userB.id);
+      expect(response.body.items.length).toBeGreaterThan(0);
+      expect(response.body.items[0]).toHaveProperty('targetUser');
+      expect(response.body.items[0].targetUser.id).toBe(userB.id);
     });
   });
 });

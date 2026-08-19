@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notificationsApi } from '../api/notifications'
 import type { NotificationItem } from '../api/notifications'
 import { useIntersectionObserver } from 'usehooks-ts'

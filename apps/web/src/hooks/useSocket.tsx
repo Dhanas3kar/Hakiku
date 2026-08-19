@@ -1,9 +1,8 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { io, Socket } from 'socket.io-client'
 import { useAuth } from './useAuth'
+import { io, Socket } from 'socket.io-client'
 import { useQueryClient } from '@tanstack/react-query'
-import { WifiOff } from 'lucide-react'
 
 interface SocketContextValue {
   notificationSocket: Socket | null

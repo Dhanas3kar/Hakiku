@@ -10,7 +10,7 @@ export async function verifyWsClient(client: Socket, jwtService: JwtService): Pr
     const cookies = Object.fromEntries(
       cookieHeader.split(';').map(c => c.trim().split('='))
     );
-    token = cookies['accessToken'];
+    token = cookies['access_token'];
   }
 
   // Fallback to auth payload or authorization header (useful for testing)

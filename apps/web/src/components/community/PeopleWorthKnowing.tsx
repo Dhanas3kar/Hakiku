@@ -44,7 +44,11 @@ export function PeopleWorthKnowing() {
             key={person.id} 
             className="min-w-[220px] max-w-[240px] flex flex-col items-center p-5 bg-surface-muted border border-border rounded-2xl shrink-0 snap-start"
           >
-            <Link to={`/profile/${(person as any).username || person.id}`} className="flex flex-col items-center group">
+            <Link 
+              to="/profile/$username" 
+              params={{ username: person.username || person.id }} 
+              className="flex flex-col items-center group"
+            >
               <div className="relative mb-3">
                 {person.avatarUrl ? (
                   <img src={person.avatarUrl} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-surface group-hover:ring-primary transition-all" />

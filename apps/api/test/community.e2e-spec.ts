@@ -237,7 +237,7 @@ describe('CommunityModule (e2e)', () => {
         .set('Authorization', `Bearer ${userAToken}`);
       
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body.recommendations)).toBeTruthy();
+      expect(Array.isArray(response.body.items)).toBeTruthy();
     });
   });
 

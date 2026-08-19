@@ -1,5 +1,5 @@
 import { client as apiClient } from './client'
-import type { UserProfile } from './profile'
+
 
 export type MessageType = 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE'
 
@@ -70,8 +70,13 @@ export const messagingApi = {
     conversationId: string,
     params?: { cursorAt?: string; cursorId?: string; limit?: number }
   ): Promise<PaginatedMessages> => {
-    const response = await apiClient.get(`/messages/conversations/${conversationId}/messages`, { params })
-    return response
+    const response = await apiClient.get<any>(`/messages/conversations/${conversationId}/messages`, { params })
+    return {
+      items: response.data || [],
+      nextCursorAt: response.nextCursorAt || undefined,
+      nextCursorId: response.nextCursorId || undefined,
+      hasMore: !!response.nextCursorAt
+    }
   },
 
   sendMessage: async (
@@ -96,8 +101,8 @@ export const messagingApi = {
   },
 
   getUnreadCount: async (): Promise<{ unreadCount: number }> => {
-    const response = await apiClient.get('/messages/unread-count')
-    return response
+    const response = await apiClient.get<number>('/messages/unread-count')
+    return { unreadCount: typeof response === 'number' ? response : 0 }
   },
 
   requestMediaUpload: async (mimeType: string, fileSize: number): Promise<{ uploadUrl: string; mediaKey: string; downloadUrl: string }> => {

@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { communityApi } from '../../api/community'
 import type { Poll } from '../../api/community'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Loader2, MoreHorizontal, Flag } from 'lucide-react'
+import { CheckCircle2, MoreHorizontal, Flag } from 'lucide-react'
 import { ReportDialog } from './ReportDialog'
+import { toast } from 'sonner'
 
 export function PollCard({ poll }: { poll: Poll }) {
   const queryClient = useQueryClient()
@@ -23,7 +24,7 @@ export function PollCard({ poll }: { poll: Poll }) {
         if (!old) return old
         const newPages = old.pages.map((page: any) => ({
           ...page,
-          items: page.items.map((p: Poll) => {
+          items: (page.items || []).map((p: Poll) => {
             if (p.id !== poll.id) return p
             return {
               ...p,
@@ -39,8 +40,9 @@ export function PollCard({ poll }: { poll: Poll }) {
 
       return { previousPolls }
     },
-    onError: (err, newVote, context) => {
+    onError: (err: any, _newVote, context) => {
       queryClient.setQueryData(['polls'], context?.previousPolls)
+      toast.error(err.message || 'Failed to submit vote')
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['polls'] })
@@ -96,8 +98,8 @@ export function PollCard({ poll }: { poll: Poll }) {
             return (
               <div key={option.id} className="relative">
                 <button
-                  onClick={() => !hasVoted && voteMutation.mutate(option.id)}
-                  disabled={hasVoted || voteMutation.isPending}
+                  onClick={() => !hasVoted && poll.isActive && voteMutation.mutate(option.id)}
+                  disabled={hasVoted || !poll.isActive || voteMutation.isPending}
                   className={`w-full relative overflow-hidden flex items-center justify-between p-3 rounded-xl border text-left transition-all ${
                     isVoted 
                       ? 'border-primary bg-primary/5' 

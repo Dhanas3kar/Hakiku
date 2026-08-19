@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { Bell, LogOut, Moon, Sun, Monitor, AlertCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
@@ -12,7 +12,6 @@ export const Route = createFileRoute('/_authenticated/settings')({
 type ThemeMode = 'light' | 'dark' | 'auto'
 
 function SettingsPage() {
-  const navigate = useNavigate()
   const { logout } = useAuth()
   const [theme, setTheme] = useState<ThemeMode>('auto')
   
@@ -22,6 +21,7 @@ function SettingsPage() {
     queryKey: ['settings', 'preferences'],
     queryFn: async () => {
       const res = await client.get('/profile/me/preferences')
+      return res
     },
     retry: 1
   })
@@ -166,7 +166,7 @@ function SettingsPage() {
                     <input 
                       type="checkbox" 
                       className="sr-only peer" 
-                      checked={preferences?.pushNotifications ?? false}
+                      checked={preferences?.pushNotifications ?? true}
                       onChange={(e) => updatePreferences.mutate({ pushNotifications: e.target.checked })}
                       disabled={updatePreferences.isPending}
                     />

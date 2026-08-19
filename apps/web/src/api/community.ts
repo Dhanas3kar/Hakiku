@@ -34,14 +34,11 @@ export interface PulseStat {
 }
 
 export interface InsightsData {
-  id: string
-  userId: string
-  profileViews: number
-  postEngagements: number
-  networkGrowth: number
-  topConnections: any[]
-  weeklyChange: number
-  generatedAt: string
+  campus: string
+  department: string | null
+  batchYear: number | null
+  newStudentsThisMonth: number | null
+  lastUpdated: string
 }
 
 export interface PollOption {

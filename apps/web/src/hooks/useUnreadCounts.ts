@@ -54,7 +54,7 @@ export function useUnreadCounts() {
   useEffect(() => {
     if (!messagingSocket) return
 
-    const handleNewMessage = (payload: any) => {
+    const handleNewMessage = () => {
       // Invalidate message count to get accurate sum, or optimistic increment
       // For cross-conversation safety, invalidation is easier, but optimistic is faster.
       queryClient.invalidateQueries({ queryKey: ['unread-count', 'messages'] })

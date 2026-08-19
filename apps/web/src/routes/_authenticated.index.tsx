@@ -24,11 +24,10 @@ function Home() {
     hasNextPage,
     isFetchingNextPage,
     status,
-    error,
   } = useInfiniteQuery({
     queryKey: ['feed'],
     queryFn: ({ pageParam }) => feedApi.getPersonalizedFeed({ cursor: pageParam as string | undefined, limit: 10 }),
-    initialPageParam: undefined,
+    initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   })
 
@@ -72,9 +71,9 @@ function Home() {
           </div>
         ) : (
           <>
-            {data.pages.map((page, i) => (
-              <div key={i}>
-                {page.items.map((post) => (
+            {data.pages.map((page: any, i) => (
+              <div key={page.nextCursor || i}>
+                {(page.items || []).map((post: PostItem) => (
                   <PostCard
                     key={post.id}
                     post={post}
@@ -86,7 +85,7 @@ function Home() {
             ))}
             
             {/* Empty State */}
-            {data.pages[0].items.length === 0 && (
+            {(data.pages[0]?.items || []).length === 0 && (
               <div className="text-center p-12 bg-surface-elevated rounded-xl border border-border">
                 <p className="text-foreground-muted text-lg">No posts yet.</p>
                 <p className="text-foreground-muted text-sm mt-2">Be the first to share something with the campus!</p>
@@ -104,7 +103,7 @@ function Home() {
                 >
                   Load More
                 </button>
-              ) : data.pages[0].items.length > 0 ? (
+              ) : (data.pages[0]?.items || []).length > 0 ? (
                 <p className="text-sm text-foreground-muted">You've caught up on everything!</p>
               ) : null}
             </div>

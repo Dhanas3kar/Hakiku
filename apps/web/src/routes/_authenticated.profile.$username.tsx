@@ -1,4 +1,4 @@
-import { createFileRoute, useParams } from '@tanstack/react-router'
+import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { profileApi } from '../api/profile'
 import { useAuth } from '../hooks/useAuth'
@@ -14,7 +14,7 @@ function ProfilePage() {
   const { username } = Route.useParams()
   const { user: currentUser } = useAuth()
   
-  const { data: profile, isLoading, isError, error } = useQuery({
+  const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', username],
     queryFn: () => profileApi.getByUsername(username),
     retry: 1,
@@ -28,7 +28,7 @@ function ProfilePage() {
     )
   }
 
-  if (isError || !profile) {
+  if (!profile) {
     return (
       <div className="flex w-full flex-col items-center justify-center py-24 text-center">
         <h2 className="text-xl font-bold text-foreground">Profile not found</h2>
