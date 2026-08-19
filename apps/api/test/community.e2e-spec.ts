@@ -103,7 +103,7 @@ describe('CommunityModule (e2e)', () => {
       displayName: 'Community B',
       campus: 'KTR',
       degreeProgram: 'B.Tech',
-      batchYear: '2025',
+      batchYear: 2025,
       graduationYear: 2029,
       department: 'ECE',
     });

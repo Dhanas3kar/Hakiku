@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus, INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import {
@@ -10,7 +10,8 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
 import postgres from 'postgres';
-import { drizzle } from 'drizzle-orm/postgres-js';
+import { drizzle, NodePgDatabase } from 'drizzle-orm/postgres-js';
+import * as schema from '../src/db/schema';
 import {
   users,
   profiles,

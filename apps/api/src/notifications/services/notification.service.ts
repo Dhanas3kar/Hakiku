@@ -47,8 +47,16 @@ export class NotificationService {
     }
 
     const rows = await this.db
-      .select()
+      .select({
+        notification: notifications,
+        actor: {
+          id: schema.profiles.userId,
+          displayName: schema.profiles.displayName,
+          avatarKey: schema.profiles.avatarKey,
+        },
+      })
       .from(notifications)
+      .leftJoin(schema.profiles, eq(notifications.actorId, schema.profiles.userId))
       .where(and(...conditions))
       .orderBy(desc(notifications.createdAt), desc(notifications.id))
       .limit(limit + 1);
@@ -58,14 +66,52 @@ export class NotificationService {
 
     let nextCursor: string | null = null;
     if (hasNextPage && pageData.length > 0) {
-      const lastItem = pageData[pageData.length - 1];
+      const lastItem = pageData[pageData.length - 1].notification;
       nextCursor = Buffer.from(
         JSON.stringify({ createdAt: lastItem.createdAt, id: lastItem.id }),
       ).toString('base64');
     }
 
+    const baseUrl = process.env.VITE_API_URL || 'http://localhost:3001';
+
+    const mappedData = pageData.map(({ notification, actor }) => {
+      let content = '';
+      switch (notification.type) {
+        case 'FOLLOW':
+          content = 'started following you';
+          break;
+        case 'POST_LIKE':
+          content = 'liked your post';
+          break;
+        case 'POST_COMMENT':
+          content = 'commented on your post';
+          break;
+        case 'CONNECTION_REQUEST':
+          content = 'sent you a connection request';
+          break;
+        case 'CONNECTION_ACCEPTED':
+          content = 'accepted your connection request';
+          break;
+        case 'MENTION' as any:
+          content = 'mentioned you in a post';
+          break;
+        default:
+          content = (notification.payload as any)?.message || 'You have a new notification';
+      }
+
+      return {
+        ...notification,
+        content,
+        actor: actor?.id ? {
+          id: actor.id,
+          displayName: actor.displayName,
+          avatarUrl: actor.avatarKey ? `${baseUrl}/uploads/${actor.avatarKey}` : null,
+        } : null,
+      };
+    });
+
     return {
-      data: pageData,
+      data: mappedData,
       meta: {
         hasNextPage,
         nextCursor,

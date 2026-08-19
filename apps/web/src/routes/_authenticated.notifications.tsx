@@ -218,7 +218,7 @@ function NotificationItemRow({ notification }: { notification: NotificationItem 
       <div className="flex-1 min-w-0 pr-8">
         <p className="text-sm text-foreground">
           <span className="font-semibold">{notification.actor?.displayName || 'Someone'}</span>{' '}
-          {notification.content.replace(notification.actor?.displayName || '', '').trim()}
+          {(notification.content || '').replace(notification.actor?.displayName || '', '').trim()}
         </p>
         <p className="mt-1 text-xs text-foreground-muted">
           {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}

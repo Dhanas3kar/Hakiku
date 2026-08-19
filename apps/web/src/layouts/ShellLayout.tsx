@@ -16,7 +16,7 @@ export function ShellLayout({ children }: { children: React.ReactNode }) {
         <Header />
 
         <main className="flex-1 pb-16 md:pb-0">
-          <div className="mx-auto flex w-full max-w-7xl justify-center gap-6 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto flex w-full max-w-7xl justify-center gap-6 px-0 sm:px-6 lg:px-8 py-0 sm:py-6">
             {/* Feed/Content Column */}
             <div className="w-full max-w-2xl min-w-0">
               {children}

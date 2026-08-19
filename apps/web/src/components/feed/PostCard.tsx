@@ -104,7 +104,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
   const initial = authorName.charAt(0).toUpperCase()
 
   return (
-    <article className="mb-4 rounded-xl border border-border bg-surface-elevated shadow-xs overflow-hidden">
+    <article className="mb-0 sm:mb-4 rounded-none sm:rounded-xl border-b sm:border border-border bg-surface-elevated shadow-none sm:shadow-sm dark:shadow-none overflow-hidden transition-colors">
       <div className="p-4 sm:p-5">
         {/* Header */}
         <div className="flex items-start justify-between gap-3 mb-3">
@@ -202,7 +202,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
 
         {/* Media Grid */}
         {post.media && post.media.length > 0 && (
-          <div className={`mt-3 grid gap-1 overflow-hidden rounded-xl border border-border bg-surface-muted ${
+          <div className={`mt-3 -mx-4 sm:mx-0 grid gap-0.5 sm:gap-1 overflow-hidden sm:rounded-xl border-y sm:border border-border dark:border-transparent bg-surface-muted ${
             post.media.length === 1 ? 'grid-cols-1' :
             post.media.length === 2 ? 'grid-cols-2 aspect-video' :
             post.media.length === 3 ? 'grid-cols-2 grid-rows-2 aspect-square' :
@@ -239,8 +239,8 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
           <button
             onClick={handleLikeClick}
             disabled={likeMutation.isPending}
-            className={`flex items-center gap-1.5 p-1.5 rounded-lg text-sm font-medium transition-colors ${
-              post.isLiked ? 'text-primary' : 'text-foreground-muted hover:text-foreground hover:bg-surface-muted'
+            className={`flex items-center gap-1.5 p-1.5 rounded-lg text-sm font-medium transition-all ${
+              post.isLiked ? 'text-primary' : 'text-foreground-muted hover:text-foreground hover:bg-surface-muted active:scale-95'
             }`}
           >
             <Heart className={`h-4 w-4 ${post.isLiked ? 'fill-current' : ''}`} />
@@ -249,14 +249,14 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
           
           <button
             onClick={() => setShowComments(!showComments)}
-            className="flex items-center gap-1.5 p-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-colors"
+            className="flex items-center gap-1.5 p-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95"
           >
             <MessageCircle className="h-4 w-4" />
             <span>{post.commentCount > 0 ? post.commentCount : 'Comment'}</span>
           </button>
         </div>
 
-        <button className="flex items-center gap-1.5 p-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-colors">
+        <button className="flex items-center gap-1.5 p-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95">
           <Share2 className="h-4 w-4" />
         </button>
       </div>

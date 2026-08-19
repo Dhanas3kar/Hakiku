@@ -6,7 +6,9 @@ import {
 } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
+import fastifyStatic from '@fastify/static';
 import { ValidationPipe } from '@nestjs/common';
+import * as path from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -22,6 +24,11 @@ async function bootstrap() {
 
   await app.register(fastifyCsrf as any, {
     cookieOpts: { signed: true },
+  });
+
+  await app.register(fastifyStatic as any, {
+    root: path.join(process.cwd(), 'uploads'),
+    prefix: '/uploads/',
   });
 
   const fastifyInstance = app.getHttpAdapter().getInstance();
@@ -40,6 +47,7 @@ async function bootstrap() {
   app.enableCors({
     origin: true, // reflect request origin
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   });
 
   fastifyInstance.addContentTypeParser(

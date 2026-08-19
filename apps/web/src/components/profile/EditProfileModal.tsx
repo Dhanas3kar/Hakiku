@@ -16,7 +16,7 @@ export function EditProfileModal({ profile, onClose }: Props) {
   const [formData, setFormData] = useState({
     displayName: profile.displayName || profile.fullName || '',
     department: profile.department || '',
-    batch: profile.batch || '',
+    batchYear: profile.batchYear || profile.batch || '',
     bio: profile.bio || '',
     skillIds: profile.skills?.map((s) => s.id) || [],
     interestIds: profile.interests?.map((i) => i.id) || [],
@@ -55,7 +55,7 @@ export function EditProfileModal({ profile, onClose }: Props) {
 
       return { previousProfile, previousAuth }
     },
-    onError: (err, newData, context) => {
+    onError: (_err, _newData, context) => {
       if (context?.previousProfile) {
         queryClient.setQueryData(['profile', profile.username], context.previousProfile)
       }
@@ -72,11 +72,16 @@ export function EditProfileModal({ profile, onClose }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    updateMutation.mutate(formData)
+    const payload = {
+      ...formData,
+      batchYear: formData.batchYear === '' ? undefined : Number(formData.batchYear)
+    }
+    updateMutation.mutate(payload)
   }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+    const value = e.target.type === 'number' ? (e.target.value ? Number(e.target.value) : '') : e.target.value
+    setFormData((prev) => ({ ...prev, [e.target.name]: value }))
   }
 
   return (
@@ -129,15 +134,15 @@ export function EditProfileModal({ profile, onClose }: Props) {
               </div>
 
               <div>
-                <label htmlFor="batch" className="block text-sm font-medium">
+                <label htmlFor="batchYear" className="block text-sm font-medium">
                   Batch (Year)
                 </label>
                 <input
-                  id="batch"
-                  name="batch"
-                  type="text"
+                  id="batchYear"
+                  name="batchYear"
+                  type="number"
                   placeholder="e.g. 2026"
-                  value={formData.batch}
+                  value={formData.batchYear || ''}
                   onChange={handleChange}
                   className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50"
                   disabled={updateMutation.isPending}

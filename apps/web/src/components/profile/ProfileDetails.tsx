@@ -28,6 +28,38 @@ export function ProfileDetails({ profile, isOwnProfile }: Props) {
             </p>
           )}
         </div>
+
+        {/* Skills Section */}
+        {(profile.skills && profile.skills.length > 0) && (
+          <div className="rounded-xl border border-border bg-surface-elevated p-6 shadow-sm mt-6">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+              Skills
+            </h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {profile.skills.map((skill) => (
+                <span key={skill.id} className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+                  {skill.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Interests Section */}
+        {(profile.interests && profile.interests.length > 0) && (
+          <div className="rounded-xl border border-border bg-surface-elevated p-6 shadow-sm mt-6">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+              Interests
+            </h2>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {profile.interests.map((interest) => (
+                <span key={interest.id} className="inline-flex items-center rounded-full bg-accent/10 px-3 py-1 text-sm font-medium text-accent">
+                  {interest.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Side Column */}

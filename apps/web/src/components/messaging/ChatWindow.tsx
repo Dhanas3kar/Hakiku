@@ -32,7 +32,9 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
     staleTime: 60 * 1000,
   })
   
-  const conversation = conversationsData?.items.find((c) => c.id === conversationId)
+  const conversation = (conversationsData as any)?.pages 
+    ? (conversationsData as any).pages.flatMap((p: any) => p.items || []).find((c: any) => c.id === conversationId)
+    : conversationsData?.items?.find((c: any) => c.id === conversationId)
   const otherUser = conversation?.targetUser
 
   const {
@@ -43,12 +45,17 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
     status,
   } = useInfiniteQuery({
     queryKey: ['messages', conversationId],
-    queryFn: ({ pageParam }) => messagingApi.getMessages(conversationId, { cursorAt: pageParam }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursorAt || undefined,
+    queryFn: ({ pageParam }) => messagingApi.getMessages(conversationId, pageParam as { cursorAt?: string; cursorId?: string } | undefined),
+    initialPageParam: undefined as { cursorAt?: string; cursorId?: string } | undefined,
+    getNextPageParam: (lastPage) => 
+      lastPage.nextCursorAt && lastPage.nextCursorId
+        ? { cursorAt: lastPage.nextCursorAt, cursorId: lastPage.nextCursorId }
+        : undefined,
   })
 
-  const messages = data?.pages.flatMap((page) => page.items || []) ?? []
+  const rawMessages = data?.pages.flatMap((page) => page.items || []) ?? []
+  // Deduplicate messages to prevent UI crashes during overlapping socket/query data
+  const messages = Array.from(new Map(rawMessages.map(m => [m.id, m])).values())
 
   const { isIntersecting: isTopIntersecting, ref: topRef } = useIntersectionObserver({
     threshold: 0.1,
@@ -84,10 +91,17 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
         )
         if (alreadyExists) return oldData
 
-        // Remove the temporary optimistic message if it exists
+        // Remove the temporary optimistic message that matches this payload
+        let tempRemoved = false
         const cleanedPages = oldData.pages.map((page: any) => ({
           ...page,
-          items: (page.items || []).filter((msg: any) => !msg.id.startsWith('temp-'))
+          items: (page.items || []).filter((msg: any) => {
+            if (msg.id.startsWith('temp-') && msg.content === payload.content && !tempRemoved) {
+              tempRemoved = true
+              return false
+            }
+            return true
+          })
         }))
 
         // Add to the beginning of the first page (newest message)
@@ -144,7 +158,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
       const previousMessages = queryClient.getQueryData(['messages', conversationId])
       
       const optimisticMsg: MessageItem = {
-        id: `temp-${Date.now()}`,
+        id: `temp-${crypto.randomUUID()}`,
         conversationId,
         senderId: currentUserId!,
         content,

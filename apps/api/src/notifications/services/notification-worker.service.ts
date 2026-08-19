@@ -171,8 +171,58 @@ export class NotificationWorkerService
         })
         .returning();
 
+      // Hydrate actor and content for WebSocket
+      let actor = null;
+      if (actorId) {
+        const [profile] = await tx
+          .select({
+            id: schema.profiles.userId,
+            displayName: schema.profiles.displayName,
+            avatarKey: schema.profiles.avatarKey,
+          })
+          .from(schema.profiles)
+          .where(eq(schema.profiles.userId, actorId))
+          .limit(1);
+        actor = profile || null;
+      }
+
+      const baseUrl = process.env.VITE_API_URL || 'http://localhost:3001';
+      let content = '';
+      switch (inserted.type) {
+        case 'FOLLOW':
+          content = 'started following you';
+          break;
+        case 'POST_LIKE':
+          content = 'liked your post';
+          break;
+        case 'POST_COMMENT':
+          content = 'commented on your post';
+          break;
+        case 'CONNECTION_REQUEST':
+          content = 'sent you a connection request';
+          break;
+        case 'CONNECTION_ACCEPTED':
+          content = 'accepted your connection request';
+          break;
+        case 'MENTION':
+          content = 'mentioned you in a post';
+          break;
+        default:
+          content = (inserted.payload as any)?.message || 'You have a new notification';
+      }
+
+      const hydratedNotification = {
+        ...inserted,
+        content,
+        actor: actor ? {
+          id: actor.id,
+          displayName: actor.displayName,
+          avatarUrl: actor.avatarKey ? `${baseUrl}/uploads/${actor.avatarKey}` : null,
+        } : null,
+      };
+
       // Dispatch to WebSocket Gateway
-      this.gateway.sendToUser(recipientId, 'new_notification', inserted);
+      this.gateway.sendToUser(recipientId, 'new_notification', hydratedNotification);
     }
   }
 }

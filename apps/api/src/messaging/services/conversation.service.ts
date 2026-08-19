@@ -10,7 +10,7 @@ import {
   users,
   profiles,
 } from '../../db/schema';
-import { eq, and, sql, desc, or } from 'drizzle-orm';
+import { eq, and, sql, desc, or, inArray } from 'drizzle-orm';
 import { MessageAccessService } from './message-access.service';
 
 @Injectable()
@@ -137,7 +137,7 @@ export class ConversationService {
       })
       .from(users)
       .leftJoin(profiles, eq(users.id, profiles.userId))
-      .where(sql`${users.id} IN ${targetIds}`);
+      .where(inArray(users.id, targetIds));
 
     const targetMap = new Map(targets.map((t) => [t.id, t]));
 
