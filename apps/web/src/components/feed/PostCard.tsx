@@ -32,7 +32,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
   const [reportOpen, setReportOpen] = useState(false)
 
   const isOwner = (user?.userId || user?.id) === post.authorId
-  const VisibilityIcon = VISIBILITY_ICONS[post.visibility]
+  const VisibilityIcon = VISIBILITY_ICONS[post.visibility] || Globe
 
   const likeMutation = useMutation({
     mutationFn: (liked: boolean) => (liked ? postsApi.likePost(post.id) : postsApi.unlikePost(post.id)),
@@ -117,9 +117,9 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
               <div className="flex items-center gap-2 text-xs text-foreground-muted mt-0.5">
                 <span>{new Date(post.createdAt).toLocaleDateString()}</span>
                 <span>•</span>
-                <span className="flex items-center gap-1" title={VISIBILITY_LABELS[post.visibility]}>
+                <span className="flex items-center gap-1" title={VISIBILITY_LABELS[post.visibility] || 'Public'}>
                   <VisibilityIcon className="h-3 w-3" />
-                  <span className="sr-only">{VISIBILITY_LABELS[post.visibility]}</span>
+                  <span className="sr-only">{VISIBILITY_LABELS[post.visibility] || 'Public'}</span>
                 </span>
                 {post.author.department && (
                   <>

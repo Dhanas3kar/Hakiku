@@ -21,7 +21,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
   })
 
   const addCommentMutation = useMutation({
-    mutationFn: (text: string) => postsApi.addComment(postId, { content: text }),
+    mutationFn: (text: string) => postsApi.createComment(postId, text),
     onSuccess: () => {
       setContent('')
       queryClient.invalidateQueries({ queryKey: ['comments', postId] })

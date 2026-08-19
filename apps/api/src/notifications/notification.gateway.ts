@@ -12,7 +12,7 @@ import { verifyWsClient } from '../auth/utils/ws-auth.util';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.ALLOWED_ORIGIN || 'http://localhost:3000',
+    origin: process.env.ALLOWED_ORIGIN || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
     credentials: true,
   },
 })

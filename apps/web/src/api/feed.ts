@@ -7,19 +7,19 @@ export interface FeedResponse {
 }
 
 export const feedApi = {
-  getPersonalizedFeed: (params?: { cursor?: string; limit?: number }): Promise<FeedResponse> => {
-    const query = new URLSearchParams()
-    if (params?.cursor) query.append('cursor', params.cursor)
-    if (params?.limit) query.append('limit', params.limit.toString())
-    const queryString = query.toString() ? `?${query.toString()}` : ''
-    return client.get(`/feed${queryString}`)
+  getPersonalizedFeed: async (params?: { cursor?: string; limit?: number }): Promise<FeedResponse> => {
+    const res = await client.get(`/feed`, { params })
+    return {
+      items: res.data || [],
+      nextCursor: res.pagination?.nextCursor || null
+    }
   },
 
-  getDiscoveryFeed: (params?: { cursor?: string; limit?: number }): Promise<FeedResponse> => {
-    const query = new URLSearchParams()
-    if (params?.cursor) query.append('cursor', params.cursor)
-    if (params?.limit) query.append('limit', params.limit.toString())
-    const queryString = query.toString() ? `?${query.toString()}` : ''
-    return client.get(`/feed/discover${queryString}`)
+  getDiscoveryFeed: async (params?: { cursor?: string; limit?: number }): Promise<FeedResponse> => {
+    const res = await client.get(`/feed/discover`, { params })
+    return {
+      items: res.data || [],
+      nextCursor: res.pagination?.nextCursor || null
+    }
   },
 }

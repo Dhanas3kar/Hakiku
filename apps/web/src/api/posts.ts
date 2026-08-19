@@ -81,12 +81,12 @@ export const postsApi = {
 
   unlikePost: (id: string): Promise<{ success: boolean; likeCount: number }> => client.delete(`/posts/${id}/like`),
 
-  getComments: (postId: string, params?: { cursor?: string; limit?: number }): Promise<CommentsResponse> => {
-    const query = new URLSearchParams()
-    if (params?.cursor) query.append('cursor', params.cursor)
-    if (params?.limit) query.append('limit', params.limit.toString())
-    const queryString = query.toString() ? `?${query.toString()}` : ''
-    return client.get(`/posts/${postId}/comments${queryString}`)
+  getComments: async (postId: string, params?: { cursor?: string; limit?: number }): Promise<CommentsResponse> => {
+    const res = await client.get(`/posts/${postId}/comments`, { params })
+    return {
+      items: res.data || [],
+      nextCursor: res.meta?.nextCursor || null
+    }
   },
 
   createComment: (postId: string, content: string): Promise<PostComment> => client.post(`/posts/${postId}/comments`, { content }),

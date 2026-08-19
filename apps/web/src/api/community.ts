@@ -103,7 +103,7 @@ export const communityApi = {
       return { items: res }
     }
     // Backend may return { items, nextCursor } or { recommendations, nextCursor }
-    if (res.items) return res
+    if (res.items) return { items: res.items, nextCursorAt: res.nextCursor }
     if (res.recommendations) return { items: res.recommendations, nextCursorAt: res.nextCursor }
     return { items: [] }
   },

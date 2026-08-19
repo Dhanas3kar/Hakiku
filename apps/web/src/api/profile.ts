@@ -30,15 +30,18 @@ export const profileApi = {
   onboarding: (data: Partial<UserProfile>) => client.post('/profile/onboarding', data),
   updateMe: (data: Partial<UserProfile>) => client.patch('/profile/me', data),
   uploadAvatar: (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    // Send standard FormData, fetch interceptor handles boundary
-    return client.post('/profile/me/avatar', formData)
+    return client.post('/profile/me/avatar', file, {
+      headers: {
+        'Content-Type': file.type,
+      },
+    })
   },
   uploadCover: (file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return client.post('/profile/me/cover', formData)
+    return client.post('/profile/me/cover', file, {
+      headers: {
+        'Content-Type': file.type,
+      },
+    })
   },
   getByUsername: (username: string): Promise<UserProfile> => client.get(`/profile/username/${username}`),
 }

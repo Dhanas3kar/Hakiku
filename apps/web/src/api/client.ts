@@ -2,6 +2,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
 
 interface FetchOptions extends RequestInit {
   data?: any
+  params?: Record<string, string | number | boolean | undefined | null>
 }
 
 export class ApiError extends Error {
@@ -39,7 +40,21 @@ async function performRefresh(): Promise<boolean> {
 }
 
 async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}): Promise<any> {
-  const { data, headers: customHeaders, ...customConfig } = options
+  const { data, params, headers: customHeaders, ...customConfig } = options
+
+  let url = `${API_BASE_URL}${endpoint}`
+  if (params) {
+    const queryParams = new URLSearchParams()
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, String(value))
+      }
+    })
+    const queryString = queryParams.toString()
+    if (queryString) {
+      url += (url.includes('?') ? '&' : '?') + queryString
+    }
+  }
 
   const config: RequestInit = {
     method: data ? 'POST' : 'GET',
@@ -54,6 +69,8 @@ async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}
     if (data instanceof FormData) {
       config.body = data
       // fetch handles multipart boundary automatically when passing FormData
+    } else if (data instanceof Blob || data instanceof ArrayBuffer || (typeof Buffer !== 'undefined' && Buffer.isBuffer(data))) {
+      config.body = data
     } else {
       config.body = JSON.stringify(data)
       config.headers = {
@@ -64,16 +81,16 @@ async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
+    const response = await fetch(url, config)
 
     if (response.status === 401) {
-      if (endpoint === '/auth/refresh') {
+      if (endpoint.startsWith('/auth/')) {
         return handleResponse(response)
       }
 
       const refreshed = await performRefresh()
       if (refreshed) {
-        const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, config)
+        const retryResponse = await fetch(url, config)
         return handleResponse(retryResponse)
       } else {
         throw new ApiError(401, 'Session expired')
@@ -121,8 +138,8 @@ async function handleResponse(response: Response) {
 }
 
 export const client = {
-  get: (endpoint: string, options?: RequestInit) => fetchWithInterceptor(endpoint, { ...options, method: 'GET' }),
-  post: (endpoint: string, data?: any, options?: RequestInit) => fetchWithInterceptor(endpoint, { ...options, method: 'POST', data }),
-  patch: (endpoint: string, data?: any, options?: RequestInit) => fetchWithInterceptor(endpoint, { ...options, method: 'PATCH', data }),
-  delete: (endpoint: string, options?: RequestInit) => fetchWithInterceptor(endpoint, { ...options, method: 'DELETE' }),
+  get: (endpoint: string, options?: FetchOptions) => fetchWithInterceptor(endpoint, { ...options, method: 'GET' }),
+  post: (endpoint: string, data?: any, options?: FetchOptions) => fetchWithInterceptor(endpoint, { ...options, method: 'POST', data }),
+  patch: (endpoint: string, data?: any, options?: FetchOptions) => fetchWithInterceptor(endpoint, { ...options, method: 'PATCH', data }),
+  delete: (endpoint: string, options?: FetchOptions) => fetchWithInterceptor(endpoint, { ...options, method: 'DELETE' }),
 }

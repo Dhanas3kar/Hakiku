@@ -88,24 +88,24 @@ export class FeedService {
 
     // Format final JSON response
     const formattedData = pageItems.map((item) => ({
-      post: {
-        id: item.post.id,
-        content: item.post.content,
-        visibility: item.post.visibility,
-        likesCount: item.post.likesCount,
-        commentsCount: item.post.commentsCount,
-        createdAt: item.post.createdAt,
-        media: (item.post as any).media || [],
-      },
+      id: item.post.id,
+      authorId: item.post.authorId,
+      content: item.post.content,
+      visibility: item.post.visibility,
+      likeCount: item.post.likesCount,
+      commentCount: item.post.commentsCount,
+      createdAt: item.post.createdAt,
+      media: (item.post as any).media || [],
       author: {
         id: item.author.userId,
+        userId: item.author.userId,
         username: item.author.username,
         displayName: item.author.displayName,
         avatarUrl: item.author.avatarUrl,
         campus: item.author.campus,
         department: item.author.department,
       },
-      viewerState: item.viewerState,
+      isLiked: item.viewerState?.isLiked || false,
     }));
 
     return {
@@ -158,24 +158,24 @@ export class FeedService {
     }
 
     const formattedData = pageItems.map((item) => ({
-      post: {
-        id: item.post.id,
-        content: item.post.content,
-        visibility: item.post.visibility,
-        likesCount: item.post.likesCount,
-        commentsCount: item.post.commentsCount,
-        createdAt: item.post.createdAt,
-        media: (item.post as any).media || [],
-      },
+      id: item.post.id,
+      authorId: item.post.authorId,
+      content: item.post.content,
+      visibility: item.post.visibility,
+      likeCount: item.post.likesCount,
+      commentCount: item.post.commentsCount,
+      createdAt: item.post.createdAt,
+      media: (item.post as any).media || [],
       author: {
         id: item.author.userId,
+        userId: item.author.userId,
         username: item.author.username,
         displayName: item.author.displayName,
         avatarUrl: item.author.avatarUrl,
         campus: item.author.campus,
         department: item.author.department,
       },
-      viewerState: item.viewerState,
+      isLiked: item.viewerState?.isLiked || false,
     }));
 
     return {
