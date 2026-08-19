@@ -3,7 +3,7 @@ export function RightRail() {
     <aside className="hidden w-80 shrink-0 lg:block">
       <div className="sticky top-20 flex flex-col gap-6">
         {/* Campus Pulse Placeholder */}
-        <div className="rounded-xl border border-border bg-surface-elevated p-5 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface-elevated p-5 shadow-sm dark:shadow-none transition-colors">
           <h3 className="mb-4 text-sm font-semibold text-foreground">Campus Pulse</h3>
           <div className="flex flex-col gap-4">
             {[1, 2, 3].map((i) => (
@@ -16,7 +16,7 @@ export function RightRail() {
         </div>
 
         {/* People Worth Knowing Placeholder */}
-        <div className="rounded-xl border border-border bg-surface-elevated p-5 shadow-sm">
+        <div className="rounded-xl border border-border bg-surface-elevated p-5 shadow-sm dark:shadow-none transition-colors">
           <h3 className="mb-4 text-sm font-semibold text-foreground">People Worth Knowing</h3>
           <div className="flex flex-col gap-5">
             {[1, 2, 3].map((i) => (

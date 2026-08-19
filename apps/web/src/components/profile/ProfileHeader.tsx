@@ -326,7 +326,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
   }
 
   return (
-    <div className="relative flex flex-col rounded-xl border border-border bg-surface-elevated shadow-sm overflow-hidden">
+    <div className="relative flex flex-col rounded-none sm:rounded-xl border-b sm:border border-border bg-surface-elevated shadow-none sm:shadow-sm dark:shadow-none transition-colors overflow-hidden">
       {/* Hidden file inputs */}
       <input
         ref={coverInputRef}
@@ -412,10 +412,14 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
           </div>
         </div>
 
-        {/* Text Details */}
         <div className="mt-4">
-          <h1 className="text-2xl font-bold text-foreground">{profile.displayName || profile.fullName}</h1>
-          <p className="text-foreground-muted">@{profile.username}</p>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight leading-tight">{profile.displayName || profile.fullName}</h1>
+          <p className="text-sm sm:text-base text-foreground-muted font-medium mt-0.5">@{profile.username}</p>
+          
+          {/* @ts-ignore - bio might not be typed but we render if it exists */}
+          {profile.bio && (
+            <p className="mt-3 text-sm sm:text-base text-foreground leading-relaxed">{profile.bio}</p>
+          )}
           
           {(profile.department || profile.batch) && (
             <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-foreground-muted">

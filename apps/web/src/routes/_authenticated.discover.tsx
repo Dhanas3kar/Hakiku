@@ -189,7 +189,8 @@ function SearchTab() {
           results.map((profile) => (
             <Link
               key={profile.userId}
-              to={`/profile/${profile.username}`}
+              to="/profile/$username"
+              params={{ username: profile.username }}
               className="flex items-center gap-3 p-3 bg-surface border border-border rounded-xl hover:bg-surface-muted transition-colors"
             >
               <img

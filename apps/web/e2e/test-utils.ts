@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import * as path from 'path';
+import type { Page } from '@playwright/test';
 import Redis from 'ioredis';
 
 const redis = new Redis('redis://127.0.0.1:6379');

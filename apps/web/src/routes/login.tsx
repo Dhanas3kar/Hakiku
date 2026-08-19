@@ -59,51 +59,53 @@ function LoginPage() {
         <ThemeToggle />
       </header>
 
-      <main className="flex flex-1 flex-col justify-center px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto w-full max-w-sm">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold tracking-tight">Welcome back</h1>
-            <p className="mt-2 text-sm text-foreground-muted">
-              Enter your SRM institutional email to sign in
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium">
-                Email address
-              </label>
-              <div className="mt-2">
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  placeholder="name@srmist.edu.in"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full rounded-lg border border-border bg-surface-muted px-4 py-2.5 text-foreground placeholder-foreground-muted focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50"
-                  disabled={sendOtpMutation.isPending}
-                />
-              </div>
-              {sendOtpMutation.isError && (
-                <p className="mt-2 text-sm text-danger" role="alert">
-                  {sendOtpMutation.error.message || 'Failed to send OTP'}
-                </p>
-              )}
+      <main className="flex flex-1 flex-col justify-center px-0 sm:px-6 lg:px-8 pb-12">
+        <div className="mx-auto w-full max-w-md">
+          <div className="rounded-none sm:rounded-2xl border-y sm:border border-border bg-surface sm:bg-surface-elevated px-4 py-8 sm:px-10 shadow-none sm:shadow-sm dark:shadow-none">
+            <div className="mb-8 text-center">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Welcome back</h1>
+              <p className="mt-2 text-sm text-foreground-muted font-medium">
+                Enter your SRM institutional email to sign in
+              </p>
             </div>
 
-            <button
-              type="submit"
-              disabled={sendOtpMutation.isPending || !email.includes('@srmist.edu.in')}
-              className="flex w-full justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {sendOtpMutation.isPending ? 'Sending...' : 'Send Magic Link / OTP'}
-            </button>
-          </form>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="email" className="block text-sm font-semibold text-foreground">
+                  Email address
+                </label>
+                <div className="mt-2 relative">
+                  <input
+                    id="email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    required
+                    placeholder="name@srmist.edu.in"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="block w-full rounded-xl border border-border bg-surface-muted px-4 py-3 text-foreground placeholder-foreground-subtle focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50 transition-colors"
+                    disabled={sendOtpMutation.isPending}
+                  />
+                </div>
+                {sendOtpMutation.isError && (
+                  <p className="mt-2 text-sm text-danger font-medium" role="alert">
+                    {sendOtpMutation.error.message || 'Failed to send OTP'}
+                  </p>
+                )}
+              </div>
 
-          <p className="mt-8 text-center text-sm text-foreground-muted">
+              <button
+                type="submit"
+                disabled={sendOtpMutation.isPending || !email.includes('@srmist.edu.in')}
+                className="flex w-full justify-center rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition-all hover:bg-primary-hover active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+              >
+                {sendOtpMutation.isPending ? 'Sending...' : 'Send Magic Link / OTP'}
+              </button>
+            </form>
+          </div>
+
+          <p className="mt-8 text-center text-sm text-foreground-muted font-medium">
             New to SRM Connect?{' '}
             <Link
               to="/register"

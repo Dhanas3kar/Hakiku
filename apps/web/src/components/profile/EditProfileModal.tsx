@@ -55,7 +55,7 @@ export function EditProfileModal({ profile, onClose }: Props) {
 
       return { previousProfile, previousAuth }
     },
-    onError: (err, newData, context) => {
+    onError: (_err, _newData, context) => {
       if (context?.previousProfile) {
         queryClient.setQueryData(['profile', profile.username], context.previousProfile)
       }

@@ -153,7 +153,7 @@ function SettingsPage() {
                           type="checkbox" 
                           className="sr-only peer" 
                           checked={pref.isInAppEnabled}
-                          onChange={(e) => updatePreferences.mutate({ category: pref.category, isInAppEnabled: e.target.checked })}
+                          onChange={(e) => updatePreferences.mutate({ category: pref.category, inAppEnabled: e.target.checked })}
                           disabled={updatePreferences.isPending}
                         />
                         <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary opacity-90 hover:opacity-100 disabled:opacity-50"></div>
@@ -171,7 +171,7 @@ function SettingsPage() {
                           type="checkbox" 
                           className="sr-only peer" 
                           checked={pref.isEmailEnabled}
-                          onChange={(e) => updatePreferences.mutate({ category: pref.category, isEmailEnabled: e.target.checked })}
+                          onChange={(e) => updatePreferences.mutate({ category: pref.category, emailEnabled: e.target.checked })}
                           disabled={updatePreferences.isPending}
                         />
                         <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary opacity-90 hover:opacity-100 disabled:opacity-50"></div>
@@ -189,7 +189,7 @@ function SettingsPage() {
                           type="checkbox" 
                           className="sr-only peer" 
                           checked={pref.isPushEnabled}
-                          onChange={(e) => updatePreferences.mutate({ category: pref.category, isPushEnabled: e.target.checked })}
+                          onChange={(e) => updatePreferences.mutate({ category: pref.category, pushEnabled: e.target.checked })}
                           disabled={updatePreferences.isPending}
                         />
                         <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary opacity-90 hover:opacity-100 disabled:opacity-50"></div>
