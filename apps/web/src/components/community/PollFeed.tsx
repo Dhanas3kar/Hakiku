@@ -29,10 +29,10 @@ export function PollFeed() {
   })
 
   useEffect(() => {
-    if (isIntersecting && hasNextPage && !isFetchingNextPage) {
+    if (isIntersecting && hasNextPage && !isFetchingNextPage && status !== 'pending') {
       fetchNextPage()
     }
-  }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage, status])
 
   if (status === 'pending') {
     return (

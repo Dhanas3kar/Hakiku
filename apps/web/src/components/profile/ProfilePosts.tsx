@@ -30,13 +30,15 @@ export function ProfilePosts({ profile, isOwnProfile }: Props) {
       postsApi.getUserPosts(profile.userId, { cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    staleTime: 60 * 1000, // 1 minute
+    gcTime: 5 * 60 * 1000, // 5 minutes
   })
 
   useEffect(() => {
-    if (inView && hasNextPage && !isFetchingNextPage) {
+    if (inView && hasNextPage && !isFetchingNextPage && !isLoading) {
       fetchNextPage()
     }
-  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [inView, hasNextPage, isFetchingNextPage, fetchNextPage, isLoading])
 
   const posts = data?.pages.flatMap((page) => page.items) ?? []
 

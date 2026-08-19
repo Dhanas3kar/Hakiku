@@ -40,10 +40,10 @@ export function ConversationList() {
   })
 
   useEffect(() => {
-    if (isIntersecting && hasNextPage && !isFetchingNextPage) {
+    if (isIntersecting && hasNextPage && !isFetchingNextPage && status !== 'pending') {
       fetchNextPage()
     }
-  }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage, status])
 
   // Real-time updates for conversation list
   useEffect(() => {
@@ -127,7 +127,7 @@ export function ConversationList() {
                     {/* Avatar */}
                     <div className="relative shrink-0">
                       {otherUser?.avatarUrl ? (
-                        <img src={otherUser.avatarUrl} alt="" className="h-12 w-12 rounded-full object-cover" />
+                        <img src={otherUser.avatarUrl} alt="" loading="lazy" decoding="async" className="h-12 w-12 rounded-full object-cover" />
                       ) : (
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                           <span className="text-lg font-medium">

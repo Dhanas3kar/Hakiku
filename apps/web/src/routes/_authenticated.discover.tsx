@@ -117,19 +117,26 @@ function ConfessionsTab() {
 }
 
 
+import { useDebounce } from '../hooks/useDebounce'
+
 function SearchTab() {
   const [query, setQuery] = useState('')
   const [campus, setCampus] = useState('')
   const [department, setDepartment] = useState('')
   const [batchYear, setBatchYear] = useState('')
 
+  const debouncedQuery = useDebounce(query, 500)
+  const debouncedCampus = useDebounce(campus, 500)
+  const debouncedDepartment = useDebounce(department, 500)
+  const debouncedBatchYear = useDebounce(batchYear, 500)
+
   const { data, isLoading } = useQuery({
-    queryKey: ['profileSearch', query, campus, department, batchYear],
+    queryKey: ['profileSearch', debouncedQuery, debouncedCampus, debouncedDepartment, debouncedBatchYear],
     queryFn: () => profileApi.searchProfiles({ 
-      query: query || undefined, 
-      campus: campus || undefined, 
-      department: department || undefined, 
-      batchYear: batchYear ? parseInt(batchYear) : undefined 
+      query: debouncedQuery || undefined, 
+      campus: debouncedCampus || undefined, 
+      department: debouncedDepartment || undefined, 
+      batchYear: debouncedBatchYear ? parseInt(debouncedBatchYear) : undefined 
     }),
   })
 
@@ -188,6 +195,8 @@ function SearchTab() {
               <img
                 src={profile.avatarUrl || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.displayName}`}
                 alt={profile.displayName}
+                loading="lazy"
+                decoding="async"
                 className="h-12 w-12 rounded-full object-cover bg-surface-muted"
               />
               <div className="flex flex-col">

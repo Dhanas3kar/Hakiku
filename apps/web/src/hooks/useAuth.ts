@@ -3,6 +3,7 @@ import { profileApi } from '../api/profile'
 import type { UserProfile } from '../api/profile'
 import { authApi } from '../api/auth'
 import { ApiError } from '../api/client'
+import { useNavigate } from '@tanstack/react-router'
 
 export const AUTH_QUERY_KEY = ['auth', 'me']
 
@@ -24,18 +25,25 @@ export function useAuth() {
       if (err.status === 401 || err.status === 403 || err.status === 404) return false
       return failureCount < 3
     },
+    staleTime: 5 * 60 * 1000, // 5 minutes (user profile rarely changes itself without mutations)
+    gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
   })
 
+  const navigate = useNavigate()
+
   const logoutMutation = useMutation({
     mutationFn: () => authApi.logout(),
     onSettled: async () => {
-      // Completely reset auth state and clear queries on logout
+      // 1. Cancel pending queries to prevent stale responses
       await queryClient.cancelQueries()
-      queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY })
+      // 2. Clear query cache
       queryClient.clear()
+      // 3. Disconnect sockets (handled by isAuthenticated state change)
+      // 4. Navigate to login safely without hard reload
+      navigate({ to: '/login', replace: true })
     },
   })
 

@@ -4,6 +4,7 @@ import { profileApi } from '../../api/profile'
 import type { UserProfile } from '../../api/profile'
 import { X } from 'lucide-react'
 import { TagSelect } from './TagSelect'
+import { toast } from 'sonner'
 
 interface Props {
   profile: UserProfile
@@ -27,11 +28,45 @@ export function EditProfileModal({ profile, onClose }: Props) {
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<UserProfile>) => profileApi.updateMe(data),
-    onSuccess: (updatedProfile) => {
-      // Invalidate the auth query and the specific profile query
-      queryClient.setQueryData(['profile', profile.username], updatedProfile)
+    onMutate: async (newData) => {
+      await queryClient.cancelQueries({ queryKey: ['profile', profile.username] })
+      await queryClient.cancelQueries({ queryKey: ['auth', 'me'] })
+
+      const previousProfile = queryClient.getQueryData(['profile', profile.username])
+      const previousAuth = queryClient.getQueryData(['auth', 'me'])
+
+      if (previousProfile) {
+        queryClient.setQueryData(['profile', profile.username], {
+          ...(previousProfile as any),
+          ...newData,
+        })
+      }
+      if (previousAuth) {
+        queryClient.setQueryData(['auth', 'me'], {
+          ...(previousAuth as any),
+          user: {
+            ...(previousAuth as any).user,
+            ...newData,
+          }
+        })
+      }
+
+      onClose() // Optimistic close
+
+      return { previousProfile, previousAuth }
+    },
+    onError: (err, newData, context) => {
+      if (context?.previousProfile) {
+        queryClient.setQueryData(['profile', profile.username], context.previousProfile)
+      }
+      if (context?.previousAuth) {
+        queryClient.setQueryData(['auth', 'me'], context.previousAuth)
+      }
+      toast.error('Failed to update profile. Please try again.')
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['profile', profile.username] })
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] })
-      onClose()
     },
   })
 

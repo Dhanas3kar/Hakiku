@@ -57,9 +57,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       withCredentials: true,
       transports: ['websocket', 'polling'],
       reconnection: true,
-      reconnectionAttempts: 10,
+      reconnectionAttempts: 20,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
+      reconnectionDelayMax: 15000,
+      randomizationFactor: 0.5,
     }
 
     // Connect to Notifications namespace (default `/`)

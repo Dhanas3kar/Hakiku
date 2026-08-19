@@ -18,6 +18,7 @@ function ProfilePage() {
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', username],
     queryFn: () => profileApi.getByUsername(username),
+    staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   })
 

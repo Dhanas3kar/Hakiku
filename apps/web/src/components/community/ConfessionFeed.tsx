@@ -32,10 +32,10 @@ export function ConfessionFeed() {
   })
 
   useEffect(() => {
-    if (isIntersecting && hasNextPage && !isFetchingNextPage) {
+    if (isIntersecting && hasNextPage && !isFetchingNextPage && status !== 'pending') {
       fetchNextPage()
     }
-  }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage, status])
 
   return (
     <div className="space-y-6">

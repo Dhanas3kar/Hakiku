@@ -111,7 +111,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-muted border border-border shrink-0">
               {avatarUrl ? (
-                <img src={avatarUrl} alt={authorName} className="h-full w-full object-cover" />
+                <img src={avatarUrl} alt={authorName} loading="lazy" decoding="async" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted">
                   {initial}
@@ -219,7 +219,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
                 {m.type === 'VIDEO' ? (
                   <video src={m.url} className="h-full w-full object-cover" />
                 ) : (
-                  <img src={m.url} alt="Post media" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img src={m.url} alt="Post media" loading="lazy" decoding="async" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
                 )}
                 {/* Overlay for +N more images */}
                 {post.media.length > 4 && i === 3 && (

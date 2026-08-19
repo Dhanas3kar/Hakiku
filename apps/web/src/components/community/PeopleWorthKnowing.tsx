@@ -51,7 +51,7 @@ export function PeopleWorthKnowing() {
             >
               <div className="relative mb-3">
                 {person.avatarUrl ? (
-                  <img src={person.avatarUrl} alt="" className="h-16 w-16 rounded-full object-cover ring-2 ring-surface group-hover:ring-primary transition-all" />
+                  <img src={person.avatarUrl} alt="" loading="lazy" decoding="async" className="h-16 w-16 rounded-full object-cover ring-2 ring-surface group-hover:ring-primary transition-all" />
                 ) : (
                   <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary ring-2 ring-surface group-hover:ring-primary transition-all">
                     <span className="text-xl font-medium">{person.displayName?.[0] || '?'}</span>

@@ -55,10 +55,10 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
   })
 
   useEffect(() => {
-    if (isTopIntersecting && hasNextPage && !isFetchingNextPage) {
+    if (isTopIntersecting && hasNextPage && !isFetchingNextPage && status !== 'pending') {
       fetchNextPage()
     }
-  }, [isTopIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage])
+  }, [isTopIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage, status])
 
   const markAsReadMutation = useMutation({
     mutationFn: (messageId: string) => messagingApi.markAsRead(conversationId, messageId),
@@ -197,7 +197,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
         </Link>
         <div className="relative shrink-0">
           {otherUser?.avatarUrl ? (
-            <img src={otherUser.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+            <img src={otherUser.avatarUrl} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded-full object-cover" />
           ) : (
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
               <span className="font-medium">{otherUser?.displayName?.[0] || '?'}</span>
@@ -255,7 +255,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
                         {message.media && message.media.length > 0 && (
                           <div className="flex gap-2 flex-wrap mb-2">
                             {message.media.map((m, i) => (
-                              <img key={i} src={m.url} alt="Attached media" className="max-w-full rounded-lg object-cover max-h-64" />
+                              <img key={i} src={m.url} alt="Attached media" loading="lazy" decoding="async" className="max-w-full rounded-lg object-cover max-h-64" />
                             ))}
                           </div>
                         )}

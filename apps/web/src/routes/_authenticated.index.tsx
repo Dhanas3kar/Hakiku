@@ -29,6 +29,8 @@ function Home() {
     queryFn: ({ pageParam }) => feedApi.getPersonalizedFeed({ cursor: pageParam as string | undefined, limit: 10 }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
+    staleTime: 30 * 1000, // 30 seconds
+    gcTime: 5 * 60 * 1000, // 5 minutes
   })
 
   // Intersection Observer for infinite scrolling
@@ -37,7 +39,7 @@ function Home() {
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
+        if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage && status !== 'pending') {
           fetchNextPage()
         }
       },

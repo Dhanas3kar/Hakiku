@@ -95,7 +95,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
         <div className="h-8 w-8 overflow-hidden rounded-full bg-surface-muted border border-border shrink-0">
           {user?.avatarUrl ? (
-            <img src={user.avatarUrl} alt={user.displayName || user.fullName || ''} className="h-full w-full object-cover" />
+            <img src={user.avatarUrl} alt={user.displayName || user.fullName || ''} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted text-xs">
               {(user?.displayName || user?.fullName || '?').charAt(0)}
@@ -132,7 +132,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
           <div key={comment.id} className="flex gap-2 group">
             <div className="h-8 w-8 overflow-hidden rounded-full bg-surface-muted border border-border shrink-0 mt-0.5">
               {avatarUrl ? (
-                <img src={avatarUrl} alt={authorName} className="h-full w-full object-cover" />
+                <img src={avatarUrl} alt={authorName} loading="lazy" decoding="async" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted text-xs">
                   {initial}

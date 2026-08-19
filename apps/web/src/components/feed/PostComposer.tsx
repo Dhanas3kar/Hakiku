@@ -106,7 +106,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-surface-muted border border-border">
             {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.displayName || user.fullName || 'User'} className="h-full w-full object-cover" />
+              <img src={user.avatarUrl} alt={user.displayName || user.fullName || 'User'} loading="lazy" decoding="async" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted">
                 {(user?.displayName || user?.fullName || 'S').charAt(0)}
@@ -132,7 +132,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
                 {item.type === 'VIDEO' ? (
                   <video src={item.url} className="h-full w-full object-cover" />
                 ) : (
-                  <img src={item.url} alt="Uploaded media" className="h-full w-full object-cover" />
+                  <img src={item.url} alt="Uploaded media" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 )}
                 <button
                   type="button"

@@ -93,6 +93,8 @@ export function MediaViewerModal({ media, initialIndex = 0, onClose }: MediaView
             <img
               src={currentMedia.url}
               alt={`Media ${currentIndex + 1}`}
+              loading="lazy"
+              decoding="async"
               className="max-h-[85vh] max-w-full object-contain rounded-lg"
             />
           )}

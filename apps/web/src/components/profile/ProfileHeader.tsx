@@ -49,12 +49,44 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
 
   const followMutation = useMutation({
     mutationFn: () => networkingApi.followUser(profile.userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['relationship', profile.userId] })
+      const previous = queryClient.getQueryData<RelationshipStatus>(['relationship', profile.userId])
+      if (previous) {
+        queryClient.setQueryData<RelationshipStatus>(['relationship', profile.userId], {
+          ...previous,
+          isFollowing: true,
+        })
+      }
+      return { previous }
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['relationship', profile.userId], context.previous)
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
   })
 
   const unfollowMutation = useMutation({
     mutationFn: () => networkingApi.unfollowUser(profile.userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['relationship', profile.userId] })
+      const previous = queryClient.getQueryData<RelationshipStatus>(['relationship', profile.userId])
+      if (previous) {
+        queryClient.setQueryData<RelationshipStatus>(['relationship', profile.userId], {
+          ...previous,
+          isFollowing: false,
+        })
+      }
+      return { previous }
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(['relationship', profile.userId], context.previous)
+      }
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
   })
 
   const sendConnectionMutation = useMutation({

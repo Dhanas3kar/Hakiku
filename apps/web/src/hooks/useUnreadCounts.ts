@@ -11,11 +11,13 @@ export function useUnreadCounts() {
   const { data: notificationsData } = useQuery({
     queryKey: ['unread-count', 'notifications'],
     queryFn: () => notificationsApi.getUnreadCount(),
+    staleTime: Infinity, // Relies on WebSocket for updates
   })
 
   const { data: messagesData } = useQuery({
     queryKey: ['unread-count', 'messages'],
     queryFn: () => messagingApi.getUnreadCount(),
+    staleTime: Infinity, // Relies on WebSocket for updates
   })
 
   // Handle reconnects

@@ -202,7 +202,7 @@ function NotificationItemRow({ notification }: { notification: NotificationItem 
     >
       <div className="relative mt-1 flex shrink-0 h-10 w-10">
         {notification.actor?.avatarUrl ? (
-          <img src={notification.actor.avatarUrl} alt="" className="h-10 w-10 rounded-full object-cover" />
+          <img src={notification.actor.avatarUrl} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded-full object-cover" />
         ) : (
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface-muted">
             <span className="text-sm font-medium text-foreground-muted">

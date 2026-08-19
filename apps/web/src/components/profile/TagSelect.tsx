@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useDebounce } from '../../hooks/useDebounce'
 
 export interface Tag {
   id: string
@@ -23,9 +24,11 @@ export function TagSelect({ label, selectedIds, onChange, fetchFn, placeholder, 
   
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const debouncedQuery = useDebounce(query, 300)
+
   const { data: suggestions = [], isLoading } = useQuery({
-    queryKey: ['tag-search', label, query],
-    queryFn: () => fetchFn(query),
+    queryKey: ['tag-search', label, debouncedQuery],
+    queryFn: () => fetchFn(debouncedQuery),
     staleTime: 60000,
   })
 
