@@ -19,7 +19,9 @@ export class FeedCandidateService {
   private db;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -40,7 +42,12 @@ export class FeedCandidateService {
       const followedPosts = await this.db
         .select({ id: posts.id })
         .from(posts)
-        .where(and(inArray(posts.authorId, followedIds), sql`${posts.deletedAt} IS NULL`))
+        .where(
+          and(
+            inArray(posts.authorId, followedIds),
+            sql`${posts.deletedAt} IS NULL`,
+          ),
+        )
         .orderBy(desc(posts.createdAt))
         .limit(100);
       followedPosts.forEach((p: any) => candidatePostIds.add(p.id));
@@ -50,14 +57,26 @@ export class FeedCandidateService {
     const connList = await this.db
       .select()
       .from(connections)
-      .where(or(eq(connections.userAId, viewerId), eq(connections.userBId, viewerId)));
-    const connectedIds = connList.map((c: any) => (c.userAId === viewerId ? c.userBId : c.userAId));
+      .where(
+        or(
+          eq(connections.userAId, viewerId),
+          eq(connections.userBId, viewerId),
+        ),
+      );
+    const connectedIds = connList.map((c: any) =>
+      c.userAId === viewerId ? c.userBId : c.userAId,
+    );
 
     if (connectedIds.length > 0) {
       const connectedPosts = await this.db
         .select({ id: posts.id })
         .from(posts)
-        .where(and(inArray(posts.authorId, connectedIds), sql`${posts.deletedAt} IS NULL`))
+        .where(
+          and(
+            inArray(posts.authorId, connectedIds),
+            sql`${posts.deletedAt} IS NULL`,
+          ),
+        )
         .orderBy(desc(posts.createdAt))
         .limit(100);
       connectedPosts.forEach((p: any) => candidatePostIds.add(p.id));
@@ -88,10 +107,10 @@ export class FeedCandidateService {
             or(
               eq(profiles.campus, viewerProfile.campus),
               eq(profiles.department, viewerProfile.department),
-              eq(profiles.batchYear, viewerProfile.batchYear)
+              eq(profiles.batchYear, viewerProfile.batchYear),
             ),
-            sql`${profiles.userId} <> ${viewerId}`
-          )
+            sql`${profiles.userId} <> ${viewerId}`,
+          ),
         )
         .limit(100);
 
@@ -104,8 +123,8 @@ export class FeedCandidateService {
             and(
               inArray(posts.authorId, academicUserIds),
               eq(posts.visibility, 'PUBLIC'),
-              sql`${posts.deletedAt} IS NULL`
-            )
+              sql`${posts.deletedAt} IS NULL`,
+            ),
           )
           .orderBy(desc(posts.createdAt))
           .limit(100);
@@ -117,7 +136,9 @@ export class FeedCandidateService {
     const publicPosts = await this.db
       .select({ id: posts.id })
       .from(posts)
-      .where(and(eq(posts.visibility, 'PUBLIC'), sql`${posts.deletedAt} IS NULL`))
+      .where(
+        and(eq(posts.visibility, 'PUBLIC'), sql`${posts.deletedAt} IS NULL`),
+      )
       .orderBy(desc(posts.createdAt))
       .limit(100);
     publicPosts.forEach((p: any) => candidatePostIds.add(p.id));
@@ -128,14 +149,20 @@ export class FeedCandidateService {
   /**
    * Fetch candidate post IDs for public discovery feed with optional academic & taxonomy filters.
    */
-  async getDiscoveryCandidates(viewerId: string, filters: DiscoverQueryDto): Promise<string[]> {
+  async getDiscoveryCandidates(
+    viewerId: string,
+    filters: DiscoverQueryDto,
+  ): Promise<string[]> {
     let authorIdFilter: string[] | null = null;
 
     if (filters.campus || filters.department || filters.batch) {
       const profileConditions = [];
-      if (filters.campus) profileConditions.push(eq(profiles.campus, filters.campus));
-      if (filters.department) profileConditions.push(eq(profiles.department, filters.department));
-      if (filters.batch) profileConditions.push(eq(profiles.batchYear, filters.batch));
+      if (filters.campus)
+        profileConditions.push(eq(profiles.campus, filters.campus));
+      if (filters.department)
+        profileConditions.push(eq(profiles.department, filters.department));
+      if (filters.batch)
+        profileConditions.push(eq(profiles.batchYear, filters.batch));
 
       const matchedProfiles = await this.db
         .select({ userId: profiles.userId })

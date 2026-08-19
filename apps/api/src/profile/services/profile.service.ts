@@ -7,9 +7,23 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { eq, and, or, ilike, sql, desc } from 'drizzle-orm';
-import { profiles, users, skills, interests, profileSkills, profileInterests, connections, blocks } from '../../db/schema';
+import {
+  profiles,
+  users,
+  skills,
+  interests,
+  profileSkills,
+  profileInterests,
+  connections,
+  blocks,
+} from '../../db/schema';
 import * as schema from '../../db/schema';
-import { CreateProfileDto, UpdateProfileDto, SearchProfilesQueryDto, ProfileVisibility } from '../dto/profile.dto';
+import {
+  CreateProfileDto,
+  UpdateProfileDto,
+  SearchProfilesQueryDto,
+  ProfileVisibility,
+} from '../dto/profile.dto';
 import { UsernameService } from './username.service';
 import { LocalStorageProvider } from '../storage/local-storage.provider';
 import { randomUUID } from 'crypto';
@@ -20,9 +34,11 @@ export class ProfileService {
 
   constructor(
     private readonly usernameService: UsernameService,
-    private readonly storageProvider: LocalStorageProvider
+    private readonly storageProvider: LocalStorageProvider,
   ) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -62,18 +78,26 @@ export class ProfileService {
   }
 
   private async checkUserAccountStatus(userId: string): Promise<void> {
-    const [user] = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
     if (!user) {
       throw new NotFoundException('User account not found');
     }
 
     if (!user.isVerified) {
-      throw new ForbiddenException('Please verify your SRM email address before accessing profile features');
+      throw new ForbiddenException(
+        'Please verify your SRM email address before accessing profile features',
+      );
     }
 
     if (user.status !== 'ACTIVE') {
-      throw new ForbiddenException(`Account is ${(user.status || '').toLowerCase()} and cannot perform profile actions`);
+      throw new ForbiddenException(
+        `Account is ${(user.status || '').toLowerCase()} and cannot perform profile actions`,
+      );
     }
   }
 
@@ -81,22 +105,29 @@ export class ProfileService {
     await this.checkUserAccountStatus(userId);
 
     // Check if profile already exists
-    const [existing] = await this.db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
+    const [existing] = await this.db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .limit(1);
     if (existing) {
       throw new ConflictException('Profile already exists for this user');
     }
 
-    const normalizedUsername = this.usernameService.validateUsername(dto.username);
+    const normalizedUsername = this.usernameService.validateUsername(
+      dto.username,
+    );
 
     const hasSkills = Boolean(dto.skillIds && dto.skillIds.length > 0);
     const hasInterests = Boolean(dto.interestIds && dto.interestIds.length > 0);
 
-    const { completionPercentage, isProfileCompleted } = this.calculateCompletion({
-      ...dto,
-      username: normalizedUsername,
-      hasSkills,
-      hasInterests,
-    });
+    const { completionPercentage, isProfileCompleted } =
+      this.calculateCompletion({
+        ...dto,
+        username: normalizedUsername,
+        hasSkills,
+        hasInterests,
+      });
 
     try {
       return await this.db.transaction(async (tx: any) => {
@@ -123,7 +154,7 @@ export class ProfileService {
             dto.skillIds.map((skillId) => ({
               profileId: newProfile.id,
               skillId,
-            }))
+            })),
           );
         }
 
@@ -132,7 +163,7 @@ export class ProfileService {
             dto.interestIds.map((interestId) => ({
               profileId: newProfile.id,
               interestId,
-            }))
+            })),
           );
         }
 
@@ -140,16 +171,24 @@ export class ProfileService {
       });
     } catch (err: any) {
       if (err.code === '23505' || err.cause?.code === '23505') {
-        throw new ConflictException(`Username '${normalizedUsername}' is already taken`);
+        throw new ConflictException(
+          `Username '${normalizedUsername}' is already taken`,
+        );
       }
       throw err;
     }
   }
 
   async getMyProfile(userId: string) {
-    const [profile] = await this.db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
+    const [profile] = await this.db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .limit(1);
     if (!profile) {
-      throw new NotFoundException('Profile not found. Please complete onboarding first.');
+      throw new NotFoundException(
+        'Profile not found. Please complete onboarding first.',
+      );
     }
 
     const userSkills = await this.db
@@ -159,7 +198,11 @@ export class ProfileService {
       .where(eq(profileSkills.profileId, profile.id));
 
     const userInterests = await this.db
-      .select({ id: interests.id, name: interests.name, category: interests.category })
+      .select({
+        id: interests.id,
+        name: interests.name,
+        category: interests.category,
+      })
       .from(profileInterests)
       .innerJoin(interests, eq(profileInterests.interestId, interests.id))
       .where(eq(profileInterests.profileId, profile.id));
@@ -167,8 +210,12 @@ export class ProfileService {
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
     return {
       ...profile,
-      avatarUrl: profile.avatarKey ? `${baseUrl}/uploads/${profile.avatarKey}` : null,
-      coverUrl: profile.coverKey ? `${baseUrl}/uploads/${profile.coverKey}` : null,
+      avatarUrl: profile.avatarKey
+        ? `${baseUrl}/uploads/${profile.avatarKey}`
+        : null,
+      coverUrl: profile.coverKey
+        ? `${baseUrl}/uploads/${profile.coverKey}`
+        : null,
       skills: userSkills,
       interests: userInterests,
     };
@@ -177,7 +224,11 @@ export class ProfileService {
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     await this.checkUserAccountStatus(userId);
 
-    const [existing] = await this.db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
+    const [existing] = await this.db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .limit(1);
     if (!existing) {
       throw new NotFoundException('Profile not found');
     }
@@ -189,31 +240,41 @@ export class ProfileService {
 
     return await this.db.transaction(async (tx: any) => {
       if (dto.skillIds) {
-        await tx.delete(profileSkills).where(eq(profileSkills.profileId, existing.id));
+        await tx
+          .delete(profileSkills)
+          .where(eq(profileSkills.profileId, existing.id));
         if (dto.skillIds.length > 0) {
           await tx.insert(profileSkills).values(
             dto.skillIds.map((skillId) => ({
               profileId: existing.id,
               skillId,
-            }))
+            })),
           );
         }
       }
 
       if (dto.interestIds) {
-        await tx.delete(profileInterests).where(eq(profileInterests.profileId, existing.id));
+        await tx
+          .delete(profileInterests)
+          .where(eq(profileInterests.profileId, existing.id));
         if (dto.interestIds.length > 0) {
           await tx.insert(profileInterests).values(
             dto.interestIds.map((interestId) => ({
               profileId: existing.id,
               interestId,
-            }))
+            })),
           );
         }
       }
 
-      const updatedSkills = await tx.select().from(profileSkills).where(eq(profileSkills.profileId, existing.id));
-      const updatedInterests = await tx.select().from(profileInterests).where(eq(profileInterests.profileId, existing.id));
+      const updatedSkills = await tx
+        .select()
+        .from(profileSkills)
+        .where(eq(profileSkills.profileId, existing.id));
+      const updatedInterests = await tx
+        .select()
+        .from(profileInterests)
+        .where(eq(profileInterests.profileId, existing.id));
 
       const mergedProfile = {
         ...existing,
@@ -223,24 +284,36 @@ export class ProfileService {
         hasInterests: updatedInterests.length > 0,
       };
 
-      const { completionPercentage, isProfileCompleted } = this.calculateCompletion({
-        ...mergedProfile,
-        bio: mergedProfile.bio ?? undefined,
-        avatarKey: mergedProfile.avatarKey ?? undefined,
-      });
+      const { completionPercentage, isProfileCompleted } =
+        this.calculateCompletion({
+          ...mergedProfile,
+          bio: mergedProfile.bio ?? undefined,
+          avatarKey: mergedProfile.avatarKey ?? undefined,
+        });
 
       try {
         const [updated] = await tx
           .update(profiles)
           .set({
             username: normalizedUsername,
-            displayName: dto.displayName ? dto.displayName.trim() : existing.displayName,
+            displayName: dto.displayName
+              ? dto.displayName.trim()
+              : existing.displayName,
             campus: dto.campus ? dto.campus.trim() : existing.campus,
-            department: dto.department ? dto.department.trim() : existing.department,
-            degreeProgram: dto.degreeProgram ? dto.degreeProgram.trim() : existing.degreeProgram,
+            department: dto.department
+              ? dto.department.trim()
+              : existing.department,
+            degreeProgram: dto.degreeProgram
+              ? dto.degreeProgram.trim()
+              : existing.degreeProgram,
             batchYear: dto.batchYear ?? existing.batchYear,
             graduationYear: dto.graduationYear ?? existing.graduationYear,
-            bio: dto.bio !== undefined ? (dto.bio ? dto.bio.trim() : null) : existing.bio,
+            bio:
+              dto.bio !== undefined
+                ? dto.bio
+                  ? dto.bio.trim()
+                  : null
+                : existing.bio,
             visibility: dto.visibility || existing.visibility,
             completionPercentage,
             isProfileCompleted,
@@ -252,7 +325,9 @@ export class ProfileService {
         return updated;
       } catch (err: any) {
         if (err.code === '23505' || err.cause?.code === '23505') {
-          throw new ConflictException(`Username '${normalizedUsername}' is already taken`);
+          throw new ConflictException(
+            `Username '${normalizedUsername}' is already taken`,
+          );
         }
         throw err;
       }
@@ -262,26 +337,37 @@ export class ProfileService {
   async uploadAvatar(userId: string, fileBuffer: Buffer, mimeType: string) {
     await this.checkUserAccountStatus(userId);
 
-    const [existing] = await this.db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
+    const [existing] = await this.db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .limit(1);
     if (!existing) {
-      throw new NotFoundException('Profile not found. Please complete onboarding first.');
+      throw new NotFoundException(
+        'Profile not found. Please complete onboarding first.',
+      );
     }
 
     const ext = mimeType.split('/')[1] || 'webp';
     const storageKey = `users/${userId}/profile/avatar/${randomUUID()}.${ext}`;
 
-    const meta = await this.storageProvider.uploadFile(fileBuffer, storageKey, mimeType);
+    const meta = await this.storageProvider.uploadFile(
+      fileBuffer,
+      storageKey,
+      mimeType,
+    );
 
     // Remove old avatar file if present
     if (existing.avatarKey) {
       await this.storageProvider.deleteFile(existing.avatarKey);
     }
 
-    const { completionPercentage, isProfileCompleted } = this.calculateCompletion({
-      ...existing,
-      bio: existing.bio ?? undefined,
-      avatarKey: meta.key,
-    });
+    const { completionPercentage, isProfileCompleted } =
+      this.calculateCompletion({
+        ...existing,
+        bio: existing.bio ?? undefined,
+        avatarKey: meta.key,
+      });
 
     await this.db
       .update(profiles)
@@ -299,15 +385,25 @@ export class ProfileService {
   async uploadCover(userId: string, fileBuffer: Buffer, mimeType: string) {
     await this.checkUserAccountStatus(userId);
 
-    const [existing] = await this.db.select().from(profiles).where(eq(profiles.userId, userId)).limit(1);
+    const [existing] = await this.db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .limit(1);
     if (!existing) {
-      throw new NotFoundException('Profile not found. Please complete onboarding first.');
+      throw new NotFoundException(
+        'Profile not found. Please complete onboarding first.',
+      );
     }
 
     const ext = mimeType.split('/')[1] || 'webp';
     const storageKey = `users/${userId}/profile/cover/${randomUUID()}.${ext}`;
 
-    const meta = await this.storageProvider.uploadFile(fileBuffer, storageKey, mimeType);
+    const meta = await this.storageProvider.uploadFile(
+      fileBuffer,
+      storageKey,
+      mimeType,
+    );
 
     if (existing.coverKey) {
       await this.storageProvider.deleteFile(existing.coverKey);
@@ -362,14 +458,22 @@ export class ProfileService {
     return this.evaluateProfilePrivacy(viewerUserId, result.profile);
   }
 
-  private async evaluateProfilePrivacy(viewerUserId: string, targetProfile: any) {
+  private async evaluateProfilePrivacy(
+    viewerUserId: string,
+    targetProfile: any,
+  ) {
     const isOwner = viewerUserId === targetProfile.userId;
 
     // 1. Block Privacy Check: If target has blocked viewer -> 404 Not Found
     const blockedByTarget = await this.db
       .select()
       .from(blocks)
-      .where(and(eq(blocks.blockerId, targetProfile.userId), eq(blocks.blockedId, viewerUserId)))
+      .where(
+        and(
+          eq(blocks.blockerId, targetProfile.userId),
+          eq(blocks.blockedId, viewerUserId),
+        ),
+      )
       .limit(1);
 
     if (blockedByTarget.length > 0) {
@@ -380,12 +484,21 @@ export class ProfileService {
     const blockedByMe = await this.db
       .select()
       .from(blocks)
-      .where(and(eq(blocks.blockerId, viewerUserId), eq(blocks.blockedId, targetProfile.userId)))
+      .where(
+        and(
+          eq(blocks.blockerId, viewerUserId),
+          eq(blocks.blockedId, targetProfile.userId),
+        ),
+      )
       .limit(1);
 
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
-    const avatarUrl = targetProfile.avatarKey ? `${baseUrl}/uploads/${targetProfile.avatarKey}` : null;
-    const coverUrl = targetProfile.coverKey ? `${baseUrl}/uploads/${targetProfile.coverKey}` : null;
+    const avatarUrl = targetProfile.avatarKey
+      ? `${baseUrl}/uploads/${targetProfile.avatarKey}`
+      : null;
+    const coverUrl = targetProfile.coverKey
+      ? `${baseUrl}/uploads/${targetProfile.coverKey}`
+      : null;
 
     if (blockedByMe.length > 0) {
       return {
@@ -405,13 +518,21 @@ export class ProfileService {
     }
 
     if (targetProfile.visibility === 'CONNECTIONS_ONLY') {
-      const minId = viewerUserId < targetProfile.userId ? viewerUserId : targetProfile.userId;
-      const maxId = viewerUserId < targetProfile.userId ? targetProfile.userId : viewerUserId;
+      const minId =
+        viewerUserId < targetProfile.userId
+          ? viewerUserId
+          : targetProfile.userId;
+      const maxId =
+        viewerUserId < targetProfile.userId
+          ? targetProfile.userId
+          : viewerUserId;
 
       const conn = await this.db
         .select()
         .from(connections)
-        .where(and(eq(connections.userAId, minId), eq(connections.userBId, maxId)))
+        .where(
+          and(eq(connections.userAId, minId), eq(connections.userBId, maxId)),
+        )
         .limit(1);
 
       if (conn.length > 0) {
@@ -432,7 +553,11 @@ export class ProfileService {
     };
   }
 
-  private async enrichFullProfile(profile: any, avatarUrl: string | null, coverUrl: string | null) {
+  private async enrichFullProfile(
+    profile: any,
+    avatarUrl: string | null,
+    coverUrl: string | null,
+  ) {
     const userSkills = await this.db
       .select({ id: skills.id, name: skills.name, category: skills.category })
       .from(profileSkills)
@@ -440,7 +565,11 @@ export class ProfileService {
       .where(eq(profileSkills.profileId, profile.id));
 
     const userInterests = await this.db
-      .select({ id: interests.id, name: interests.name, category: interests.category })
+      .select({
+        id: interests.id,
+        name: interests.name,
+        category: interests.category,
+      })
       .from(profileInterests)
       .innerJoin(interests, eq(profileInterests.interestId, interests.id))
       .where(eq(profileInterests.profileId, profile.id));
@@ -462,11 +591,18 @@ export class ProfileService {
     const blockedRows = await this.db
       .select()
       .from(blocks)
-      .where(or(eq(blocks.blockerId, viewerUserId), eq(blocks.blockedId, viewerUserId)));
+      .where(
+        or(
+          eq(blocks.blockerId, viewerUserId),
+          eq(blocks.blockedId, viewerUserId),
+        ),
+      );
 
     const blockedUserIds = new Set<string>();
     blockedRows.forEach((r: any) => {
-      blockedUserIds.add(r.blockerId === viewerUserId ? r.blockedId : r.blockerId);
+      blockedUserIds.add(
+        r.blockerId === viewerUserId ? r.blockedId : r.blockerId,
+      );
     });
 
     const conditions = [eq(users.status, 'ACTIVE')];
@@ -486,7 +622,7 @@ export class ProfileService {
         ilike(profiles.displayName, q),
         ilike(profiles.username, q),
         ilike(profiles.department, q),
-        ilike(profiles.campus, q)
+        ilike(profiles.campus, q),
       );
       if (searchOr) {
         conditions.push(searchOr);
@@ -503,7 +639,9 @@ export class ProfileService {
       .orderBy(desc(profiles.createdAt), desc(profiles.id))
       .limit(limit * 2); // Fetch extra to account for blocked filter
 
-    const filtered = rows.filter((r: any) => !blockedUserIds.has(r.profile.userId)).slice(0, limit);
+    const filtered = rows
+      .filter((r: any) => !blockedUserIds.has(r.profile.userId))
+      .slice(0, limit);
 
     const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
     const data = filtered.map((r: any) => ({
@@ -511,7 +649,9 @@ export class ProfileService {
       userId: r.profile.userId,
       username: r.profile.username,
       displayName: r.profile.displayName,
-      avatarUrl: r.profile.avatarKey ? `${baseUrl}/uploads/${r.profile.avatarKey}` : null,
+      avatarUrl: r.profile.avatarKey
+        ? `${baseUrl}/uploads/${r.profile.avatarKey}`
+        : null,
       campus: r.profile.campus,
       department: r.profile.department,
       batchYear: r.profile.batchYear,

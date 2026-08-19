@@ -20,11 +20,19 @@ export class EventPublisherService {
 
   constructor(
     private readonly eventEmitter: EventEmitter2,
-    private readonly outboxService: NotificationOutboxService
+    private readonly outboxService: NotificationOutboxService,
   ) {}
 
-  async publishFollowCreated(tx: any, actorId: string, recipientId: string): Promise<void> {
-    const payload: BaseDomainEvent = { actorId, recipientId, timestamp: new Date() };
+  async publishFollowCreated(
+    tx: any,
+    actorId: string,
+    recipientId: string,
+  ): Promise<void> {
+    const payload: BaseDomainEvent = {
+      actorId,
+      recipientId,
+      timestamp: new Date(),
+    };
     const eventId = `FOLLOW_${actorId}_${recipientId}_${Date.now()}`;
     await this.outboxService.appendEvent(tx, eventId, 'FOLLOW', {
       actorId,
@@ -33,11 +41,23 @@ export class EventPublisherService {
       entityId: recipientId,
       data: payload,
     });
-    this.logger.log(`Domain Event: NOTIFICATION_FOLLOW_CREATED [${actorId} -> ${recipientId}]`);
+    this.logger.log(
+      `Domain Event: NOTIFICATION_FOLLOW_CREATED [${actorId} -> ${recipientId}]`,
+    );
   }
 
-  async publishConnectionRequestSent(tx: any, actorId: string, recipientId: string, requestId: string): Promise<void> {
-    const payload: ConnectionEventPayload = { actorId, recipientId, requestId, timestamp: new Date() };
+  async publishConnectionRequestSent(
+    tx: any,
+    actorId: string,
+    recipientId: string,
+    requestId: string,
+  ): Promise<void> {
+    const payload: ConnectionEventPayload = {
+      actorId,
+      recipientId,
+      requestId,
+      timestamp: new Date(),
+    };
     const eventId = `CONN_REQ_SENT_${requestId}`;
     await this.outboxService.appendEvent(tx, eventId, 'CONNECTION_REQUEST', {
       actorId,
@@ -46,11 +66,23 @@ export class EventPublisherService {
       entityId: requestId,
       data: payload,
     });
-    this.logger.log(`Domain Event: NOTIFICATION_CONNECTION_REQUEST_SENT [${actorId} -> ${recipientId}, Request: ${requestId}]`);
+    this.logger.log(
+      `Domain Event: NOTIFICATION_CONNECTION_REQUEST_SENT [${actorId} -> ${recipientId}, Request: ${requestId}]`,
+    );
   }
 
-  async publishConnectionAccepted(tx: any, actorId: string, recipientId: string, requestId?: string): Promise<void> {
-    const payload: ConnectionEventPayload = { actorId, recipientId, requestId, timestamp: new Date() };
+  async publishConnectionAccepted(
+    tx: any,
+    actorId: string,
+    recipientId: string,
+    requestId?: string,
+  ): Promise<void> {
+    const payload: ConnectionEventPayload = {
+      actorId,
+      recipientId,
+      requestId,
+      timestamp: new Date(),
+    };
     const eventId = `CONN_REQ_ACCEPTED_${requestId || uuidv4()}`;
     await this.outboxService.appendEvent(tx, eventId, 'CONNECTION_ACCEPTED', {
       actorId,
@@ -59,18 +91,42 @@ export class EventPublisherService {
       entityId: requestId || 'mutual',
       data: payload,
     });
-    this.logger.log(`Domain Event: NOTIFICATION_CONNECTION_ACCEPTED [${actorId} -> ${recipientId}]`);
+    this.logger.log(
+      `Domain Event: NOTIFICATION_CONNECTION_ACCEPTED [${actorId} -> ${recipientId}]`,
+    );
   }
 
-  publishConnectionRejected(actorId: string, recipientId: string, requestId: string): void {
-    const payload: ConnectionEventPayload = { actorId, recipientId, requestId, timestamp: new Date() };
-    this.logger.log(`Domain Event: NOTIFICATION_CONNECTION_REJECTED [${actorId} -> ${recipientId}]`);
+  publishConnectionRejected(
+    actorId: string,
+    recipientId: string,
+    requestId: string,
+  ): void {
+    const payload: ConnectionEventPayload = {
+      actorId,
+      recipientId,
+      requestId,
+      timestamp: new Date(),
+    };
+    this.logger.log(
+      `Domain Event: NOTIFICATION_CONNECTION_REJECTED [${actorId} -> ${recipientId}]`,
+    );
     this.eventEmitter.emit('NOTIFICATION_CONNECTION_REJECTED', payload);
   }
 
-  publishConnectionCancelled(actorId: string, recipientId: string, requestId: string): void {
-    const payload: ConnectionEventPayload = { actorId, recipientId, requestId, timestamp: new Date() };
-    this.logger.log(`Domain Event: NOTIFICATION_CONNECTION_CANCELLED [${actorId} -> ${recipientId}]`);
+  publishConnectionCancelled(
+    actorId: string,
+    recipientId: string,
+    requestId: string,
+  ): void {
+    const payload: ConnectionEventPayload = {
+      actorId,
+      recipientId,
+      requestId,
+      timestamp: new Date(),
+    };
+    this.logger.log(
+      `Domain Event: NOTIFICATION_CONNECTION_CANCELLED [${actorId} -> ${recipientId}]`,
+    );
     this.eventEmitter.emit('NOTIFICATION_CONNECTION_CANCELLED', payload);
   }
 }

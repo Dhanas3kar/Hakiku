@@ -6,7 +6,7 @@ import {
   OnGatewayInit,
   SubscribeMessage,
   MessageBody,
-  ConnectedSocket
+  ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
@@ -19,11 +19,18 @@ import { ConversationService } from './services/conversation.service';
 @WebSocketGateway({
   namespace: '/messages',
   cors: {
-    origin: process.env.ALLOWED_ORIGIN || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
+    origin: process.env.ALLOWED_ORIGIN || [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:3003',
+    ],
     credentials: true,
   },
 })
-export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class MessagingGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer() server: Server;
   private readonly logger = new Logger(MessagingGateway.name);
 
@@ -36,16 +43,19 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
   constructor(
     private readonly jwtService: JwtService,
     private readonly messageAccessService: MessageAccessService,
-    private readonly conversationService: ConversationService
+    private readonly conversationService: ConversationService,
   ) {
-    this.subscriberClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+    this.subscriberClient = new Redis(
+      process.env.REDIS_URL || 'redis://localhost:6379',
+    );
   }
 
   afterInit() {
     this.logger.log('MessagingGateway initialized');
 
     this.subscriberClient.subscribe('messaging_events', (err) => {
-      if (err) this.logger.error('Failed to subscribe to messaging_events', err);
+      if (err)
+        this.logger.error('Failed to subscribe to messaging_events', err);
     });
 
     this.subscriberClient.on('message', (channel, message) => {
@@ -63,7 +73,7 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
   async handleConnection(client: Socket) {
     try {
       const userId = await verifyWsClient(client, this.jwtService);
-      
+
       if (!userId) {
         client.disconnect();
         return;
@@ -78,7 +88,9 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
       }
       sockets.add(client.id);
 
-      this.logger.debug(`Client connected to messaging: ${client.id} (User: ${userId})`);
+      this.logger.debug(
+        `Client connected to messaging: ${client.id} (User: ${userId})`,
+      );
     } catch (err) {
       this.logger.warn(`Messaging connection failed: ${err.message}`);
       client.disconnect();
@@ -95,28 +107,46 @@ export class MessagingGateway implements OnGatewayInit, OnGatewayConnection, OnG
           this.userSockets.delete(userId);
         }
       }
-      this.logger.debug(`Client disconnected from messaging: ${client.id} (User: ${userId})`);
+      this.logger.debug(
+        `Client disconnected from messaging: ${client.id} (User: ${userId})`,
+      );
     }
   }
 
   @SubscribeMessage('typing:start')
-  async handleTypingStart(@ConnectedSocket() client: Socket, @MessageBody() data: { conversationId: string }) {
+  async handleTypingStart(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversationId: string },
+  ) {
     await this.handleTyping(client, data.conversationId, 'typing:start');
   }
 
   @SubscribeMessage('typing:stop')
-  async handleTypingStop(@ConnectedSocket() client: Socket, @MessageBody() data: { conversationId: string }) {
+  async handleTypingStop(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversationId: string },
+  ) {
     await this.handleTyping(client, data.conversationId, 'typing:stop');
   }
 
-  private async handleTyping(client: Socket, conversationId: string, event: string) {
+  private async handleTyping(
+    client: Socket,
+    conversationId: string,
+    event: string,
+  ) {
     const userId = client.data.userId;
     if (!userId || !conversationId) return;
 
     try {
       // Ensure access and retrieve conversation to find recipient
-      const conversation = await this.conversationService.getConversationById(userId, conversationId);
-      const targetUserId = conversation.userAId === userId ? conversation.userBId : conversation.userAId;
+      const conversation = await this.conversationService.getConversationById(
+        userId,
+        conversationId,
+      );
+      const targetUserId =
+        conversation.userAId === userId
+          ? conversation.userBId
+          : conversation.userAId;
 
       this.sendToUser(targetUserId, event, { conversationId, userId });
     } catch (err) {

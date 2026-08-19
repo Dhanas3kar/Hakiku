@@ -2,7 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { Bell, LogOut, Moon, Sun, Monitor, AlertCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
-import { client } from '../api/client'
+import { notificationsApi } from '../api/notifications'
 import { useAuth } from '../hooks/useAuth'
 
 export const Route = createFileRoute('/_authenticated/settings')({
@@ -15,26 +15,22 @@ function SettingsPage() {
   const { logout } = useAuth()
   const [theme, setTheme] = useState<ThemeMode>('auto')
   
-  // Notification Preferences State (Assuming existing phase 7 backend structure)
-  // GET /profile/me/preferences
+  // Notification Preferences — uses the actual backend endpoints at /notifications/preferences
   const { data: preferences, isLoading: prefsLoading, isError: prefsError } = useQuery({
     queryKey: ['settings', 'preferences'],
-    queryFn: async () => {
-      const res = await client.get('/profile/me/preferences')
-      return res
-    },
+    queryFn: () => notificationsApi.getPreferences(),
     retry: 1
   })
 
   const queryClient = useQueryClient()
   
   const updatePreferences = useMutation({
-    mutationFn: async (newPrefs: any) => {
-      const res = await client.patch('/profile/me/preferences', newPrefs)
-      return res
+    mutationFn: async (update: { category: string; emailEnabled?: boolean; pushEnabled?: boolean; inAppEnabled?: boolean }) => {
+      const { category, ...data } = update
+      return notificationsApi.updatePreference(category as any, data)
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData(['settings', 'preferences'], data)
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings', 'preferences'] })
     }
   })
 
@@ -124,7 +120,7 @@ function SettingsPage() {
               <Bell className="h-4 w-4" /> Notifications
             </h2>
           </div>
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-6">
             {prefsLoading ? (
               <div className="animate-pulse space-y-3">
                 <div className="h-10 bg-muted rounded-md w-full"></div>
@@ -135,44 +131,72 @@ function SettingsPage() {
                 <AlertCircle className="h-5 w-5 text-destructive mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-destructive">Failed to load preferences</p>
-                  <p className="text-xs text-destructive/80 mt-1">Make sure backend /profile/me/preferences is implemented.</p>
+                  <p className="text-xs text-destructive/80 mt-1">Make sure the backend is reachable.</p>
                 </div>
               </div>
             ) : (
-              <div className="space-y-4">
-                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">Email Notifications</p>
-                    <p className="text-sm text-foreground-muted">Receive emails for important activity.</p>
+              <div className="space-y-6">
+                {(preferences as any[])?.map((pref) => (
+                  <div key={pref.category} className="space-y-4 border-b border-border pb-4 last:border-0 last:pb-0">
+                    <h3 className="font-medium text-foreground capitalize">
+                      {pref.category.replace('_', ' ').toLowerCase()} Notifications
+                    </h3>
+                    
+                    {/* In-App Toggle */}
+                    <div className="flex items-center justify-between ml-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">In-App</p>
+                        <p className="text-xs text-foreground-muted">Receive notifications within the app.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer" 
+                          checked={pref.isInAppEnabled}
+                          onChange={(e) => updatePreferences.mutate({ category: pref.category, isInAppEnabled: e.target.checked })}
+                          disabled={updatePreferences.isPending}
+                        />
+                        <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary opacity-90 hover:opacity-100 disabled:opacity-50"></div>
+                      </label>
+                    </div>
+
+                    {/* Email Toggle */}
+                    <div className="flex items-center justify-between ml-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Email</p>
+                        <p className="text-xs text-foreground-muted">Receive emails for these events.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer" 
+                          checked={pref.isEmailEnabled}
+                          onChange={(e) => updatePreferences.mutate({ category: pref.category, isEmailEnabled: e.target.checked })}
+                          disabled={updatePreferences.isPending}
+                        />
+                        <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary opacity-90 hover:opacity-100 disabled:opacity-50"></div>
+                      </label>
+                    </div>
+
+                    {/* Push Toggle */}
+                    <div className="flex items-center justify-between ml-4">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Push</p>
+                        <p className="text-xs text-foreground-muted">Receive push notifications on devices.</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="sr-only peer" 
+                          checked={pref.isPushEnabled}
+                          onChange={(e) => updatePreferences.mutate({ category: pref.category, isPushEnabled: e.target.checked })}
+                          disabled={updatePreferences.isPending}
+                        />
+                        <div className="w-9 h-5 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary opacity-90 hover:opacity-100 disabled:opacity-50"></div>
+                      </label>
+                    </div>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
-                      checked={preferences?.emailNotifications ?? true}
-                      onChange={(e) => updatePreferences.mutate({ emailNotifications: e.target.checked })}
-                      disabled={updatePreferences.isPending}
-                    />
-                    <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary opacity-90 hover:opacity-100 disabled:opacity-50"></div>
-                  </label>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-foreground">Push Notifications</p>
-                    <p className="text-sm text-foreground-muted">Receive push notifications on this device.</p>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
-                      checked={preferences?.pushNotifications ?? true}
-                      onChange={(e) => updatePreferences.mutate({ pushNotifications: e.target.checked })}
-                      disabled={updatePreferences.isPending}
-                    />
-                    <div className="w-11 h-6 bg-muted peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary opacity-90 hover:opacity-100 disabled:opacity-50"></div>
-                  </label>
-                </div>
+                ))}
               </div>
             )}
           </div>

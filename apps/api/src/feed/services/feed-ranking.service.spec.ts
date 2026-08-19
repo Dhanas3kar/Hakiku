@@ -1,4 +1,8 @@
-import { FeedRankingService, FeedItemContext, ViewerContext } from './feed-ranking.service';
+import {
+  FeedRankingService,
+  FeedItemContext,
+  ViewerContext,
+} from './feed-ranking.service';
 
 describe('FeedRankingService (Unit)', () => {
   let rankingService: FeedRankingService;

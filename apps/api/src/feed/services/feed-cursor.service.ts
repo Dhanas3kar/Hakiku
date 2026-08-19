@@ -11,7 +11,8 @@ export class FeedCursorService {
   encode(score: number, createdAt: Date | string, id: string): string {
     const payload = {
       score,
-      createdAt: typeof createdAt === 'string' ? createdAt : createdAt.toISOString(),
+      createdAt:
+        typeof createdAt === 'string' ? createdAt : createdAt.toISOString(),
       id,
     };
     return Buffer.from(JSON.stringify(payload)).toString('base64');

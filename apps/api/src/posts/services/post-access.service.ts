@@ -13,7 +13,9 @@ export class PostAccessService {
   private db;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -22,14 +24,20 @@ export class PostAccessService {
    * Throws ForbiddenException if account is SUSPENDED, BANNED, or DEACTIVATED.
    */
   async verifyActiveAccount(userId: string): Promise<any> {
-    const [user] = await this.db.select().from(users).where(eq(users.id, userId)).limit(1);
+    const [user] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
 
     if (!user) {
       throw new NotFoundException('User account not found');
     }
 
     if (user.status !== 'ACTIVE') {
-      throw new ForbiddenException(`Account is ${(user.status || '').toLowerCase()} and cannot perform this action`);
+      throw new ForbiddenException(
+        `Account is ${(user.status || '').toLowerCase()} and cannot perform this action`,
+      );
     }
 
     return user;
@@ -41,15 +49,27 @@ export class PostAccessService {
    * Throws NotFoundException (404) for deleted posts, non-existent posts, blocked users, or unauthorized visibilities.
    */
   async validatePostAccess(viewerId: string, postId: string): Promise<any> {
-    const [post] = await this.db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+    const [post] = await this.db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, postId))
+      .limit(1);
 
     if (!post || post.deletedAt) {
       throw new NotFoundException('Post not found');
     }
 
     // Check post author account status
-    const [author] = await this.db.select().from(users).where(eq(users.id, post.authorId)).limit(1);
-    if (!author || author.status === 'BANNED' || author.status === 'DEACTIVATED') {
+    const [author] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, post.authorId))
+      .limit(1);
+    if (
+      !author ||
+      author.status === 'BANNED' ||
+      author.status === 'DEACTIVATED'
+    ) {
       throw new NotFoundException('Post not found');
     }
 
@@ -60,9 +80,15 @@ export class PostAccessService {
         .from(blocks)
         .where(
           or(
-            and(eq(blocks.blockerId, viewerId), eq(blocks.blockedId, post.authorId)),
-            and(eq(blocks.blockerId, post.authorId), eq(blocks.blockedId, viewerId))
-          )
+            and(
+              eq(blocks.blockerId, viewerId),
+              eq(blocks.blockedId, post.authorId),
+            ),
+            and(
+              eq(blocks.blockerId, post.authorId),
+              eq(blocks.blockedId, viewerId),
+            ),
+          ),
         )
         .limit(1);
 
@@ -96,7 +122,12 @@ export class PostAccessService {
       const connection = await this.db
         .select()
         .from(connections)
-        .where(and(eq(connections.userAId, userAId), eq(connections.userBId, userBId)))
+        .where(
+          and(
+            eq(connections.userAId, userAId),
+            eq(connections.userBId, userBId),
+          ),
+        )
         .limit(1);
 
       if (connection.length > 0) {
@@ -113,7 +144,10 @@ export class PostAccessService {
    * Validate that viewer can interact (like/comment) with a post.
    * Requires viewer account to be ACTIVE and post to be accessible.
    */
-  async validatePostInteraction(viewerId: string, postId: string): Promise<any> {
+  async validatePostInteraction(
+    viewerId: string,
+    postId: string,
+  ): Promise<any> {
     await this.verifyActiveAccount(viewerId);
     return this.validatePostAccess(viewerId, postId);
   }

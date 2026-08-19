@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { db } from '../../db/index';
 import { connections, blocks, users } from '../../db/schema';
 import { eq, and, or, sql } from 'drizzle-orm';
@@ -16,17 +20,17 @@ export class MessageAccessService {
    * Throws 403 Forbidden if not connected.
    * Throws 404 Not Found if blocked (to maintain privacy) or user not active/doesn't exist.
    */
-  async validateMessagingAccess(senderId: string, recipientId: string): Promise<void> {
+  async validateMessagingAccess(
+    senderId: string,
+    recipientId: string,
+  ): Promise<void> {
     if (senderId === recipientId) {
       throw new ForbiddenException('Cannot message yourself');
     }
 
     // 1. Check if recipient exists and is active
     const recipient = await db.query.users.findFirst({
-      where: and(
-        eq(users.id, recipientId),
-        eq(users.status, 'ACTIVE')
-      )
+      where: and(eq(users.id, recipientId), eq(users.status, 'ACTIVE')),
     });
 
     if (!recipient) {
@@ -37,8 +41,8 @@ export class MessageAccessService {
     const hasBlock = await db.query.blocks.findFirst({
       where: or(
         and(eq(blocks.blockerId, senderId), eq(blocks.blockedId, recipientId)),
-        and(eq(blocks.blockerId, recipientId), eq(blocks.blockedId, senderId))
-      )
+        and(eq(blocks.blockerId, recipientId), eq(blocks.blockedId, senderId)),
+      ),
     });
 
     if (hasBlock) {
@@ -46,13 +50,16 @@ export class MessageAccessService {
     }
 
     // 3. Check for active connection
-    const { userAId, userBId } = this.getCanonicalParticipants(senderId, recipientId);
-    
+    const { userAId, userBId } = this.getCanonicalParticipants(
+      senderId,
+      recipientId,
+    );
+
     const hasConnection = await db.query.connections.findFirst({
       where: and(
         eq(connections.userAId, userAId),
-        eq(connections.userBId, userBId)
-      )
+        eq(connections.userBId, userBId),
+      ),
     });
 
     if (!hasConnection) {
@@ -63,8 +70,11 @@ export class MessageAccessService {
   /**
    * Orders participant IDs canonically: userA is always the smaller UUID.
    */
-  getCanonicalParticipants(id1: string, id2: string): { userAId: string, userBId: string } {
-    return id1 < id2 
+  getCanonicalParticipants(
+    id1: string,
+    id2: string,
+  ): { userAId: string; userBId: string } {
+    return id1 < id2
       ? { userAId: id1, userBId: id2 }
       : { userAId: id2, userBId: id1 };
   }

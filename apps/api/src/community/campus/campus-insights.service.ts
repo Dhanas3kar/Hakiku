@@ -6,17 +6,17 @@ import { eq, and, gt, count } from 'drizzle-orm';
 
 @Injectable()
 export class CampusInsightsService {
-  constructor(
-    @Inject('REDIS_CLIENT') private readonly redis: Redis
-  ) {}
+  constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
 
   async getInsights(userId: string) {
     const userProfile = await db.query.profiles.findFirst({
-      where: eq(profiles.userId, userId)
+      where: eq(profiles.userId, userId),
     });
 
     if (!userProfile || !userProfile.campus) {
-      return { message: 'Campus insights require a campus to be set in your profile.' };
+      return {
+        message: 'Campus insights require a campus to be set in your profile.',
+      };
     }
 
     const { campus, department, batchYear } = userProfile;
@@ -30,22 +30,23 @@ export class CampusInsightsService {
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
     // Count new students in campus
-    const [newStudentsCampus] = await db.select({ count: count() })
+    const [newStudentsCampus] = await db
+      .select({ count: count() })
       .from(profiles)
-      .where(and(
-        eq(profiles.campus, campus),
-        gt(profiles.createdAt, thirtyDaysAgo)
-      ));
+      .where(
+        and(eq(profiles.campus, campus), gt(profiles.createdAt, thirtyDaysAgo)),
+      );
 
     // Privacy threshold
-    const studentsJoined = newStudentsCampus.count < 5 ? null : newStudentsCampus.count;
+    const studentsJoined =
+      newStudentsCampus.count < 5 ? null : newStudentsCampus.count;
 
     const insights = {
       campus,
       department,
       batchYear,
       newStudentsThisMonth: studentsJoined,
-      lastUpdated: new Date().toISOString()
+      lastUpdated: new Date().toISOString(),
     };
 
     await this.redis.set(cacheKey, JSON.stringify(insights), 'EX', 15 * 60);

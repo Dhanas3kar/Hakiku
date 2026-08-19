@@ -1,5 +1,10 @@
 import { db } from '../../db/index';
-import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { eq, and } from 'drizzle-orm';
 import { follows } from '../../db/schema';
 import * as schema from '../../db/schema';
@@ -12,13 +17,18 @@ export class FollowService {
 
   constructor(
     private readonly blockService: BlockService,
-    private readonly eventPublisher: EventPublisherService
+    private readonly eventPublisher: EventPublisherService,
   ) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
-  async followUser(followerId: string, followingId: string): Promise<{ message: string }> {
+  async followUser(
+    followerId: string,
+    followingId: string,
+  ): Promise<{ message: string }> {
     if (followerId === followingId) {
       throw new BadRequestException('You cannot follow yourself');
     }
@@ -36,7 +46,11 @@ export class FollowService {
     try {
       await this.db.transaction(async (tx: any) => {
         await tx.insert(follows).values({ followerId, followingId });
-        await this.eventPublisher.publishFollowCreated(tx, followerId, followingId);
+        await this.eventPublisher.publishFollowCreated(
+          tx,
+          followerId,
+          followingId,
+        );
       });
       return { message: 'User followed successfully' };
     } catch (err: any) {
@@ -47,14 +61,22 @@ export class FollowService {
     }
   }
 
-  async unfollowUser(followerId: string, followingId: string): Promise<{ message: string }> {
+  async unfollowUser(
+    followerId: string,
+    followingId: string,
+  ): Promise<{ message: string }> {
     if (followerId === followingId) {
       throw new BadRequestException('You cannot unfollow yourself');
     }
 
     const deleted = await this.db
       .delete(follows)
-      .where(and(eq(follows.followerId, followerId), eq(follows.followingId, followingId)))
+      .where(
+        and(
+          eq(follows.followerId, followerId),
+          eq(follows.followingId, followingId),
+        ),
+      )
       .returning();
 
     if (deleted.length === 0) {

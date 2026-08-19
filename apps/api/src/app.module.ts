@@ -36,16 +36,16 @@ import Redis from 'ioredis';
           {
             name: 'medium',
             ttl: 10000,
-            limit: 20
+            limit: 20,
           },
           {
             name: 'long',
             ttl: 60000,
-            limit: 100
-          }
+            limit: 100,
+          },
         ],
         storage: new ThrottlerStorageRedisService(
-          new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
+          new Redis(process.env.REDIS_URL || 'redis://localhost:6379'),
         ),
       }),
     }),

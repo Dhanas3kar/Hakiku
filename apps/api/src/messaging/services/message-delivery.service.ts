@@ -2,7 +2,13 @@ import { Injectable, Inject, Logger } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
 export interface MessagingEvent {
-  type: 'message:new' | 'message:updated' | 'message:deleted' | 'message:read' | 'typing:start' | 'typing:stop';
+  type:
+    | 'message:new'
+    | 'message:updated'
+    | 'message:deleted'
+    | 'message:read'
+    | 'typing:start'
+    | 'typing:stop';
   recipientId: string;
   conversationId: string;
   payload: any;
@@ -22,7 +28,10 @@ export class MessageDeliveryService {
     try {
       await this.redis.publish('messaging_events', JSON.stringify(event));
     } catch (error) {
-      this.logger.error(`Failed to publish messaging event: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to publish messaging event: ${error.message}`,
+        error.stack,
+      );
       // We don't throw here to ensure DB transaction isn't rolled back due to Redis failure
     }
   }

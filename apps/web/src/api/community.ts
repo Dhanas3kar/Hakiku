@@ -6,7 +6,9 @@ export interface Confession {
   id: string
   content: string
   campus: string | null
-  createdAt: string
+  createdAt?: string
+  publishedAt?: string
+  isAuthor?: boolean
   _count?: {
     comments?: number
   }
@@ -91,6 +93,10 @@ export const communityApi = {
       return { items: res, nextCursorAt: undefined }
     }
     return res
+  },
+
+  deleteConfession: async (id: string): Promise<void> => {
+    await client.delete(`/community/confessions/${id}`)
   },
 
   // People Worth Knowing

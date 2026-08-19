@@ -9,7 +9,11 @@ import { eq, and, sql, desc } from 'drizzle-orm';
 import * as schema from '../../db/schema';
 import { posts, comments, profiles, users } from '../../db/schema';
 import { PostAccessService } from './post-access.service';
-import { CreateCommentDto, UpdateCommentDto, CommentsQueryDto } from '../dto/posts.dto';
+import {
+  CreateCommentDto,
+  UpdateCommentDto,
+  CommentsQueryDto,
+} from '../dto/posts.dto';
 import { NotificationOutboxService } from '../../notifications/services/notification-outbox.service';
 
 @Injectable()
@@ -18,9 +22,11 @@ export class CommentsService {
 
   constructor(
     private readonly postAccessService: PostAccessService,
-    private readonly outboxService: NotificationOutboxService
+    private readonly outboxService: NotificationOutboxService,
   ) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -56,7 +62,11 @@ export class CommentsService {
         })
         .where(eq(posts.id, postId));
 
-      const [post] = await tx.select({ authorId: posts.authorId }).from(posts).where(eq(posts.id, postId)).limit(1);
+      const [post] = await tx
+        .select({ authorId: posts.authorId })
+        .from(posts)
+        .where(eq(posts.id, postId))
+        .limit(1);
 
       if (post && post.authorId !== authorId) {
         const eventId = `COMMENT_${authorId}_${inserted.id}_${Date.now()}`;
@@ -65,7 +75,12 @@ export class CommentsService {
           recipientId: post.authorId,
           entityType: 'COMMENT',
           entityId: inserted.id,
-          data: { commentId: inserted.id, postId, actorId: authorId, recipientId: post.authorId },
+          data: {
+            commentId: inserted.id,
+            postId,
+            actorId: authorId,
+            recipientId: post.authorId,
+          },
         });
       }
     });
@@ -96,7 +111,11 @@ export class CommentsService {
   /**
    * Get paginated flat comments for a post using deterministic cursor pagination.
    */
-  async getPostComments(viewerId: string, postId: string, query: CommentsQueryDto) {
+  async getPostComments(
+    viewerId: string,
+    postId: string,
+    query: CommentsQueryDto,
+  ) {
     await this.postAccessService.validatePostAccess(viewerId, postId);
 
     const limit = Math.min(query.limit || 20, 50);
@@ -105,7 +124,9 @@ export class CommentsService {
     let cursorId: string | null = null;
     if (query.cursor) {
       try {
-        const decoded = JSON.parse(Buffer.from(query.cursor, 'base64').toString('utf-8'));
+        const decoded = JSON.parse(
+          Buffer.from(query.cursor, 'base64').toString('utf-8'),
+        );
         cursorCreatedAt = new Date(decoded.createdAt);
         cursorId = decoded.id;
       } catch (err) {
@@ -120,7 +141,7 @@ export class CommentsService {
 
     if (cursorCreatedAt && cursorId) {
       conditions.push(
-        sql`(${comments.createdAt}, ${comments.id}) < (${cursorCreatedAt.toISOString()}, ${cursorId})`
+        sql`(${comments.createdAt}, ${comments.id}) < (${cursorCreatedAt.toISOString()}, ${cursorId})`,
       );
     }
 
@@ -138,7 +159,7 @@ export class CommentsService {
     if (hasNextPage && pageData.length > 0) {
       const lastItem = pageData[pageData.length - 1];
       nextCursor = Buffer.from(
-        JSON.stringify({ createdAt: lastItem.createdAt, id: lastItem.id })
+        JSON.stringify({ createdAt: lastItem.createdAt, id: lastItem.id }),
       ).toString('base64');
     }
 
@@ -165,7 +186,7 @@ export class CommentsService {
               : null,
           },
         };
-      })
+      }),
     );
 
     return {
@@ -181,17 +202,27 @@ export class CommentsService {
   /**
    * Update comment content (Author only).
    */
-  async updateComment(authorId: string, commentId: string, dto: UpdateCommentDto) {
+  async updateComment(
+    authorId: string,
+    commentId: string,
+    dto: UpdateCommentDto,
+  ) {
     await this.postAccessService.verifyActiveAccount(authorId);
 
-    const [existing] = await this.db.select().from(comments).where(eq(comments.id, commentId)).limit(1);
+    const [existing] = await this.db
+      .select()
+      .from(comments)
+      .where(eq(comments.id, commentId))
+      .limit(1);
 
     if (!existing || existing.deletedAt) {
       throw new NotFoundException('Comment not found');
     }
 
     if (existing.authorId !== authorId) {
-      throw new ForbiddenException('Only the comment author can edit this comment');
+      throw new ForbiddenException(
+        'Only the comment author can edit this comment',
+      );
     }
 
     const trimmed = dto.content ? dto.content.trim() : '';
@@ -217,14 +248,20 @@ export class CommentsService {
   async deleteComment(authorId: string, commentId: string) {
     await this.postAccessService.verifyActiveAccount(authorId);
 
-    const [existing] = await this.db.select().from(comments).where(eq(comments.id, commentId)).limit(1);
+    const [existing] = await this.db
+      .select()
+      .from(comments)
+      .where(eq(comments.id, commentId))
+      .limit(1);
 
     if (!existing || existing.deletedAt) {
       throw new NotFoundException('Comment not found');
     }
 
     if (existing.authorId !== authorId) {
-      throw new ForbiddenException('Only the comment author can delete this comment');
+      throw new ForbiddenException(
+        'Only the comment author can delete this comment',
+      );
     }
 
     await this.db.transaction(async (tx: any) => {

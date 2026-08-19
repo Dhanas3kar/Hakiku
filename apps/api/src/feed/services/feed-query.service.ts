@@ -19,7 +19,9 @@ export class FeedQueryService {
   private db;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -27,7 +29,11 @@ export class FeedQueryService {
    * Get Viewer Context (profile fields, skills, interests) for ranking.
    */
   async getViewerContext(viewerId: string): Promise<ViewerContext> {
-    const [prof] = await this.db.select().from(profiles).where(eq(profiles.userId, viewerId)).limit(1);
+    const [prof] = await this.db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, viewerId))
+      .limit(1);
 
     if (!prof) {
       return { userId: viewerId };
@@ -56,11 +62,17 @@ export class FeedQueryService {
   /**
    * Batch-hydrate candidate posts and author relationship state without N+1 queries.
    */
-  async hydrateCandidatePosts(viewerId: string, candidatePostIds: string[]): Promise<FeedItemContext[]> {
+  async hydrateCandidatePosts(
+    viewerId: string,
+    candidatePostIds: string[],
+  ): Promise<FeedItemContext[]> {
     if (!candidatePostIds || candidatePostIds.length === 0) return [];
 
     // 1. Fetch Posts Records
-    const postRows = await this.db.select().from(posts).where(inArray(posts.id, candidatePostIds));
+    const postRows = await this.db
+      .select()
+      .from(posts)
+      .where(inArray(posts.id, candidatePostIds));
     if (postRows.length === 0) return [];
 
     const authorIds = Array.from(new Set(postRows.map((p: any) => p.authorId)));
@@ -69,39 +81,60 @@ export class FeedQueryService {
     const nonSelfAuthorIds = authorIds.filter((id) => id !== viewerId);
 
     // 2. Execute Parallel Batch Detail Queries (O(1) roundtrips)
-    const [profilesRows, mediaRows, likesRows, followsRows, connRows] = await Promise.all([
-      // Author Profiles
-      this.db.select().from(profiles).where(inArray(profiles.userId, authorIds)),
-      // Post Media
-      this.db.select().from(postMedia).where(inArray(postMedia.postId, postIds)).orderBy(postMedia.displayOrder),
-      // Viewer Likes State
-      this.db
-        .select({ postId: postLikes.postId })
-        .from(postLikes)
-        .where(and(eq(postLikes.userId, viewerId), inArray(postLikes.postId, postIds))),
-      // Viewer Follows State
-      nonSelfAuthorIds.length > 0
-        ? this.db
-            .select({ followingId: follows.followingId })
-            .from(follows)
-            .where(and(eq(follows.followerId, viewerId), inArray(follows.followingId, nonSelfAuthorIds)))
-        : Promise.resolve([]),
-      // Viewer Connections State
-      nonSelfAuthorIds.length > 0
-        ? this.db
-            .select()
-            .from(connections)
-            .where(
-              or(
-                ...nonSelfAuthorIds.map((aId) => {
-                  const uA = viewerId < aId ? viewerId : aId;
-                  const uB = viewerId < aId ? aId : viewerId;
-                  return and(eq(connections.userAId, uA), eq(connections.userBId, uB));
-                })
+    const [profilesRows, mediaRows, likesRows, followsRows, connRows] =
+      await Promise.all([
+        // Author Profiles
+        this.db
+          .select()
+          .from(profiles)
+          .where(inArray(profiles.userId, authorIds)),
+        // Post Media
+        this.db
+          .select()
+          .from(postMedia)
+          .where(inArray(postMedia.postId, postIds))
+          .orderBy(postMedia.displayOrder),
+        // Viewer Likes State
+        this.db
+          .select({ postId: postLikes.postId })
+          .from(postLikes)
+          .where(
+            and(
+              eq(postLikes.userId, viewerId),
+              inArray(postLikes.postId, postIds),
+            ),
+          ),
+        // Viewer Follows State
+        nonSelfAuthorIds.length > 0
+          ? this.db
+              .select({ followingId: follows.followingId })
+              .from(follows)
+              .where(
+                and(
+                  eq(follows.followerId, viewerId),
+                  inArray(follows.followingId, nonSelfAuthorIds),
+                ),
               )
-            )
-        : Promise.resolve([]),
-    ]);
+          : Promise.resolve([]),
+        // Viewer Connections State
+        nonSelfAuthorIds.length > 0
+          ? this.db
+              .select()
+              .from(connections)
+              .where(
+                or(
+                  ...nonSelfAuthorIds.map((aId) => {
+                    const uA = viewerId < aId ? viewerId : aId;
+                    const uB = viewerId < aId ? aId : viewerId;
+                    return and(
+                      eq(connections.userAId, uA),
+                      eq(connections.userBId, uB),
+                    );
+                  }),
+                ),
+              )
+          : Promise.resolve([]),
+      ]);
 
     // Build Lookup Maps
     const profileMap = new Map<string, any>();
@@ -146,7 +179,9 @@ export class FeedQueryService {
           userId: p.authorId,
           username: authorProf?.username || 'user',
           displayName: authorProf?.displayName || 'Student',
-          avatarUrl: authorProf?.avatarKey ? `${baseUrl}/uploads/${authorProf.avatarKey}` : null,
+          avatarUrl: authorProf?.avatarKey
+            ? `${baseUrl}/uploads/${authorProf.avatarKey}`
+            : null,
           campus: authorProf?.campus,
           department: authorProf?.department,
           batchYear: authorProf?.batchYear,

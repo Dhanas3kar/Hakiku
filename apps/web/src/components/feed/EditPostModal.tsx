@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postsApi, type PostItem, type PostVisibility } from '../../api/posts'
 import { X, Globe, Users, Lock, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface EditPostModalProps {
   post: PostItem
@@ -20,17 +21,21 @@ export function EditPostModal({ post, onClose }: EditPostModalProps) {
   const [visibility, setVisibility] = useState<PostVisibility>(post.visibility)
 
   const updateMutation = useMutation({
-    mutationFn: () => postsApi.updatePost(post.id, { content, visibility }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['feed'] })
-      onClose()
-    },
+    mutationFn: () => postsApi.updatePost(post.id, { content, visibility })
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!content.trim()) return
-    updateMutation.mutate()
+    try {
+      await updateMutation.mutateAsync()
+      // Invalidate feed to fetch updated post
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
+      onClose()
+    } catch (error) {
+      // Show error toast
+      toast.error('Failed to update post')
+    }
   }
 
   return (

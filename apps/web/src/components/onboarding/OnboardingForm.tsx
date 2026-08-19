@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { profileApi } from '../../api/profile'
 import { useAuth } from '../../hooks/useAuth'
+import { TagSelect } from '../profile/TagSelect'
 
 export function OnboardingForm() {
   const { refetchSession } = useAuth()
@@ -14,6 +15,8 @@ export function OnboardingForm() {
     batchYear: '',
     graduationYear: '',
     bio: '',
+    skillIds: [] as string[],
+    interestIds: [] as string[],
   })
 
   const onboardingMutation = useMutation({
@@ -39,6 +42,10 @@ export function OnboardingForm() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
+  }
+
+  const handleTagsChange = (field: 'skillIds' | 'interestIds', ids: string[]) => {
+    setFormData((prev) => ({ ...prev, [field]: ids }))
   }
 
   return (
@@ -196,6 +203,28 @@ export function OnboardingForm() {
             disabled={onboardingMutation.isPending}
           />
         </div>
+
+        <TagSelect
+          label="Skills"
+          placeholder="Search skills (e.g. React, TypeScript)..."
+          selectedIds={formData.skillIds}
+          onChange={(ids) => handleTagsChange('skillIds', ids)}
+          fetchFn={async (query) => {
+            const res = await profileApi.searchSkills(query, 5)
+            return res.map((s: any) => ({ id: s.id, name: s.name, category: s.category }))
+          }}
+        />
+
+        <TagSelect
+          label="Interests"
+          placeholder="Search interests (e.g. Web Development, AI)..."
+          selectedIds={formData.interestIds}
+          onChange={(ids) => handleTagsChange('interestIds', ids)}
+          fetchFn={async (query) => {
+            const res = await profileApi.searchInterests(query, 5)
+            return res.map((i: any) => ({ id: i.id, name: i.name, category: i.category }))
+          }}
+        />
 
         {onboardingMutation.isError && (
           <div className="rounded-lg bg-danger/10 p-3 text-sm text-danger" role="alert">

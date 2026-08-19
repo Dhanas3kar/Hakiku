@@ -26,6 +26,10 @@ export class InterestsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createInterest(@Req() req: any, @Body() dto: CreateInterestDto) {
-    return this.interestsService.createInterest(dto.name, req.user.role, dto.category);
+    return this.interestsService.createInterest(
+      dto.name,
+      req.user.role,
+      dto.category,
+    );
   }
 }

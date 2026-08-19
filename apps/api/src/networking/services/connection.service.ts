@@ -1,5 +1,10 @@
 import { db } from '../../db/index';
-import { Injectable, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { eq, and, sql } from 'drizzle-orm';
 import * as schema from '../../db/schema';
 import { connectionRequests, connections } from '../../db/schema';
@@ -12,15 +17,27 @@ export class ConnectionService {
 
   constructor(
     private readonly blockService: BlockService,
-    private readonly eventPublisher: EventPublisherService
+    private readonly eventPublisher: EventPublisherService,
   ) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
-  async sendConnectionRequest(senderId: string, receiverId: string): Promise<{ message: string; status: string; requestId?: string; autoAccepted?: boolean }> {
+  async sendConnectionRequest(
+    senderId: string,
+    receiverId: string,
+  ): Promise<{
+    message: string;
+    status: string;
+    requestId?: string;
+    autoAccepted?: boolean;
+  }> {
     if (senderId === receiverId) {
-      throw new BadRequestException('You cannot send a connection request to yourself');
+      throw new BadRequestException(
+        'You cannot send a connection request to yourself',
+      );
     }
 
     // 1. Block Privacy Interceptor
@@ -29,7 +46,9 @@ export class ConnectionService {
     }
 
     if (await this.blockService.isBlockedByMe(senderId, receiverId)) {
-      throw new BadRequestException('Please unblock the user before sending a connection request');
+      throw new BadRequestException(
+        'Please unblock the user before sending a connection request',
+      );
     }
 
     const minId = senderId < receiverId ? senderId : receiverId;
@@ -39,7 +58,9 @@ export class ConnectionService {
     const existingConnection = await this.db
       .select()
       .from(connections)
-      .where(and(eq(connections.userAId, minId), eq(connections.userBId, maxId)))
+      .where(
+        and(eq(connections.userAId, minId), eq(connections.userBId, maxId)),
+      )
       .limit(1);
 
     if (existingConnection.length > 0) {
@@ -56,8 +77,8 @@ export class ConnectionService {
           and(
             eq(connectionRequests.senderId, receiverId),
             eq(connectionRequests.receiverId, senderId),
-            eq(connectionRequests.status, 'PENDING')
-          )
+            eq(connectionRequests.status, 'PENDING'),
+          ),
         )
         .limit(1);
 
@@ -81,13 +102,21 @@ export class ConnectionService {
         await tx
           .insert(connections)
           .values({ userAId: minId, userBId: maxId })
-          .onConflictDoNothing({ target: [connections.userAId, connections.userBId] });
+          .onConflictDoNothing({
+            target: [connections.userAId, connections.userBId],
+          });
 
         // Emit exactly ONE connection accepted event
-        await this.eventPublisher.publishConnectionAccepted(tx, senderId, receiverId, reverseRequest[0].id);
+        await this.eventPublisher.publishConnectionAccepted(
+          tx,
+          senderId,
+          receiverId,
+          reverseRequest[0].id,
+        );
 
         return {
-          message: 'Connection request auto-accepted due to mutual pending request',
+          message:
+            'Connection request auto-accepted due to mutual pending request',
           status: 'ACCEPTED',
           autoAccepted: true,
         };
@@ -101,13 +130,15 @@ export class ConnectionService {
           and(
             eq(connectionRequests.senderId, senderId),
             eq(connectionRequests.receiverId, receiverId),
-            eq(connectionRequests.status, 'PENDING')
-          )
+            eq(connectionRequests.status, 'PENDING'),
+          ),
         )
         .limit(1);
 
       if (existingPending.length > 0) {
-        throw new ConflictException('A connection request is already pending with this user');
+        throw new ConflictException(
+          'A connection request is already pending with this user',
+        );
       }
 
       // Create new PENDING connection request
@@ -120,7 +151,12 @@ export class ConnectionService {
         })
         .returning();
 
-      await this.eventPublisher.publishConnectionRequestSent(tx, senderId, receiverId, inserted.id);
+      await this.eventPublisher.publishConnectionRequestSent(
+        tx,
+        senderId,
+        receiverId,
+        inserted.id,
+      );
 
       return {
         message: 'Connection request sent successfully',
@@ -130,7 +166,10 @@ export class ConnectionService {
     });
   }
 
-  async acceptConnectionRequest(receiverId: string, requestId: string): Promise<{ message: string }> {
+  async acceptConnectionRequest(
+    receiverId: string,
+    requestId: string,
+  ): Promise<{ message: string }> {
     return await this.db.transaction(async (tx: any) => {
       const [req] = await tx
         .select()
@@ -139,22 +178,28 @@ export class ConnectionService {
           and(
             eq(connectionRequests.id, requestId),
             eq(connectionRequests.receiverId, receiverId),
-            eq(connectionRequests.status, 'PENDING')
-          )
+            eq(connectionRequests.status, 'PENDING'),
+          ),
         )
         .limit(1);
 
       if (!req) {
-        throw new NotFoundException('Pending connection request not found or unauthorized');
+        throw new NotFoundException(
+          'Pending connection request not found or unauthorized',
+        );
       }
 
       // Check block state before accepting
       if (await this.blockService.isBlocked(req.senderId, req.receiverId)) {
-        throw new BadRequestException('Cannot accept connection request due to block constraints');
+        throw new BadRequestException(
+          'Cannot accept connection request due to block constraints',
+        );
       }
 
-      const minId = req.senderId < req.receiverId ? req.senderId : req.receiverId;
-      const maxId = req.senderId < req.receiverId ? req.receiverId : req.senderId;
+      const minId =
+        req.senderId < req.receiverId ? req.senderId : req.receiverId;
+      const maxId =
+        req.senderId < req.receiverId ? req.receiverId : req.senderId;
 
       // Update request to ACCEPTED
       await tx
@@ -166,15 +211,25 @@ export class ConnectionService {
       await tx
         .insert(connections)
         .values({ userAId: minId, userBId: maxId })
-        .onConflictDoNothing({ target: [connections.userAId, connections.userBId] });
+        .onConflictDoNothing({
+          target: [connections.userAId, connections.userBId],
+        });
 
-      await this.eventPublisher.publishConnectionAccepted(tx, receiverId, req.senderId, requestId);
+      await this.eventPublisher.publishConnectionAccepted(
+        tx,
+        receiverId,
+        req.senderId,
+        requestId,
+      );
 
       return { message: 'Connection request accepted successfully' };
     });
   }
 
-  async rejectConnectionRequest(receiverId: string, requestId: string): Promise<{ message: string }> {
+  async rejectConnectionRequest(
+    receiverId: string,
+    requestId: string,
+  ): Promise<{ message: string }> {
     const [req] = await this.db
       .select()
       .from(connectionRequests)
@@ -182,13 +237,15 @@ export class ConnectionService {
         and(
           eq(connectionRequests.id, requestId),
           eq(connectionRequests.receiverId, receiverId),
-          eq(connectionRequests.status, 'PENDING')
-        )
+          eq(connectionRequests.status, 'PENDING'),
+        ),
       )
       .limit(1);
 
     if (!req) {
-      throw new NotFoundException('Pending connection request not found or unauthorized');
+      throw new NotFoundException(
+        'Pending connection request not found or unauthorized',
+      );
     }
 
     await this.db
@@ -196,12 +253,19 @@ export class ConnectionService {
       .set({ status: 'REJECTED', updatedAt: new Date() })
       .where(eq(connectionRequests.id, requestId));
 
-    this.eventPublisher.publishConnectionRejected(receiverId, req.senderId, requestId);
+    this.eventPublisher.publishConnectionRejected(
+      receiverId,
+      req.senderId,
+      requestId,
+    );
 
     return { message: 'Connection request rejected' };
   }
 
-  async cancelConnectionRequest(senderId: string, requestId: string): Promise<{ message: string }> {
+  async cancelConnectionRequest(
+    senderId: string,
+    requestId: string,
+  ): Promise<{ message: string }> {
     const [req] = await this.db
       .select()
       .from(connectionRequests)
@@ -209,13 +273,15 @@ export class ConnectionService {
         and(
           eq(connectionRequests.id, requestId),
           eq(connectionRequests.senderId, senderId),
-          eq(connectionRequests.status, 'PENDING')
-        )
+          eq(connectionRequests.status, 'PENDING'),
+        ),
       )
       .limit(1);
 
     if (!req) {
-      throw new NotFoundException('Pending connection request not found or unauthorized');
+      throw new NotFoundException(
+        'Pending connection request not found or unauthorized',
+      );
     }
 
     await this.db
@@ -223,12 +289,19 @@ export class ConnectionService {
       .set({ status: 'CANCELLED', updatedAt: new Date() })
       .where(eq(connectionRequests.id, requestId));
 
-    this.eventPublisher.publishConnectionCancelled(senderId, req.receiverId, requestId);
+    this.eventPublisher.publishConnectionCancelled(
+      senderId,
+      req.receiverId,
+      requestId,
+    );
 
     return { message: 'Connection request cancelled' };
   }
 
-  async removeConnection(userId: string, targetUserId: string): Promise<{ message: string }> {
+  async removeConnection(
+    userId: string,
+    targetUserId: string,
+  ): Promise<{ message: string }> {
     if (userId === targetUserId) {
       throw new BadRequestException('Invalid target user');
     }
@@ -238,7 +311,9 @@ export class ConnectionService {
 
     const deleted = await this.db
       .delete(connections)
-      .where(and(eq(connections.userAId, minId), eq(connections.userBId, maxId)))
+      .where(
+        and(eq(connections.userAId, minId), eq(connections.userBId, maxId)),
+      )
       .returning();
 
     if (deleted.length === 0) {

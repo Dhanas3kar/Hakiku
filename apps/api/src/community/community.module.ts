@@ -15,11 +15,7 @@ import { NetworkingModule } from '../networking/networking.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [
-    ProfileModule,
-    NetworkingModule,
-    NotificationsModule,
-  ],
+  imports: [ProfileModule, NetworkingModule, NotificationsModule],
   controllers: [CommunityController],
   providers: [
     ConfessionService,

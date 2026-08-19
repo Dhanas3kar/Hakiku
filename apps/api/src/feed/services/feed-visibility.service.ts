@@ -9,7 +9,9 @@ export class FeedVisibilityService {
   private db;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -32,17 +34,23 @@ export class FeedVisibilityService {
       .where(inArray(users.id, authorIds));
 
     const activeAuthorIds = new Set(
-      authorUsers.filter((u: any) => u.status === 'ACTIVE').map((u: any) => u.id)
+      authorUsers
+        .filter((u: any) => u.status === 'ACTIVE')
+        .map((u: any) => u.id),
     );
 
-    const validStatusPosts = activePosts.filter((p) => activeAuthorIds.has(p.authorId));
+    const validStatusPosts = activePosts.filter((p) =>
+      activeAuthorIds.has(p.authorId),
+    );
     if (validStatusPosts.length === 0) return [];
 
     // 3. Fetch Blocked Author IDs involving viewer
     const blockRecords = await this.db
       .select()
       .from(blocks)
-      .where(or(eq(blocks.blockerId, viewerId), eq(blocks.blockedId, viewerId)));
+      .where(
+        or(eq(blocks.blockerId, viewerId), eq(blocks.blockedId, viewerId)),
+      );
 
     const blockedUserIds = new Set<string>();
     for (const b of blockRecords) {
@@ -51,13 +59,17 @@ export class FeedVisibilityService {
     }
 
     const unblockedPosts = validStatusPosts.filter(
-      (p) => p.authorId === viewerId || !blockedUserIds.has(p.authorId)
+      (p) => p.authorId === viewerId || !blockedUserIds.has(p.authorId),
     );
     if (unblockedPosts.length === 0) return [];
 
     // 4. Fetch Mutual Connections between viewer and non-self authors
     const nonSelfAuthorIds = Array.from(
-      new Set(unblockedPosts.filter((p) => p.authorId !== viewerId).map((p) => p.authorId))
+      new Set(
+        unblockedPosts
+          .filter((p) => p.authorId !== viewerId)
+          .map((p) => p.authorId),
+      ),
     );
 
     const connectedAuthorIds = new Set<string>();
@@ -70,9 +82,12 @@ export class FeedVisibilityService {
             ...nonSelfAuthorIds.map((aId) => {
               const uA = viewerId < aId ? viewerId : aId;
               const uB = viewerId < aId ? aId : viewerId;
-              return and(eq(connections.userAId, uA), eq(connections.userBId, uB));
-            })
-          )
+              return and(
+                eq(connections.userAId, uA),
+                eq(connections.userBId, uB),
+              );
+            }),
+          ),
         );
 
       for (const c of connRecords) {

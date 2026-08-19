@@ -16,9 +16,11 @@ export class LikesService {
 
   constructor(
     private readonly postAccessService: PostAccessService,
-    private readonly outboxService: NotificationOutboxService
+    private readonly outboxService: NotificationOutboxService,
   ) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -43,7 +45,11 @@ export class LikesService {
           })
           .where(eq(posts.id, postId));
 
-        const [post] = await tx.select({ authorId: posts.authorId }).from(posts).where(eq(posts.id, postId)).limit(1);
+        const [post] = await tx
+          .select({ authorId: posts.authorId })
+          .from(posts)
+          .where(eq(posts.id, postId))
+          .limit(1);
 
         if (post && post.authorId !== userId) {
           const eventId = `LIKE_${userId}_${postId}_${Date.now()}`;

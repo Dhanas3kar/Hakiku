@@ -1,4 +1,15 @@
-import { Controller, Post, Get, Patch, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  Req,
+} from '@nestjs/common';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
 import { ConversationService } from './services/conversation.service';
 import { MessageService } from './services/message.service';
@@ -18,24 +29,40 @@ export class MessagingController {
   ) {}
 
   @Post('conversations')
-  async createConversation(@Req() req: any, @Body('targetUserId') targetUserId: string) {
-    return this.conversationService.getOrCreateConversation(req.user.sub, targetUserId);
+  async createConversation(
+    @Req() req: any,
+    @Body('targetUserId') targetUserId: string,
+  ) {
+    return this.conversationService.getOrCreateConversation(
+      req.user.sub,
+      targetUserId,
+    );
   }
 
   @Get('conversations')
   async listConversations(
     @Req() req: any,
     @Query('cursorAt') cursorAt?: string,
-    @Query('limit') limit?: string
+    @Query('limit') limit?: string,
   ) {
-    return this.conversationService.listConversations(req.user.sub, cursorAt, limit ? parseInt(limit) : 20);
+    return this.conversationService.listConversations(
+      req.user.sub,
+      cursorAt,
+      limit ? parseInt(limit) : 20,
+    );
   }
 
   @Post('conversations/:conversationId/messages')
   async sendMessage(
     @Req() req: any,
     @Param('conversationId') conversationId: string,
-    @Body() dto: { content?: string, messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE', mediaKeys?: string[], replyToMessageId?: string }
+    @Body()
+    dto: {
+      content?: string;
+      messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE';
+      mediaKeys?: string[];
+      replyToMessageId?: string;
+    },
   ) {
     return this.messageService.sendMessage(req.user.sub, conversationId, dto);
   }
@@ -46,25 +73,28 @@ export class MessagingController {
     @Param('conversationId') conversationId: string,
     @Query('cursorAt') cursorAt?: string,
     @Query('cursorId') cursorId?: string,
-    @Query('limit') limit?: string
+    @Query('limit') limit?: string,
   ) {
-    return this.messageQueryService.listMessages(req.user.sub, conversationId, cursorAt, cursorId, limit ? parseInt(limit) : 50);
+    return this.messageQueryService.listMessages(
+      req.user.sub,
+      conversationId,
+      cursorAt,
+      cursorId,
+      limit ? parseInt(limit) : 50,
+    );
   }
 
   @Patch(':messageId')
   async editMessage(
     @Req() req: any,
     @Param('messageId') messageId: string,
-    @Body('content') content: string
+    @Body('content') content: string,
   ) {
     return this.messageService.editMessage(req.user.sub, messageId, content);
   }
 
   @Delete(':messageId')
-  async deleteMessage(
-    @Req() req: any,
-    @Param('messageId') messageId: string
-  ) {
+  async deleteMessage(@Req() req: any, @Param('messageId') messageId: string) {
     return this.messageService.deleteMessage(req.user.sub, messageId);
   }
 
@@ -72,9 +102,13 @@ export class MessagingController {
   async markAsRead(
     @Req() req: any,
     @Param('conversationId') conversationId: string,
-    @Body('messageId') messageId: string
+    @Body('messageId') messageId: string,
   ) {
-    return this.messageReadService.markAsRead(req.user.sub, conversationId, messageId);
+    return this.messageReadService.markAsRead(
+      req.user.sub,
+      conversationId,
+      messageId,
+    );
   }
 
   @Get('unread-count')
@@ -85,8 +119,12 @@ export class MessagingController {
   @Post('media/upload')
   async requestMediaUpload(
     @Req() req: any,
-    @Body() dto: { mimeType: string, fileSize: number }
+    @Body() dto: { mimeType: string; fileSize: number },
   ) {
-    return this.messageMediaService.requestMediaUpload(req.user.sub, dto.mimeType, dto.fileSize);
+    return this.messageMediaService.requestMediaUpload(
+      req.user.sub,
+      dto.mimeType,
+      dto.fileSize,
+    );
   }
 }

@@ -26,11 +26,15 @@ describe('FeedCursorService (Unit)', () => {
   });
 
   it('should throw BadRequestException for invalid Base64 string', () => {
-    expect(() => service.decode('not-a-valid-json')).toThrow(BadRequestException);
+    expect(() => service.decode('not-a-valid-json')).toThrow(
+      BadRequestException,
+    );
   });
 
   it('should throw BadRequestException for missing required cursor fields', () => {
-    const invalidPayload = Buffer.from(JSON.stringify({ score: 10 })).toString('base64');
+    const invalidPayload = Buffer.from(JSON.stringify({ score: 10 })).toString(
+      'base64',
+    );
     expect(() => service.decode(invalidPayload)).toThrow(BadRequestException);
   });
 });

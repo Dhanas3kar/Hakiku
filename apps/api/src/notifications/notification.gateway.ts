@@ -12,11 +12,18 @@ import { verifyWsClient } from '../auth/utils/ws-auth.util';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.ALLOWED_ORIGIN || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
+    origin: process.env.ALLOWED_ORIGIN || [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:3003',
+    ],
     credentials: true,
   },
 })
-export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
+export class NotificationGateway
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+{
   @WebSocketServer() server: Server;
   private readonly logger = new Logger(NotificationGateway.name);
 
@@ -32,7 +39,7 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, 
   async handleConnection(client: Socket) {
     try {
       const userId = await verifyWsClient(client, this.jwtService);
-      
+
       if (!userId) {
         client.disconnect();
         return;
@@ -67,7 +74,6 @@ export class NotificationGateway implements OnGatewayInit, OnGatewayConnection, 
       this.logger.debug(`Client disconnected: ${client.id} (User: ${userId})`);
     }
   }
-
 
   sendToUser(userId: string, event: string, data: any) {
     const sockets = this.userSockets.get(userId);

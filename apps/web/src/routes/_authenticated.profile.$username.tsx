@@ -4,6 +4,7 @@ import { profileApi } from '../api/profile'
 import { useAuth } from '../hooks/useAuth'
 import { ProfileHeader } from '../components/profile/ProfileHeader'
 import { ProfileDetails } from '../components/profile/ProfileDetails'
+import { ProfilePosts } from '../components/profile/ProfilePosts'
 import { Loader2 } from 'lucide-react'
 
 export const Route = createFileRoute('/_authenticated/profile/$username')({
@@ -45,6 +46,7 @@ function ProfilePage() {
     <div className="flex w-full flex-col gap-6 pb-12">
       <ProfileHeader profile={profile} isOwnProfile={isOwnProfile} />
       <ProfileDetails profile={profile} isOwnProfile={isOwnProfile} />
+      <ProfilePosts profile={profile} isOwnProfile={isOwnProfile} />
     </div>
   )
 }

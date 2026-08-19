@@ -1,5 +1,9 @@
 import { db } from '../../db/index';
-import { Injectable, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { eq, ilike } from 'drizzle-orm';
 import { interests } from '../../db/schema';
 import * as schema from '../../db/schema';
@@ -9,7 +13,9 @@ export class InterestsService {
   private db;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -29,7 +35,9 @@ export class InterestsService {
 
   async createInterest(name: string, userRole: string, category?: string) {
     if (userRole !== 'ADMIN' && userRole !== 'MODERATOR') {
-      throw new ForbiddenException('Only admins and moderators are authorized to create new interests');
+      throw new ForbiddenException(
+        'Only admins and moderators are authorized to create new interests',
+      );
     }
 
     const normalizedName = name.trim().toLowerCase();
@@ -46,7 +54,9 @@ export class InterestsService {
       return inserted;
     } catch (err: any) {
       if (err.code === '23505' || err.cause?.code === '23505') {
-        throw new ConflictException(`Interest '${normalizedName}' already exists`);
+        throw new ConflictException(
+          `Interest '${normalizedName}' already exists`,
+        );
       }
       throw err;
     }

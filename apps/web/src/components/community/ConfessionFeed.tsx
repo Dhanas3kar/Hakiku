@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { communityApi } from '../../api/community'
 import type { Confession } from '../../api/community'
 import { ConfessionComposer } from './ConfessionComposer'
 import { useIntersectionObserver } from 'usehooks-ts'
 import { formatDistanceToNow } from 'date-fns'
-import { Loader2, MoreHorizontal, Flag } from 'lucide-react'
+import { Loader2, MoreHorizontal, Flag, Trash2 } from 'lucide-react'
 import { ReportDialog } from './ReportDialog'
 
 export function ConfessionFeed() {
@@ -69,6 +69,15 @@ export function ConfessionFeed() {
 function ConfessionCard({ confession }: { confession: Confession }) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  
+  const queryClient = useQueryClient()
+  
+  const deleteMutation = useMutation({
+    mutationFn: () => communityApi.deleteConfession(confession.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['confessions'] })
+    }
+  })
 
   return (
     <>
@@ -76,7 +85,7 @@ function ConfessionCard({ confession }: { confession: Confession }) {
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="font-bold text-foreground">Anonymous</span>
-            <span className="text-xs text-foreground-muted">• {formatDistanceToNow(new Date(confession.createdAt))} ago</span>
+            <span className="text-xs text-foreground-muted">• {formatDistanceToNow(new Date(confession.publishedAt || confession.createdAt || new Date()))} ago</span>
           </div>
           
           <div className="relative ml-4">
@@ -101,6 +110,18 @@ function ConfessionCard({ confession }: { confession: Confession }) {
                     <Flag className="h-4 w-4" />
                     Report Confession
                   </button>
+                  {confession.isAuthor && (
+                    <button 
+                      onClick={() => {
+                        deleteMutation.mutate()
+                        setDropdownOpen(false)
+                      }}
+                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-surface-muted transition-colors text-left"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete Confession
+                    </button>
+                  )}
                 </div>
               </>
             )}

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { profileApi } from '../../api/profile'
 import type { UserProfile } from '../../api/profile'
 import { X } from 'lucide-react'
+import { TagSelect } from './TagSelect'
 
 interface Props {
   profile: UserProfile
@@ -16,7 +17,13 @@ export function EditProfileModal({ profile, onClose }: Props) {
     department: profile.department || '',
     batch: profile.batch || '',
     bio: profile.bio || '',
+    skillIds: profile.skills?.map((s) => s.id) || [],
+    interestIds: profile.interests?.map((i) => i.id) || [],
   })
+
+  const handleTagsChange = (field: 'skillIds' | 'interestIds', ids: string[]) => {
+    setFormData((prev) => ({ ...prev, [field]: ids }))
+  }
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<UserProfile>) => profileApi.updateMe(data),
@@ -117,6 +124,30 @@ export function EditProfileModal({ profile, onClose }: Props) {
                 disabled={updateMutation.isPending}
               />
             </div>
+            
+            <TagSelect
+              label="Skills"
+              placeholder="Search skills (e.g. React, TypeScript)..."
+              selectedIds={formData.skillIds}
+              initialTags={profile.skills?.map(s => ({ id: s.id, name: s.name, category: s.category }))}
+              onChange={(ids) => handleTagsChange('skillIds', ids)}
+              fetchFn={async (query) => {
+                const res = await profileApi.searchSkills(query, 5)
+                return res.map((s: any) => ({ id: s.id, name: s.name, category: s.category }))
+              }}
+            />
+
+            <TagSelect
+              label="Interests"
+              placeholder="Search interests (e.g. Web Development, AI)..."
+              selectedIds={formData.interestIds}
+              initialTags={profile.interests?.map(i => ({ id: i.id, name: i.name, category: i.category }))}
+              onChange={(ids) => handleTagsChange('interestIds', ids)}
+              fetchFn={async (query) => {
+                const res = await profileApi.searchInterests(query, 5)
+                return res.map((i: any) => ({ id: i.id, name: i.name, category: i.category }))
+              }}
+            />
             
             {updateMutation.isError && (
               <p className="text-sm text-danger" role="alert">

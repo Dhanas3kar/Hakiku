@@ -1,4 +1,13 @@
-import { Controller, Post, Get, Body, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Req,
+  Res,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
 import { AuthService } from './auth.service';
 
@@ -29,9 +38,19 @@ export class AuthController {
 
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
-  async verifyOtp(@Body() body: VerifyOtpDto, @Req() req: any, @Res({ passthrough: true }) res: any) {
+  async verifyOtp(
+    @Body() body: VerifyOtpDto,
+    @Req() req: any,
+    @Res({ passthrough: true }) res: any,
+  ) {
     const userAgent = req.headers['user-agent'] as string;
-    const { accessToken, refreshToken, familyId } = await this.authService.verifyOtp(body.email, body.otp, req.ip || '127.0.0.1', userAgent);
+    const { accessToken, refreshToken, familyId } =
+      await this.authService.verifyOtp(
+        body.email,
+        body.otp,
+        req.ip || '127.0.0.1',
+        userAgent,
+      );
 
     this.setCookies(res, accessToken, refreshToken, familyId);
     return { message: 'Logged in successfully' };
@@ -50,8 +69,18 @@ export class AuthController {
     const familyId = req.cookies['family_id'];
     const userAgent = req.headers['user-agent'] as string;
 
-    const tokens = await this.authService.refresh(refreshToken, familyId, req.ip || '127.0.0.1', userAgent);
-    this.setCookies(res, tokens.accessToken, tokens.refreshToken, tokens.familyId);
+    const tokens = await this.authService.refresh(
+      refreshToken,
+      familyId,
+      req.ip || '127.0.0.1',
+      userAgent,
+    );
+    this.setCookies(
+      res,
+      tokens.accessToken,
+      tokens.refreshToken,
+      tokens.familyId,
+    );
     return { message: 'Token refreshed successfully' };
   }
 
@@ -67,7 +96,12 @@ export class AuthController {
     return { message: 'Logged out successfully' };
   }
 
-  private setCookies(res: any, accessToken: string, refreshToken: string, familyId: string) {
+  private setCookies(
+    res: any,
+    accessToken: string,
+    refreshToken: string,
+    familyId: string,
+  ) {
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -75,8 +109,17 @@ export class AuthController {
       path: '/',
     };
 
-    res.setCookie('access_token', accessToken, { ...cookieOptions, maxAge: 15 * 60 }); // 15 mins
-    res.setCookie('refresh_token', refreshToken, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 }); // 30 days
-    res.setCookie('family_id', familyId, { ...cookieOptions, maxAge: 30 * 24 * 60 * 60 }); // 30 days
+    res.setCookie('access_token', accessToken, {
+      ...cookieOptions,
+      maxAge: 15 * 60,
+    }); // 15 mins
+    res.setCookie('refresh_token', refreshToken, {
+      ...cookieOptions,
+      maxAge: 30 * 24 * 60 * 60,
+    }); // 30 days
+    res.setCookie('family_id', familyId, {
+      ...cookieOptions,
+      maxAge: 30 * 24 * 60 * 60,
+    }); // 30 days
   }
 }
