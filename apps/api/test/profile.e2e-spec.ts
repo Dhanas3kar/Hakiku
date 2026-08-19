@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HttpStatus } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
@@ -82,45 +85,104 @@ describe('Profile Module (e2e)', () => {
     // 3. Create Users
     const [uA] = await db
       .insert(users)
-      .values({ email: 'usera_prof@srmist.edu.in', isVerified: true, status: 'ACTIVE', role: 'STUDENT' })
+      .values({
+        email: 'usera_prof@srmist.edu.in',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'STUDENT',
+      })
       .returning();
     const [uB] = await db
       .insert(users)
-      .values({ email: 'userb_prof@srmist.edu.in', isVerified: true, status: 'ACTIVE', role: 'STUDENT' })
+      .values({
+        email: 'userb_prof@srmist.edu.in',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'STUDENT',
+      })
       .returning();
     const [uC] = await db
       .insert(users)
-      .values({ email: 'userc_prof@srmist.edu.in', isVerified: true, status: 'SUSPENDED', role: 'STUDENT' })
+      .values({
+        email: 'userc_prof@srmist.edu.in',
+        isVerified: true,
+        status: 'SUSPENDED',
+        role: 'STUDENT',
+      })
       .returning();
     const [uD] = await db
       .insert(users)
-      .values({ email: 'admind_prof@srmist.edu.in', isVerified: true, status: 'ACTIVE', role: 'ADMIN' })
+      .values({
+        email: 'admind_prof@srmist.edu.in',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'ADMIN',
+      })
       .returning();
 
-    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed' });
+    jwtService = new JwtService({
+      secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
+    });
 
-    studentA = { id: uA.id, email: uA.email, token: await jwtService.signAsync({ sub: uA.id, email: uA.email, role: uA.role }) };
-    studentB = { id: uB.id, email: uB.email, token: await jwtService.signAsync({ sub: uB.id, email: uB.email, role: uB.role }) };
-    suspendedC = { id: uC.id, email: uC.email, token: await jwtService.signAsync({ sub: uC.id, email: uC.email, role: uC.role }) };
-    adminD = { id: uD.id, email: uD.email, token: await jwtService.signAsync({ sub: uD.id, email: uD.email, role: uD.role }) };
+    studentA = {
+      id: uA.id,
+      email: uA.email,
+      token: await jwtService.signAsync({
+        sub: uA.id,
+        email: uA.email,
+        role: uA.role,
+      }),
+    };
+    studentB = {
+      id: uB.id,
+      email: uB.email,
+      token: await jwtService.signAsync({
+        sub: uB.id,
+        email: uB.email,
+        role: uB.role,
+      }),
+    };
+    suspendedC = {
+      id: uC.id,
+      email: uC.email,
+      token: await jwtService.signAsync({
+        sub: uC.id,
+        email: uC.email,
+        role: uC.role,
+      }),
+    };
+    adminD = {
+      id: uD.id,
+      email: uD.email,
+      token: await jwtService.signAsync({
+        sub: uD.id,
+        email: uD.email,
+        role: uD.role,
+      }),
+    };
 
     // 4. Initialize Application
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
+    app = moduleFixture.createNestApplication<NestFastifyApplication>(
+      new FastifyAdapter(),
+    );
 
     await app.register(fastifyCookie, { secret: 'test-secret' });
     await app.register(fastifyCsrf, { cookieOpts: { signed: true } });
 
-    app.getHttpAdapter().getInstance().addContentTypeParser(
-      ['image/jpeg', 'image/png', 'image/webp', 'application/octet-stream'],
-      { parseAs: 'buffer' },
-      (_req: any, payload: any, done: any) => {
-        done(null, payload);
-      }
-    );
+    app
+      .getHttpAdapter()
+      .getInstance()
+      .addContentTypeParser(
+        ['image/jpeg', 'image/png', 'image/webp', 'application/octet-stream'],
+        { parseAs: 'buffer' },
+        (_req: any, payload: any, done: any) => {
+          done(null, payload);
+        },
+      );
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -287,7 +349,9 @@ describe('Profile Module (e2e)', () => {
 
     it('should upload valid JPEG avatar and update profile completion percentage', async () => {
       // Valid JPEG header bytes (FF D8 FF E0)
-      const validJpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+      const validJpegBuffer = Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46,
+      ]);
       const res = await request(app.getHttpServer())
         .post('/profile/me/avatar')
         .set('Authorization', `Bearer ${studentA.token}`)

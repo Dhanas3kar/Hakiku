@@ -15,7 +15,11 @@ import { ConnectionService } from './services/connection.service';
 import { BlockService } from './services/block.service';
 import { NetworkingQueryService } from './services/networking-query.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { PaginationQueryDto, TargetUserParamDto, RequestIdParamDto } from './dto/networking.dto';
+import {
+  PaginationQueryDto,
+  TargetUserParamDto,
+  RequestIdParamDto,
+} from './dto/networking.dto';
 
 @Controller('networking')
 @UseGuards(JwtAuthGuard)
@@ -24,7 +28,7 @@ export class NetworkingController {
     private readonly followService: FollowService,
     private readonly connectionService: ConnectionService,
     private readonly blockService: BlockService,
-    private readonly queryService: NetworkingQueryService
+    private readonly queryService: NetworkingQueryService,
   ) {}
 
   // --- FOLLOW ENDPOINTS ---
@@ -42,12 +46,18 @@ export class NetworkingController {
   }
 
   @Get('followers/:userId')
-  async getFollowers(@Param('userId') userId: string, @Query() query: PaginationQueryDto) {
+  async getFollowers(
+    @Param('userId') userId: string,
+    @Query() query: PaginationQueryDto,
+  ) {
     return this.queryService.getFollowers(userId, query.limit, query.cursor);
   }
 
   @Get('following/:userId')
-  async getFollowing(@Param('userId') userId: string, @Query() query: PaginationQueryDto) {
+  async getFollowing(
+    @Param('userId') userId: string,
+    @Query() query: PaginationQueryDto,
+  ) {
     return this.queryService.getFollowing(userId, query.limit, query.cursor);
   }
 
@@ -55,47 +65,92 @@ export class NetworkingController {
 
   @Post('connections/request/:targetUserId')
   @HttpCode(HttpStatus.OK)
-  async sendConnectionRequest(@Req() req: any, @Param() params: TargetUserParamDto) {
-    return this.connectionService.sendConnectionRequest(req.user.sub, params.targetUserId);
+  async sendConnectionRequest(
+    @Req() req: any,
+    @Param() params: TargetUserParamDto,
+  ) {
+    return this.connectionService.sendConnectionRequest(
+      req.user.sub,
+      params.targetUserId,
+    );
   }
 
   @Post('connections/accept/:requestId')
   @HttpCode(HttpStatus.OK)
-  async acceptConnectionRequest(@Req() req: any, @Param() params: RequestIdParamDto) {
-    return this.connectionService.acceptConnectionRequest(req.user.sub, params.requestId);
+  async acceptConnectionRequest(
+    @Req() req: any,
+    @Param() params: RequestIdParamDto,
+  ) {
+    return this.connectionService.acceptConnectionRequest(
+      req.user.sub,
+      params.requestId,
+    );
   }
 
   @Post('connections/reject/:requestId')
   @HttpCode(HttpStatus.OK)
-  async rejectConnectionRequest(@Req() req: any, @Param() params: RequestIdParamDto) {
-    return this.connectionService.rejectConnectionRequest(req.user.sub, params.requestId);
+  async rejectConnectionRequest(
+    @Req() req: any,
+    @Param() params: RequestIdParamDto,
+  ) {
+    return this.connectionService.rejectConnectionRequest(
+      req.user.sub,
+      params.requestId,
+    );
   }
 
   @Delete('connections/request/:requestId')
   @HttpCode(HttpStatus.OK)
-  async cancelConnectionRequest(@Req() req: any, @Param() params: RequestIdParamDto) {
-    return this.connectionService.cancelConnectionRequest(req.user.sub, params.requestId);
+  async cancelConnectionRequest(
+    @Req() req: any,
+    @Param() params: RequestIdParamDto,
+  ) {
+    return this.connectionService.cancelConnectionRequest(
+      req.user.sub,
+      params.requestId,
+    );
   }
 
   @Delete('connections/:targetUserId')
   @HttpCode(HttpStatus.OK)
   async removeConnection(@Req() req: any, @Param() params: TargetUserParamDto) {
-    return this.connectionService.removeConnection(req.user.sub, params.targetUserId);
+    return this.connectionService.removeConnection(
+      req.user.sub,
+      params.targetUserId,
+    );
   }
 
   @Get('connections')
   async getConnections(@Req() req: any, @Query() query: PaginationQueryDto) {
-    return this.queryService.getConnections(req.user.sub, query.limit, query.cursor);
+    return this.queryService.getConnections(
+      req.user.sub,
+      query.limit,
+      query.cursor,
+    );
   }
 
   @Get('connections/requests/pending')
-  async getPendingIncomingRequests(@Req() req: any, @Query() query: PaginationQueryDto) {
-    return this.queryService.getPendingIncomingRequests(req.user.sub, query.limit, query.cursor);
+  async getPendingIncomingRequests(
+    @Req() req: any,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.queryService.getPendingIncomingRequests(
+      req.user.sub,
+      query.limit,
+      query.cursor,
+    );
   }
 
   @Get('connections/requests/sent')
-  async getPendingOutgoingRequests(@Req() req: any, @Query() query: PaginationQueryDto) {
-    return this.queryService.getPendingOutgoingRequests(req.user.sub, query.limit, query.cursor);
+  async getPendingOutgoingRequests(
+    @Req() req: any,
+    @Query() query: PaginationQueryDto,
+  ) {
+    return this.queryService.getPendingOutgoingRequests(
+      req.user.sub,
+      query.limit,
+      query.cursor,
+    );
   }
 
   // --- BLOCK ENDPOINTS ---
@@ -114,13 +169,23 @@ export class NetworkingController {
 
   @Get('blocks')
   async getBlockedUsers(@Req() req: any, @Query() query: PaginationQueryDto) {
-    return this.queryService.getBlockedUsers(req.user.sub, query.limit, query.cursor);
+    return this.queryService.getBlockedUsers(
+      req.user.sub,
+      query.limit,
+      query.cursor,
+    );
   }
 
   // --- RELATIONSHIP STATUS ENDPOINT ---
 
   @Get('status/:targetUserId')
-  async getRelationshipStatus(@Req() req: any, @Param() params: TargetUserParamDto) {
-    return this.queryService.getRelationshipStatus(req.user.sub, params.targetUserId);
+  async getRelationshipStatus(
+    @Req() req: any,
+    @Param() params: TargetUserParamDto,
+  ) {
+    return this.queryService.getRelationshipStatus(
+      req.user.sub,
+      params.targetUserId,
+    );
   }
 }

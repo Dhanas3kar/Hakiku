@@ -15,7 +15,10 @@ export interface ValidatedMediaResult {
 }
 
 export class MediaValidator {
-  public static validate(buffer: Buffer, mimeType: string): ValidatedMediaResult {
+  public static validate(
+    buffer: Buffer,
+    mimeType: string,
+  ): ValidatedMediaResult {
     if (!buffer || buffer.length === 0) {
       throw new BadRequestException('Media file buffer cannot be empty');
     }
@@ -24,15 +27,28 @@ export class MediaValidator {
 
     if (ALLOWED_IMAGE_MIMES.includes(normalizedMime)) {
       if (buffer.length > IMAGE_MAX_SIZE) {
-        throw new BadRequestException('Image size exceeds maximum allowed limit of 10MB');
+        throw new BadRequestException(
+          'Image size exceeds maximum allowed limit of 10MB',
+        );
       }
 
-      const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-      const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
-      const isWebp = buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46;
+      const isJpeg =
+        buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+      const isPng =
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47;
+      const isWebp =
+        buffer[0] === 0x52 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x46;
 
       if (!isJpeg && !isPng && !isWebp) {
-        throw new BadRequestException('Invalid image header signature or corrupted file');
+        throw new BadRequestException(
+          'Invalid image header signature or corrupted file',
+        );
       }
 
       return {
@@ -44,7 +60,9 @@ export class MediaValidator {
 
     if (ALLOWED_VIDEO_MIMES.includes(normalizedMime)) {
       if (buffer.length > VIDEO_MAX_SIZE) {
-        throw new BadRequestException('Video size exceeds maximum allowed limit of 50MB');
+        throw new BadRequestException(
+          'Video size exceeds maximum allowed limit of 50MB',
+        );
       }
 
       const isMp4 =
@@ -62,7 +80,9 @@ export class MediaValidator {
         buffer[3] === 0xa3; // EBML
 
       if (!isMp4 && !isWebm) {
-        throw new BadRequestException('Invalid video header signature or corrupted video file');
+        throw new BadRequestException(
+          'Invalid video header signature or corrupted video file',
+        );
       }
 
       return {
@@ -73,7 +93,7 @@ export class MediaValidator {
     }
 
     throw new BadRequestException(
-      `Unsupported media MIME type ${mimeType}. Allowed formats: JPEG, PNG, WEBP, MP4, WEBM`
+      `Unsupported media MIME type ${mimeType}. Allowed formats: JPEG, PNG, WEBP, MP4, WEBM`,
     );
   }
 }

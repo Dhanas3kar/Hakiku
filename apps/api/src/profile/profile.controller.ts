@@ -13,7 +13,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { ProfileService } from './services/profile.service';
-import { CreateProfileDto, UpdateProfileDto, SearchProfilesQueryDto } from './dto/profile.dto';
+import {
+  CreateProfileDto,
+  UpdateProfileDto,
+  SearchProfilesQueryDto,
+} from './dto/profile.dto';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
 import type { FastifyRequest } from 'fastify';
 
@@ -55,7 +59,11 @@ export class ProfileController {
     }
     const mimeType = (req.headers['content-type'] as string) || 'image/jpeg';
 
-    return this.profileService.uploadAvatar((req as any).user.sub, buffer, mimeType);
+    return this.profileService.uploadAvatar(
+      (req as any).user.sub,
+      buffer,
+      mimeType,
+    );
   }
 
   @Post('me/cover')
@@ -75,16 +83,26 @@ export class ProfileController {
     }
     const mimeType = (req.headers['content-type'] as string) || 'image/jpeg';
 
-    return this.profileService.uploadCover((req as any).user.sub, buffer, mimeType);
+    return this.profileService.uploadCover(
+      (req as any).user.sub,
+      buffer,
+      mimeType,
+    );
   }
 
   @Get('search')
-  async searchProfiles(@Req() req: any, @Query() query: SearchProfilesQueryDto) {
+  async searchProfiles(
+    @Req() req: any,
+    @Query() query: SearchProfilesQueryDto,
+  ) {
     return this.profileService.searchProfiles(req.user.sub, query);
   }
 
   @Get('username/:username')
-  async getProfileByUsername(@Req() req: any, @Param('username') username: string) {
+  async getProfileByUsername(
+    @Req() req: any,
+    @Param('username') username: string,
+  ) {
     return this.profileService.getProfileByUsername(req.user.sub, username);
   }
 

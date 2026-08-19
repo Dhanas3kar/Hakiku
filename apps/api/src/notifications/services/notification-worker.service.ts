@@ -1,14 +1,25 @@
 import { db } from '../../db/index';
-import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  OnModuleDestroy,
+  Logger,
+} from '@nestjs/common';
 import { eq, sql, and, lte, or, inArray } from 'drizzle-orm';
-import { notificationOutbox, notifications, notificationEvents } from '../../db/schema';
+import {
+  notificationOutbox,
+  notifications,
+  notificationEvents,
+} from '../../db/schema';
 import * as schema from '../../db/schema';
 import { NotificationPrivacyService } from './notification-privacy.service';
 import { NotificationPreferenceService } from './notification-preference.service';
 import { NotificationGateway } from '../notification.gateway';
 
 @Injectable()
-export class NotificationWorkerService implements OnModuleInit, OnModuleDestroy {
+export class NotificationWorkerService
+  implements OnModuleInit, OnModuleDestroy
+{
   private readonly logger = new Logger(NotificationWorkerService.name);
   private db;
   private isRunning = false;
@@ -17,9 +28,11 @@ export class NotificationWorkerService implements OnModuleInit, OnModuleDestroy 
   constructor(
     private readonly privacyService: NotificationPrivacyService,
     private readonly preferenceService: NotificationPreferenceService,
-    private readonly gateway: NotificationGateway
+    private readonly gateway: NotificationGateway,
   ) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -53,7 +66,7 @@ export class NotificationWorkerService implements OnModuleInit, OnModuleDestroy 
             ORDER BY created_at ASC
             LIMIT 50
             FOR UPDATE SKIP LOCKED
-          `
+          `,
         );
 
         if (pendingEvents.length === 0) return;
@@ -69,21 +82,25 @@ export class NotificationWorkerService implements OnModuleInit, OnModuleDestroy 
         for (const outboxEvent of pendingEvents) {
           try {
             await this.handleEvent(tx, outboxEvent);
-            
+
             // Mark as PROCESSED
             await tx
               .update(notificationOutbox)
               .set({ status: 'PROCESSED', updatedAt: new Date() })
               .where(eq(notificationOutbox.id, outboxEvent.id));
-              
           } catch (err: any) {
-            this.logger.error(`Failed to process outbox event ${outboxEvent.id}`, err.stack);
-            
+            this.logger.error(
+              `Failed to process outbox event ${outboxEvent.id}`,
+              err.stack,
+            );
+
             const attempts = outboxEvent.attempts + 1;
             const status = attempts >= 5 ? 'FAILED' : 'PENDING';
             // Exponential backoff: 2^attempts * 30 seconds
-            const nextAvailable = new Date(Date.now() + Math.pow(2, attempts) * 30000);
-            
+            const nextAvailable = new Date(
+              Date.now() + Math.pow(2, attempts) * 30000,
+            );
+
             await tx
               .update(notificationOutbox)
               .set({
@@ -91,7 +108,7 @@ export class NotificationWorkerService implements OnModuleInit, OnModuleDestroy 
                 attempts,
                 lastError: err.message || 'Unknown error',
                 availableAt: nextAvailable,
-                updatedAt: new Date()
+                updatedAt: new Date(),
               })
               .where(eq(notificationOutbox.id, outboxEvent.id));
           }
@@ -124,13 +141,19 @@ export class NotificationWorkerService implements OnModuleInit, OnModuleDestroy 
 
     // Evaluate block privacy
     if (recipientId && actorId && recipientId !== actorId) {
-      const canDeliver = await this.privacyService.canDeliverNotification(recipientId, actorId);
+      const canDeliver = await this.privacyService.canDeliverNotification(
+        recipientId,
+        actorId,
+      );
       if (!canDeliver) return; // Drop silently
     }
 
     // Evaluate preferences
     if (recipientId) {
-      const shouldDeliver = await this.preferenceService.shouldDeliverInApp(recipientId, type);
+      const shouldDeliver = await this.preferenceService.shouldDeliverInApp(
+        recipientId,
+        type,
+      );
       if (!shouldDeliver) return; // Drop silently
     }
 

@@ -25,6 +25,12 @@ import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
     LocalStorageProvider,
     JwtAuthGuard,
   ],
-  exports: [PostsService, PostAccessService, PostMediaService, LikesService, CommentsService],
+  exports: [
+    PostsService,
+    PostAccessService,
+    PostMediaService,
+    LikesService,
+    CommentsService,
+  ],
 })
 export class PostsModule {}

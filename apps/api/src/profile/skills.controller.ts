@@ -26,6 +26,10 @@ export class SkillsController {
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createSkill(@Req() req: any, @Body() dto: CreateSkillDto) {
-    return this.skillsService.createSkill(dto.name, req.user.role, dto.category);
+    return this.skillsService.createSkill(
+      dto.name,
+      req.user.role,
+      dto.category,
+    );
   }
 }

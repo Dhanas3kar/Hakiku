@@ -1,4 +1,10 @@
-import { Injectable, Inject, UnauthorizedException, HttpException, HttpStatus } from '@nestjs/common';
+import {
+  Injectable,
+  Inject,
+  UnauthorizedException,
+  HttpException,
+  HttpStatus,
+} from '@nestjs/common';
 import Redis from 'ioredis';
 import { createHmac, randomInt } from 'crypto';
 
@@ -18,7 +24,10 @@ export class OtpService {
     const cooldownKey = `auth:cooldown:${email}`;
     const exists = await this.redis.get(cooldownKey);
     if (exists) {
-      throw new HttpException('Please wait 60 seconds before requesting another OTP', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Please wait 60 seconds before requesting another OTP',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const rateLimitKey = `auth:rate_limit:otp_requests:${email}`;
@@ -27,15 +36,18 @@ export class OtpService {
       await this.redis.expire(rateLimitKey, 600); // 10 minutes
     }
     if (requests > 3) {
-      throw new HttpException('Too many OTP requests. Please try again in 10 minutes.', HttpStatus.TOO_MANY_REQUESTS);
+      throw new HttpException(
+        'Too many OTP requests. Please try again in 10 minutes.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const otp = randomInt(100000, 999999).toString();
     const hashedOtp = this.hashOtp(otp);
-    
+
     const otpKey = `auth:otp:${email}`;
     await this.redis.set(otpKey, hashedOtp, 'EX', this.OTP_TTL);
-    
+
     // Set 60s cooldown
     await this.redis.set(cooldownKey, '1', 'EX', 60);
 
@@ -48,7 +60,7 @@ export class OtpService {
     if (attempts === 1) {
       await this.redis.expire(attemptsKey, this.OTP_TTL);
     }
-    
+
     if (attempts > this.MAX_ATTEMPTS) {
       await this.redis.del(`auth:otp:${email}`);
       throw new UnauthorizedException('Too many failed attempts. OTP revoked.');

@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HttpStatus } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
@@ -84,23 +87,48 @@ describe('Posts Module (e2e)', () => {
     // Create Users
     const [uA] = await db
       .insert(users)
-      .values({ email: 'usera_posts@srmist.edu.in', isVerified: true, status: 'ACTIVE', role: 'STUDENT' })
+      .values({
+        email: 'usera_posts@srmist.edu.in',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'STUDENT',
+      })
       .returning();
     const [uB] = await db
       .insert(users)
-      .values({ email: 'userb_posts@srmist.edu.in', isVerified: true, status: 'ACTIVE', role: 'STUDENT' })
+      .values({
+        email: 'userb_posts@srmist.edu.in',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'STUDENT',
+      })
       .returning();
     const [uC] = await db
       .insert(users)
-      .values({ email: 'userc_posts@srmist.edu.in', isVerified: true, status: 'ACTIVE', role: 'STUDENT' })
+      .values({
+        email: 'userc_posts@srmist.edu.in',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'STUDENT',
+      })
       .returning();
     const [uD] = await db
       .insert(users)
-      .values({ email: 'userd_suspended@srmist.edu.in', isVerified: true, status: 'SUSPENDED', role: 'STUDENT' })
+      .values({
+        email: 'userd_suspended@srmist.edu.in',
+        isVerified: true,
+        status: 'SUSPENDED',
+        role: 'STUDENT',
+      })
       .returning();
     const [uE] = await db
       .insert(users)
-      .values({ email: 'usere_banned@srmist.edu.in', isVerified: true, status: 'BANNED', role: 'STUDENT' })
+      .values({
+        email: 'usere_banned@srmist.edu.in',
+        isVerified: true,
+        status: 'BANNED',
+        role: 'STUDENT',
+      })
       .returning();
 
     // Create Profiles
@@ -143,31 +171,85 @@ describe('Posts Module (e2e)', () => {
     const userBId = uA.id < uB.id ? uB.id : uA.id;
     await db.insert(connections).values({ userAId, userBId });
 
-    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed' });
+    jwtService = new JwtService({
+      secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
+    });
 
-    studentA = { id: uA.id, email: uA.email, token: await jwtService.signAsync({ sub: uA.id, email: uA.email, role: uA.role }) };
-    studentB = { id: uB.id, email: uB.email, token: await jwtService.signAsync({ sub: uB.id, email: uB.email, role: uB.role }) };
-    studentC = { id: uC.id, email: uC.email, token: await jwtService.signAsync({ sub: uC.id, email: uC.email, role: uC.role }) };
-    suspendedD = { id: uD.id, email: uD.email, token: await jwtService.signAsync({ sub: uD.id, email: uD.email, role: uD.role }) };
-    bannedE = { id: uE.id, email: uE.email, token: await jwtService.signAsync({ sub: uE.id, email: uE.email, role: uE.role }) };
+    studentA = {
+      id: uA.id,
+      email: uA.email,
+      token: await jwtService.signAsync({
+        sub: uA.id,
+        email: uA.email,
+        role: uA.role,
+      }),
+    };
+    studentB = {
+      id: uB.id,
+      email: uB.email,
+      token: await jwtService.signAsync({
+        sub: uB.id,
+        email: uB.email,
+        role: uB.role,
+      }),
+    };
+    studentC = {
+      id: uC.id,
+      email: uC.email,
+      token: await jwtService.signAsync({
+        sub: uC.id,
+        email: uC.email,
+        role: uC.role,
+      }),
+    };
+    suspendedD = {
+      id: uD.id,
+      email: uD.email,
+      token: await jwtService.signAsync({
+        sub: uD.id,
+        email: uD.email,
+        role: uD.role,
+      }),
+    };
+    bannedE = {
+      id: uE.id,
+      email: uE.email,
+      token: await jwtService.signAsync({
+        sub: uE.id,
+        email: uE.email,
+        role: uE.role,
+      }),
+    };
 
     // App init
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
+    app = moduleFixture.createNestApplication<NestFastifyApplication>(
+      new FastifyAdapter(),
+    );
 
     await app.register(fastifyCookie, { secret: 'test-secret' });
     await app.register(fastifyCsrf, { cookieOpts: { signed: true } });
 
-    app.getHttpAdapter().getInstance().addContentTypeParser(
-      ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/webm', 'application/octet-stream'],
-      { parseAs: 'buffer' },
-      (_req: any, payload: any, done: any) => {
-        done(null, payload);
-      }
-    );
+    app
+      .getHttpAdapter()
+      .getInstance()
+      .addContentTypeParser(
+        [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'video/mp4',
+          'video/webm',
+          'application/octet-stream',
+        ],
+        { parseAs: 'buffer' },
+        (_req: any, payload: any, done: any) => {
+          done(null, payload);
+        },
+      );
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -200,7 +282,10 @@ describe('Posts Module (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/posts')
         .set('Authorization', `Bearer ${studentA.token}`)
-        .send({ content: 'First public announcement from Student A', visibility: 'PUBLIC' });
+        .send({
+          content: 'First public announcement from Student A',
+          visibility: 'PUBLIC',
+        });
       expect(res.status).toBe(HttpStatus.CREATED);
       expect(res.body.content).toBe('First public announcement from Student A');
       expect(res.body.visibility).toBe('PUBLIC');
@@ -208,7 +293,9 @@ describe('Posts Module (e2e)', () => {
     });
 
     it('should upload valid media attachment for Student A', async () => {
-      const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46]);
+      const jpegBuffer = Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46,
+      ]);
       const res = await request(app.getHttpServer())
         .post('/posts/media/upload')
         .set('Authorization', `Bearer ${studentA.token}`)
@@ -231,7 +318,10 @@ describe('Posts Module (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/posts')
         .set('Authorization', `Bearer ${studentA.token}`)
-        .send({ content: 'Exclusive connections update', visibility: 'CONNECTIONS_ONLY' });
+        .send({
+          content: 'Exclusive connections update',
+          visibility: 'CONNECTIONS_ONLY',
+        });
       expect(res.status).toBe(HttpStatus.CREATED);
       postConnId = res.body.id;
     });

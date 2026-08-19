@@ -6,11 +6,22 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { eq, and, or, sql, desc, lt } from 'drizzle-orm';
-import { posts, postLikes, profiles, users, blocks, connections } from '../../db/schema';
+import {
+  posts,
+  postLikes,
+  profiles,
+  users,
+  blocks,
+  connections,
+} from '../../db/schema';
 import * as schema from '../../db/schema';
 import { PostAccessService } from './post-access.service';
 import { PostMediaService } from './post-media.service';
-import { CreatePostDto, UpdatePostDto, UserPostsQueryDto } from '../dto/posts.dto';
+import {
+  CreatePostDto,
+  UpdatePostDto,
+  UserPostsQueryDto,
+} from '../dto/posts.dto';
 
 @Injectable()
 export class PostsService {
@@ -18,9 +29,11 @@ export class PostsService {
 
   constructor(
     private readonly postAccessService: PostAccessService,
-    private readonly postMediaService: PostMediaService
+    private readonly postMediaService: PostMediaService,
   ) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -34,7 +47,9 @@ export class PostsService {
     const hasMedia = dto.mediaUploadIds && dto.mediaUploadIds.length > 0;
 
     if (!trimmedContent && !hasMedia) {
-      throw new BadRequestException('A post must contain text content or at least one media attachment');
+      throw new BadRequestException(
+        'A post must contain text content or at least one media attachment',
+      );
     }
 
     let createdPost: any;
@@ -57,7 +72,7 @@ export class PostsService {
           authorId,
           createdPost.id,
           dto.mediaUploadIds!,
-          tx
+          tx,
         );
       }
     });
@@ -90,7 +105,10 @@ export class PostsService {
    * Get single post details with access authorization.
    */
   async getPost(viewerId: string, postId: string) {
-    const post = await this.postAccessService.validatePostAccess(viewerId, postId);
+    const post = await this.postAccessService.validatePostAccess(
+      viewerId,
+      postId,
+    );
 
     const [authorProfile] = await this.db
       .select({
@@ -131,7 +149,11 @@ export class PostsService {
   async updatePost(authorId: string, postId: string, dto: UpdatePostDto) {
     await this.postAccessService.verifyActiveAccount(authorId);
 
-    const [existing] = await this.db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+    const [existing] = await this.db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, postId))
+      .limit(1);
 
     if (!existing || existing.deletedAt) {
       throw new NotFoundException('Post not found');
@@ -141,18 +163,22 @@ export class PostsService {
       throw new ForbiddenException('Only the post author can update this post');
     }
 
-    const updatedContent = dto.content !== undefined ? dto.content.trim() : existing.content;
+    const updatedContent =
+      dto.content !== undefined ? dto.content.trim() : existing.content;
     const media = await this.postMediaService.getPostMedia(postId);
 
     if (!updatedContent && media.length === 0) {
-      throw new BadRequestException('A post cannot be updated to have no content and no media');
+      throw new BadRequestException(
+        'A post cannot be updated to have no content and no media',
+      );
     }
 
     const [updated] = await this.db
       .update(posts)
       .set({
         content: updatedContent || null,
-        visibility: dto.visibility !== undefined ? dto.visibility : existing.visibility,
+        visibility:
+          dto.visibility !== undefined ? dto.visibility : existing.visibility,
         updatedAt: new Date(),
       })
       .where(eq(posts.id, postId))
@@ -167,7 +193,11 @@ export class PostsService {
   async deletePost(authorId: string, postId: string) {
     await this.postAccessService.verifyActiveAccount(authorId);
 
-    const [existing] = await this.db.select().from(posts).where(eq(posts.id, postId)).limit(1);
+    const [existing] = await this.db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, postId))
+      .limit(1);
 
     if (!existing || existing.deletedAt) {
       throw new NotFoundException('Post not found');
@@ -188,12 +218,24 @@ export class PostsService {
   /**
    * Get paginated user posts with visibility and block privacy enforcement.
    */
-  async getUserPosts(viewerId: string, targetUserId: string, query: UserPostsQueryDto) {
+  async getUserPosts(
+    viewerId: string,
+    targetUserId: string,
+    query: UserPostsQueryDto,
+  ) {
     await this.postAccessService.verifyActiveAccount(viewerId);
 
     // Check target account status
-    const [targetUser] = await this.db.select().from(users).where(eq(users.id, targetUserId)).limit(1);
-    if (!targetUser || targetUser.status === 'BANNED' || targetUser.status === 'DEACTIVATED') {
+    const [targetUser] = await this.db
+      .select()
+      .from(users)
+      .where(eq(users.id, targetUserId))
+      .limit(1);
+    if (
+      !targetUser ||
+      targetUser.status === 'BANNED' ||
+      targetUser.status === 'DEACTIVATED'
+    ) {
       throw new NotFoundException('User profile not found');
     }
 
@@ -204,9 +246,15 @@ export class PostsService {
         .from(blocks)
         .where(
           or(
-            and(eq(blocks.blockerId, viewerId), eq(blocks.blockedId, targetUserId)),
-            and(eq(blocks.blockerId, targetUserId), eq(blocks.blockedId, viewerId))
-          )
+            and(
+              eq(blocks.blockerId, viewerId),
+              eq(blocks.blockedId, targetUserId),
+            ),
+            and(
+              eq(blocks.blockerId, targetUserId),
+              eq(blocks.blockedId, viewerId),
+            ),
+          ),
         )
         .limit(1);
 
@@ -225,7 +273,12 @@ export class PostsService {
       const conn = await this.db
         .select()
         .from(connections)
-        .where(and(eq(connections.userAId, userAId), eq(connections.userBId, userBId)))
+        .where(
+          and(
+            eq(connections.userAId, userAId),
+            eq(connections.userBId, userBId),
+          ),
+        )
         .limit(1);
       isMutualConnection = conn.length > 0;
     }
@@ -235,7 +288,9 @@ export class PostsService {
     let cursorId: string | null = null;
     if (query.cursor) {
       try {
-        const decoded = JSON.parse(Buffer.from(query.cursor, 'base64').toString('utf-8'));
+        const decoded = JSON.parse(
+          Buffer.from(query.cursor, 'base64').toString('utf-8'),
+        );
         cursorCreatedAt = new Date(decoded.createdAt);
         cursorId = decoded.id;
       } catch (err) {
@@ -251,7 +306,12 @@ export class PostsService {
 
     if (viewerId !== targetUserId) {
       if (isMutualConnection) {
-        conditions.push(or(eq(posts.visibility, 'PUBLIC'), eq(posts.visibility, 'CONNECTIONS_ONLY'))!);
+        conditions.push(
+          or(
+            eq(posts.visibility, 'PUBLIC'),
+            eq(posts.visibility, 'CONNECTIONS_ONLY'),
+          )!,
+        );
       } else {
         conditions.push(eq(posts.visibility, 'PUBLIC'));
       }
@@ -259,7 +319,7 @@ export class PostsService {
 
     if (cursorCreatedAt && cursorId) {
       conditions.push(
-        sql`(${posts.createdAt}, ${posts.id}) < (${cursorCreatedAt.toISOString()}, ${cursorId})`
+        sql`(${posts.createdAt}, ${posts.id}) < (${cursorCreatedAt.toISOString()}, ${cursorId})`,
       );
     }
 
@@ -277,7 +337,7 @@ export class PostsService {
     if (hasNextPage && pageData.length > 0) {
       const lastItem = pageData[pageData.length - 1];
       nextCursor = Buffer.from(
-        JSON.stringify({ createdAt: lastItem.createdAt, id: lastItem.id })
+        JSON.stringify({ createdAt: lastItem.createdAt, id: lastItem.id }),
       ).toString('base64');
     }
 
@@ -288,7 +348,9 @@ export class PostsService {
         const [likeRecord] = await this.db
           .select()
           .from(postLikes)
-          .where(and(eq(postLikes.postId, p.id), eq(postLikes.userId, viewerId)))
+          .where(
+            and(eq(postLikes.postId, p.id), eq(postLikes.userId, viewerId)),
+          )
           .limit(1);
 
         return {
@@ -296,7 +358,7 @@ export class PostsService {
           media,
           isLikedByViewer: !!likeRecord,
         };
-      })
+      }),
     );
 
     return {

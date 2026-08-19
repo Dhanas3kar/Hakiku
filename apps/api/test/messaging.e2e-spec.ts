@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HttpStatus } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
@@ -18,7 +21,7 @@ import {
   conversationParticipants,
   messages,
   messageMedia,
-  messageReadReceipts
+  messageReadReceipts,
 } from '../src/db/schema';
 import Redis from 'ioredis';
 
@@ -67,29 +70,70 @@ describe('Messaging Module (e2e)', () => {
       .values({ email: 'userc_msg@srmist.edu.in', isVerified: true })
       .returning();
 
-    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed' });
+    jwtService = new JwtService({
+      secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
+    });
 
     userA = {
       id: uA.id,
       email: uA.email,
-      token: await jwtService.signAsync({ sub: uA.id, email: uA.email, role: uA.role }),
+      token: await jwtService.signAsync({
+        sub: uA.id,
+        email: uA.email,
+        role: uA.role,
+      }),
     };
     userB = {
       id: uB.id,
       email: uB.email,
-      token: await jwtService.signAsync({ sub: uB.id, email: uB.email, role: uB.role }),
+      token: await jwtService.signAsync({
+        sub: uB.id,
+        email: uB.email,
+        role: uB.role,
+      }),
     };
     userC = {
       id: uC.id,
       email: uC.email,
-      token: await jwtService.signAsync({ sub: uC.id, email: uC.email, role: uC.role }),
+      token: await jwtService.signAsync({
+        sub: uC.id,
+        email: uC.email,
+        role: uC.role,
+      }),
     };
 
     // Profiles
     await db.insert(profiles).values([
-      { userId: uA.id, username: 'usera_msg', displayName: 'User A', campus: 'KTR', department: 'CSE', degreeProgram: 'B.Tech', batchYear: 2020, graduationYear: 2024 },
-      { userId: uB.id, username: 'userb_msg', displayName: 'User B', campus: 'KTR', department: 'CSE', degreeProgram: 'B.Tech', batchYear: 2020, graduationYear: 2024 },
-      { userId: uC.id, username: 'userc_msg', displayName: 'User C', campus: 'KTR', department: 'CSE', degreeProgram: 'B.Tech', batchYear: 2020, graduationYear: 2024 }
+      {
+        userId: uA.id,
+        username: 'usera_msg',
+        displayName: 'User A',
+        campus: 'KTR',
+        department: 'CSE',
+        degreeProgram: 'B.Tech',
+        batchYear: 2020,
+        graduationYear: 2024,
+      },
+      {
+        userId: uB.id,
+        username: 'userb_msg',
+        displayName: 'User B',
+        campus: 'KTR',
+        department: 'CSE',
+        degreeProgram: 'B.Tech',
+        batchYear: 2020,
+        graduationYear: 2024,
+      },
+      {
+        userId: uC.id,
+        username: 'userc_msg',
+        displayName: 'User C',
+        campus: 'KTR',
+        department: 'CSE',
+        degreeProgram: 'B.Tech',
+        batchYear: 2020,
+        graduationYear: 2024,
+      },
     ]);
 
     // Connections: A <-> B connected. C is unconnected.
@@ -104,12 +148,16 @@ describe('Messaging Module (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
-    
+    app = moduleFixture.createNestApplication<NestFastifyApplication>(
+      new FastifyAdapter(),
+    );
+
     // Setup matching auth.e2e-spec.ts
-    await app.register(fastifyCookie, { secret: process.env.COOKIE_SECRET || 'cookie-secret' });
+    await app.register(fastifyCookie, {
+      secret: process.env.COOKIE_SECRET || 'cookie-secret',
+    });
     await app.register(fastifyCsrf, { cookieOpts: { signed: true } });
-    
+
     app.enableCors({ origin: true, credentials: true });
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -127,7 +175,7 @@ describe('Messaging Module (e2e)', () => {
         .post('/messages/conversations')
         .set('Authorization', `Bearer ${userA.token}`)
         .send({
-          targetUserId: userC.id
+          targetUserId: userC.id,
         });
 
       expect(response.status).toBe(HttpStatus.FORBIDDEN);
@@ -138,9 +186,9 @@ describe('Messaging Module (e2e)', () => {
         .post('/messages/conversations')
         .set('Authorization', `Bearer ${userA.token}`)
         .send({
-          targetUserId: userB.id
+          targetUserId: userB.id,
         });
-      
+
       expect(convRes.status).toBe(HttpStatus.CREATED);
       const conversationId = convRes.body.id;
 
@@ -149,7 +197,7 @@ describe('Messaging Module (e2e)', () => {
         .set('Authorization', `Bearer ${userA.token}`)
         .send({
           content: 'Hello B',
-          messageType: 'TEXT'
+          messageType: 'TEXT',
         });
 
       expect(msgRes.status).toBe(HttpStatus.CREATED);
@@ -170,7 +218,7 @@ describe('Messaging Module (e2e)', () => {
         .post('/messages/conversations')
         .set('Authorization', `Bearer ${userB.token}`)
         .send({
-          targetUserId: userA.id
+          targetUserId: userA.id,
         });
 
       expect(response.status).toBe(HttpStatus.NOT_FOUND); // Generic 404 for blocked

@@ -9,7 +9,10 @@ export class NotificationPrivacyService {
    * Evaluates whether a notification should be delivered based on block relationships.
    * If recipient has blocked actor OR actor has blocked recipient, it returns false.
    */
-  async canDeliverNotification(recipientId: string, actorId: string | null): Promise<boolean> {
+  async canDeliverNotification(
+    recipientId: string,
+    actorId: string | null,
+  ): Promise<boolean> {
     if (!actorId || recipientId === actorId) {
       return true; // System notifications or self-actions are always delivered
     }

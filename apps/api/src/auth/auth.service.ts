@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { EmailService } from './email/email.service';
 import { OtpService } from './otp/otp.service';
@@ -30,7 +34,10 @@ export class AuthService {
     await this.emailService.sendOtp(normalized, otp);
 
     // Try to find user, insert audit log
-    const existingUsers = await db.select().from(users).where(eq(users.email, normalized));
+    const existingUsers = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, normalized));
     const userId = existingUsers.length > 0 ? existingUsers[0].id : null;
 
     await db.insert(auditLogs).values({
@@ -40,26 +47,38 @@ export class AuthService {
     });
   }
 
-  async verifyOtp(email: string, otp: string, ipAddress?: string, userAgent?: string) {
+  async verifyOtp(
+    email: string,
+    otp: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
     const normalized = this.enforceDomain(email);
-    
+
     // Will throw UnauthorizedException on failure
     await this.otpService.verifyOtp(normalized, otp);
 
     // Ensure user exists
-    let existingUsers = await db.select().from(users).where(eq(users.email, normalized));
+    const existingUsers = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, normalized));
     let user;
     if (existingUsers.length === 0) {
-      const [newUser] = await db.insert(users).values({
-        email: normalized,
-        isVerified: true,
-        emailVerifiedAt: new Date(),
-      }).returning();
+      const [newUser] = await db
+        .insert(users)
+        .values({
+          email: normalized,
+          isVerified: true,
+          emailVerifiedAt: new Date(),
+        })
+        .returning();
       user = newUser;
     } else {
       user = existingUsers[0];
       if (!user.isVerified) {
-        const [updatedUser] = await db.update(users)
+        const [updatedUser] = await db
+          .update(users)
           .set({ isVerified: true, emailVerifiedAt: new Date() })
           .where(eq(users.id, user.id))
           .returning();
@@ -68,7 +87,11 @@ export class AuthService {
     }
 
     // Generate Session (Refresh Token)
-    const { rawToken, session } = await this.sessionService.createSession(user.id, ipAddress, userAgent);
+    const { rawToken, session } = await this.sessionService.createSession(
+      user.id,
+      ipAddress,
+      userAgent,
+    );
 
     // Generate Access JWT (15 mins)
     const payload = { sub: user.id, email: user.email, role: user.role };
@@ -87,14 +110,27 @@ export class AuthService {
     };
   }
 
-  async refresh(refreshToken: string, familyId: string, ipAddress?: string, userAgent?: string) {
+  async refresh(
+    refreshToken: string,
+    familyId: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
     if (!refreshToken || !familyId) {
       throw new UnauthorizedException('Refresh token and family ID required');
     }
 
-    const { rawToken, session } = await this.sessionService.rotateSession(refreshToken, familyId, ipAddress, userAgent);
+    const { rawToken, session } = await this.sessionService.rotateSession(
+      refreshToken,
+      familyId,
+      ipAddress,
+      userAgent,
+    );
 
-    const userRecords = await db.select().from(users).where(eq(users.id, session.userId));
+    const userRecords = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, session.userId));
     if (userRecords.length === 0) {
       throw new UnauthorizedException('User not found');
     }

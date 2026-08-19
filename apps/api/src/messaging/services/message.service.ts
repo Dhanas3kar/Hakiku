@@ -1,6 +1,17 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { db } from '../../db/index';
-import { messages, messageMedia, conversations, conversationParticipants, pendingMediaUploads } from '../../db/schema';
+import {
+  messages,
+  messageMedia,
+  conversations,
+  conversationParticipants,
+  pendingMediaUploads,
+} from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { MessageDeliveryService } from './message-delivery.service';
 import { ConversationService } from './conversation.service';
@@ -14,7 +25,7 @@ export class MessageService {
     private readonly conversationService: ConversationService,
     private readonly deliveryService: MessageDeliveryService,
     private readonly outboxService: NotificationOutboxService,
-    private readonly storageProvider: LocalStorageProvider
+    private readonly storageProvider: LocalStorageProvider,
   ) {}
 
   /**
@@ -23,12 +34,23 @@ export class MessageService {
   async sendMessage(
     userId: string,
     conversationId: string,
-    dto: { content?: string, messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE', mediaKeys?: string[], replyToMessageId?: string }
+    dto: {
+      content?: string;
+      messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE';
+      mediaKeys?: string[];
+      replyToMessageId?: string;
+    },
   ) {
     // 1. Ensure access
-    const conversation = await this.conversationService.getConversationById(userId, conversationId);
+    const conversation = await this.conversationService.getConversationById(
+      userId,
+      conversationId,
+    );
 
-    if (dto.messageType === 'TEXT' && (!dto.content || dto.content.trim().length === 0)) {
+    if (
+      dto.messageType === 'TEXT' &&
+      (!dto.content || dto.content.trim().length === 0)
+    ) {
       throw new BadRequestException('Text message cannot be empty');
     }
     if (dto.content && dto.content.length > 5000) {
@@ -38,18 +60,22 @@ export class MessageService {
     let validMedia: any[] = [];
     if (dto.messageType !== 'TEXT') {
       if (!dto.mediaKeys || dto.mediaKeys.length === 0) {
-        throw new BadRequestException('Media message must contain at least one media key');
+        throw new BadRequestException(
+          'Media message must contain at least one media key',
+        );
       }
 
       // Verify pending uploads
       validMedia = await db.query.pendingMediaUploads.findMany({
         where: and(
           eq(pendingMediaUploads.userId, userId),
-          eq(pendingMediaUploads.isAttached, false)
-        )
+          eq(pendingMediaUploads.isAttached, false),
+        ),
       });
-      validMedia = validMedia.filter(m => dto.mediaKeys!.includes(m.storageKey));
-      
+      validMedia = validMedia.filter((m) =>
+        dto.mediaKeys!.includes(m.storageKey),
+      );
+
       if (validMedia.length !== dto.mediaKeys.length) {
         throw new BadRequestException('Invalid or unowned media keys provided');
       }
@@ -62,14 +88,17 @@ export class MessageService {
 
     const createdMessage = await db.transaction(async (tx) => {
       // 2. Insert message
-      const [msg] = await tx.insert(messages).values({
-        id: newMessageId,
-        conversationId,
-        senderId: userId,
-        content: dto.content,
-        messageType: dto.messageType,
-        replyToMessageId: dto.replyToMessageId,
-      }).returning();
+      const [msg] = await tx
+        .insert(messages)
+        .values({
+          id: newMessageId,
+          conversationId,
+          senderId: userId,
+          content: dto.content,
+          messageType: dto.messageType,
+          replyToMessageId: dto.replyToMessageId,
+        })
+        .returning();
 
       // 3. Insert media
       if (validMedia.length > 0) {
@@ -78,29 +107,34 @@ export class MessageService {
           storageKey: m.storageKey,
           mimeType: m.mimeType,
           fileSize: m.fileSize,
-          displayOrder: index
+          displayOrder: index,
         }));
         await tx.insert(messageMedia).values(mediaValues);
 
         // Mark pending as Attached
         for (const m of validMedia) {
-          await tx.update(pendingMediaUploads)
+          await tx
+            .update(pendingMediaUploads)
             .set({ isAttached: true })
             .where(eq(pendingMediaUploads.id, m.id));
         }
       }
 
       // 4. Update conversation last message pointer
-      await tx.update(conversations)
+      await tx
+        .update(conversations)
         .set({
           lastMessageAt: now,
           lastMessageId: newMessageId,
-          updatedAt: now
+          updatedAt: now,
         })
         .where(eq(conversations.id, conversationId));
 
       // 5. Update outbox for notifications
-      const targetUserId = conversation.userAId === userId ? conversation.userBId : conversation.userAId;
+      const targetUserId =
+        conversation.userAId === userId
+          ? conversation.userBId
+          : conversation.userAId;
       await this.outboxService.appendEvent(tx, crypto.randomUUID(), 'MESSAGE', {
         actorId: userId,
         recipientId: targetUserId,
@@ -108,27 +142,30 @@ export class MessageService {
         entityId: conversationId,
         data: {
           messageId: newMessageId,
-          messageType: dto.messageType
-        }
+          messageType: dto.messageType,
+        },
       });
 
       return msg;
     });
 
     // Fire real-time event
-    const targetUserId = conversation.userAId === userId ? conversation.userBId : conversation.userAId;
+    const targetUserId =
+      conversation.userAId === userId
+        ? conversation.userBId
+        : conversation.userAId;
     await this.deliveryService.publishEvent({
       type: 'message:new',
       recipientId: targetUserId,
       conversationId,
-      payload: createdMessage
+      payload: createdMessage,
     });
     // Send to sender's other devices too
     await this.deliveryService.publishEvent({
       type: 'message:new',
       recipientId: userId,
       conversationId,
-      payload: createdMessage
+      payload: createdMessage,
     });
 
     return createdMessage;
@@ -146,7 +183,7 @@ export class MessageService {
     }
 
     const message = await db.query.messages.findFirst({
-      where: eq(messages.id, messageId)
+      where: eq(messages.id, messageId),
     });
 
     if (!message || message.senderId !== userId || message.deletedAt) {
@@ -157,22 +194,26 @@ export class MessageService {
       throw new BadRequestException('Only TEXT messages can be edited');
     }
 
-    const [updatedMessage] = await db.update(messages)
+    const [updatedMessage] = await db
+      .update(messages)
       .set({ content, editedAt: new Date() })
       .where(eq(messages.id, messageId))
       .returning();
 
     const conversation = await db.query.conversations.findFirst({
-      where: eq(conversations.id, message.conversationId)
+      where: eq(conversations.id, message.conversationId),
     });
 
     if (conversation) {
-      const targetUserId = conversation.userAId === userId ? conversation.userBId : conversation.userAId;
+      const targetUserId =
+        conversation.userAId === userId
+          ? conversation.userBId
+          : conversation.userAId;
       const eventPayload = {
         type: 'message:updated' as const,
         recipientId: targetUserId,
         conversationId: message.conversationId,
-        payload: updatedMessage
+        payload: updatedMessage,
       };
       await this.deliveryService.publishEvent(eventPayload);
       eventPayload.recipientId = userId;
@@ -187,29 +228,33 @@ export class MessageService {
    */
   async deleteMessage(userId: string, messageId: string) {
     const message = await db.query.messages.findFirst({
-      where: eq(messages.id, messageId)
+      where: eq(messages.id, messageId),
     });
 
     if (!message || message.senderId !== userId || message.deletedAt) {
       throw new ForbiddenException('Cannot delete this message');
     }
 
-    const [deletedMessage] = await db.update(messages)
+    const [deletedMessage] = await db
+      .update(messages)
       .set({ deletedAt: new Date(), content: null }) // Wipe content on delete
       .where(eq(messages.id, messageId))
       .returning();
 
     const conversation = await db.query.conversations.findFirst({
-      where: eq(conversations.id, message.conversationId)
+      where: eq(conversations.id, message.conversationId),
     });
 
     if (conversation) {
-      const targetUserId = conversation.userAId === userId ? conversation.userBId : conversation.userAId;
+      const targetUserId =
+        conversation.userAId === userId
+          ? conversation.userBId
+          : conversation.userAId;
       const eventPayload = {
         type: 'message:deleted' as const,
         recipientId: targetUserId,
         conversationId: message.conversationId,
-        payload: { messageId, deletedAt: deletedMessage.deletedAt }
+        payload: { messageId, deletedAt: deletedMessage.deletedAt },
       };
       await this.deliveryService.publishEvent(eventPayload);
       eventPayload.recipientId = userId;

@@ -12,7 +12,9 @@ export class NotificationPreferenceService {
   private db;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -40,7 +42,12 @@ export class NotificationPreferenceService {
     const [pref] = await this.db
       .select()
       .from(notificationPreferences)
-      .where(and(eq(notificationPreferences.userId, userId), eq(notificationPreferences.category, category)))
+      .where(
+        and(
+          eq(notificationPreferences.userId, userId),
+          eq(notificationPreferences.category, category),
+        ),
+      )
       .limit(1);
 
     // Default to true if no preference is explicitly set
@@ -54,13 +61,16 @@ export class NotificationPreferenceService {
       .select()
       .from(notificationPreferences)
       .where(eq(notificationPreferences.userId, userId));
-    
+
     // Ensure default categories exist in response
-    const defaultCategories: NotificationCategory[] = ['NETWORK', 'POST_ENGAGEMENT'];
+    const defaultCategories: NotificationCategory[] = [
+      'NETWORK',
+      'POST_ENGAGEMENT',
+    ];
     const result = [];
-    
+
     for (const cat of defaultCategories) {
-      const existing = prefs.find(p => p.category === cat);
+      const existing = prefs.find((p) => p.category === cat);
       if (existing) {
         result.push(existing);
       } else {
@@ -74,27 +84,50 @@ export class NotificationPreferenceService {
         });
       }
     }
-    
+
     return result;
   }
 
-  async updatePreference(userId: string, category: NotificationCategory, dto: UpdatePreferencesDto) {
+  async updatePreference(
+    userId: string,
+    category: NotificationCategory,
+    dto: UpdatePreferencesDto,
+  ) {
     const [existing] = await this.db
       .select()
       .from(notificationPreferences)
-      .where(and(eq(notificationPreferences.userId, userId), eq(notificationPreferences.category, category)))
+      .where(
+        and(
+          eq(notificationPreferences.userId, userId),
+          eq(notificationPreferences.category, category),
+        ),
+      )
       .limit(1);
 
     if (existing) {
       const [updated] = await this.db
         .update(notificationPreferences)
         .set({
-          isEmailEnabled: dto.isEmailEnabled !== undefined ? dto.isEmailEnabled : existing.isEmailEnabled,
-          isPushEnabled: dto.isPushEnabled !== undefined ? dto.isPushEnabled : existing.isPushEnabled,
-          isInAppEnabled: dto.isInAppEnabled !== undefined ? dto.isInAppEnabled : existing.isInAppEnabled,
+          isEmailEnabled:
+            dto.isEmailEnabled !== undefined
+              ? dto.isEmailEnabled
+              : existing.isEmailEnabled,
+          isPushEnabled:
+            dto.isPushEnabled !== undefined
+              ? dto.isPushEnabled
+              : existing.isPushEnabled,
+          isInAppEnabled:
+            dto.isInAppEnabled !== undefined
+              ? dto.isInAppEnabled
+              : existing.isInAppEnabled,
           updatedAt: new Date(),
         })
-        .where(and(eq(notificationPreferences.userId, userId), eq(notificationPreferences.category, category)))
+        .where(
+          and(
+            eq(notificationPreferences.userId, userId),
+            eq(notificationPreferences.category, category),
+          ),
+        )
         .returning();
       return updated;
     } else {
@@ -103,9 +136,12 @@ export class NotificationPreferenceService {
         .values({
           userId,
           category,
-          isEmailEnabled: dto.isEmailEnabled !== undefined ? dto.isEmailEnabled : true,
-          isPushEnabled: dto.isPushEnabled !== undefined ? dto.isPushEnabled : true,
-          isInAppEnabled: dto.isInAppEnabled !== undefined ? dto.isInAppEnabled : true,
+          isEmailEnabled:
+            dto.isEmailEnabled !== undefined ? dto.isEmailEnabled : true,
+          isPushEnabled:
+            dto.isPushEnabled !== undefined ? dto.isPushEnabled : true,
+          isInAppEnabled:
+            dto.isInAppEnabled !== undefined ? dto.isInAppEnabled : true,
         })
         .returning();
       return inserted;

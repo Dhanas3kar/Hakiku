@@ -1,5 +1,9 @@
 import { db } from '../../db/index';
-import { Injectable, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { eq, ilike, sql } from 'drizzle-orm';
 import { skills } from '../../db/schema';
 import * as schema from '../../db/schema';
@@ -9,7 +13,9 @@ export class SkillsService {
   private db;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -29,7 +35,9 @@ export class SkillsService {
 
   async createSkill(name: string, userRole: string, category?: string) {
     if (userRole !== 'ADMIN' && userRole !== 'MODERATOR') {
-      throw new ForbiddenException('Only admins and moderators are authorized to create new skills');
+      throw new ForbiddenException(
+        'Only admins and moderators are authorized to create new skills',
+      );
     }
 
     const normalizedName = name.trim().toLowerCase();

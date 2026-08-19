@@ -16,7 +16,8 @@ describe('Profile Services & Storage Unit Specs', () => {
 
     usernameService = module.get<UsernameService>(UsernameService);
     profileService = module.get<ProfileService>(ProfileService);
-    localStorageProvider = module.get<LocalStorageProvider>(LocalStorageProvider);
+    localStorageProvider =
+      module.get<LocalStorageProvider>(LocalStorageProvider);
   });
 
   describe('UsernameService', () => {
@@ -25,24 +26,42 @@ describe('Profile Services & Storage Unit Specs', () => {
     });
 
     it('should validate valid usernames', () => {
-      expect(usernameService.validateUsername('john_doe.2024')).toBe('john_doe.2024');
+      expect(usernameService.validateUsername('john_doe.2024')).toBe(
+        'john_doe.2024',
+      );
     });
 
     it('should throw BadRequestException for reserved usernames', () => {
-      expect(() => usernameService.validateUsername('admin')).toThrow(BadRequestException);
-      expect(() => usernameService.validateUsername('srmconnect')).toThrow(BadRequestException);
-      expect(() => usernameService.validateUsername('support')).toThrow(BadRequestException);
+      expect(() => usernameService.validateUsername('admin')).toThrow(
+        BadRequestException,
+      );
+      expect(() => usernameService.validateUsername('srmconnect')).toThrow(
+        BadRequestException,
+      );
+      expect(() => usernameService.validateUsername('support')).toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException for leading or trailing dots/underscores', () => {
-      expect(() => usernameService.validateUsername('.johndoe')).toThrow(BadRequestException);
-      expect(() => usernameService.validateUsername('johndoe_')).toThrow(BadRequestException);
+      expect(() => usernameService.validateUsername('.johndoe')).toThrow(
+        BadRequestException,
+      );
+      expect(() => usernameService.validateUsername('johndoe_')).toThrow(
+        BadRequestException,
+      );
     });
 
     it('should throw BadRequestException for consecutive dots or underscores', () => {
-      expect(() => usernameService.validateUsername('john..doe')).toThrow(BadRequestException);
-      expect(() => usernameService.validateUsername('john__doe')).toThrow(BadRequestException);
-      expect(() => usernameService.validateUsername('john._doe')).toThrow(BadRequestException);
+      expect(() => usernameService.validateUsername('john..doe')).toThrow(
+        BadRequestException,
+      );
+      expect(() => usernameService.validateUsername('john__doe')).toThrow(
+        BadRequestException,
+      );
+      expect(() => usernameService.validateUsername('john._doe')).toThrow(
+        BadRequestException,
+      );
     });
   });
 
@@ -79,22 +98,30 @@ describe('Profile Services & Storage Unit Specs', () => {
 
   describe('LocalStorageProvider File Validation', () => {
     it('should throw BadRequestException for empty buffer', () => {
-      expect(() => localStorageProvider.validateFile(Buffer.alloc(0), 'image/jpeg')).toThrow(BadRequestException);
+      expect(() =>
+        localStorageProvider.validateFile(Buffer.alloc(0), 'image/jpeg'),
+      ).toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException for unsupported MIME type', () => {
       const buffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
-      expect(() => localStorageProvider.validateFile(buffer, 'application/pdf')).toThrow(BadRequestException);
+      expect(() =>
+        localStorageProvider.validateFile(buffer, 'application/pdf'),
+      ).toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException for invalid magic bytes header', () => {
       const invalidBuffer = Buffer.from([0x00, 0x00, 0x00, 0x00]);
-      expect(() => localStorageProvider.validateFile(invalidBuffer, 'image/jpeg')).toThrow(BadRequestException);
+      expect(() =>
+        localStorageProvider.validateFile(invalidBuffer, 'image/jpeg'),
+      ).toThrow(BadRequestException);
     });
 
     it('should pass validation for valid JPEG header', () => {
       const jpegBuffer = Buffer.from([0xff, 0xd8, 0xff, 0xe0]);
-      expect(() => localStorageProvider.validateFile(jpegBuffer, 'image/jpeg')).not.toThrow();
+      expect(() =>
+        localStorageProvider.validateFile(jpegBuffer, 'image/jpeg'),
+      ).not.toThrow();
     });
   });
 });

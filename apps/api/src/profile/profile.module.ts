@@ -25,6 +25,12 @@ import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
     LocalStorageProvider,
     JwtAuthGuard,
   ],
-  exports: [ProfileService, UsernameService, SkillsService, InterestsService, LocalStorageProvider],
+  exports: [
+    ProfileService,
+    UsernameService,
+    SkillsService,
+    InterestsService,
+    LocalStorageProvider,
+  ],
 })
 export class ProfileModule {}

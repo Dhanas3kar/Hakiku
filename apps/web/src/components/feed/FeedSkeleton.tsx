@@ -1,7 +1,11 @@
-export function FeedSkeleton() {
+interface Props {
+  count?: number
+}
+
+export function FeedSkeleton({ count = 3 }: Props = {}) {
   return (
     <div className="space-y-4">
-      {[1, 2, 3].map((i) => (
+      {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="rounded-xl border border-border bg-surface-elevated p-4 sm:p-5 shadow-xs animate-pulse">
           {/* Header */}
           <div className="flex items-center gap-3 mb-4">

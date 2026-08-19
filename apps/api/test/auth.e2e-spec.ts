@@ -13,7 +13,10 @@ import {
 } from '../src/db/schema';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
 import Redis from 'ioredis';
@@ -40,7 +43,7 @@ describe('AuthController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
-      new FastifyAdapter()
+      new FastifyAdapter(),
     );
 
     await app.register(fastifyCookie, {
@@ -51,17 +54,20 @@ describe('AuthController (e2e)', () => {
       cookieOpts: { signed: true },
     });
 
-    app.getHttpAdapter().getInstance().addHook('onRequest', (req, reply, done) => {
-      if (req.url.includes('/logout') && req.method === 'POST') {
-        if (typeof req.csrfProtect === 'function') {
-          req.csrfProtect(reply, done);
+    app
+      .getHttpAdapter()
+      .getInstance()
+      .addHook('onRequest', (req, reply, done) => {
+        if (req.url.includes('/logout') && req.method === 'POST') {
+          if (typeof req.csrfProtect === 'function') {
+            req.csrfProtect(reply, done);
+          } else {
+            done(); // If plugin didn't attach properly, skip to avoid 500 error in test environment
+          }
         } else {
-          done(); // If plugin didn't attach properly, skip to avoid 500 error in test environment
+          done();
         }
-      } else {
-        done();
-      }
-    });
+      });
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -91,7 +97,7 @@ describe('AuthController (e2e)', () => {
       await request(app.getHttpServer())
         .post('/auth/send-otp')
         .send({ email: 'test_cooldown@srmist.edu.in' });
-        
+
       const response = await request(app.getHttpServer())
         .post('/auth/send-otp')
         .send({ email: 'test_cooldown@srmist.edu.in' });
@@ -104,11 +110,11 @@ describe('AuthController (e2e)', () => {
           .post('/auth/verify-otp')
           .send({ email: 'test_lockout@srmist.edu.in', otp: '000000' });
       }
-      
+
       const lockedResponse = await request(app.getHttpServer())
         .post('/auth/verify-otp')
         .send({ email: 'test_lockout@srmist.edu.in', otp: '000000' });
-      
+
       expect(lockedResponse.status).toBe(HttpStatus.UNAUTHORIZED);
       expect(lockedResponse.body.message).toContain('Too many failed attempts');
     });
@@ -130,7 +136,7 @@ describe('AuthController (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/auth/logout')
         .set('Cookie', cookieStr); // missing CSRF header
-      
+
       // If the plugin didn't attach, it skips and returns 200. Let's just expect it doesn't 500.
       expect([HttpStatus.FORBIDDEN, HttpStatus.OK]).toContain(res.status);
     });

@@ -27,6 +27,11 @@ import { BlockPrivacyGuard } from './guards/block-privacy.guard';
     JwtAuthGuard,
     BlockPrivacyGuard,
   ],
-  exports: [FollowService, ConnectionService, BlockService, NetworkingQueryService],
+  exports: [
+    FollowService,
+    ConnectionService,
+    BlockService,
+    NetworkingQueryService,
+  ],
 })
 export class NetworkingModule {}

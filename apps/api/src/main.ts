@@ -1,6 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
 import { ValidationPipe } from '@nestjs/common';
@@ -8,7 +11,7 @@ import { ValidationPipe } from '@nestjs/common';
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter()
+    new FastifyAdapter(),
   );
 
   await app.register(fastifyCookie as any, {
@@ -44,7 +47,7 @@ async function bootstrap() {
     { parseAs: 'buffer' },
     (_req: any, payload: any, done: any) => {
       done(null, payload);
-    }
+    },
   );
 
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');

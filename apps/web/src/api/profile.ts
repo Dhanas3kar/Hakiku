@@ -14,6 +14,10 @@ export interface UserProfile {
   avatarUrl: string | null;
   coverUrl: string | null;
   socialLinks: Record<string, string> | null;
+  skillIds?: string[];
+  interestIds?: string[];
+  skills?: { id: string; name: string; category?: string }[];
+  interests?: { id: string; name: string; category?: string }[];
   createdAt: string;
   updatedAt: string;
 }
@@ -44,4 +48,19 @@ export const profileApi = {
     })
   },
   getByUsername: (username: string): Promise<UserProfile> => client.get(`/profile/username/${username}`),
+  searchProfiles: async (params: { query?: string; campus?: string; department?: string; batchYear?: number; cursor?: string; limit?: number }): Promise<{ items: UserProfile[], nextCursor: string | null }> => {
+    const res = await client.get('/profile/search', { params })
+    return {
+      items: res.data || [],
+      nextCursor: res.meta?.nextCursor || null
+    }
+  },
+  searchSkills: async (query?: string, limit?: number): Promise<any[]> => {
+    const res = await client.get('/skills', { params: { query, limit } })
+    return res
+  },
+  searchInterests: async (query?: string, limit?: number): Promise<any[]> => {
+    const res = await client.get('/interests', { params: { query, limit } })
+    return res
+  },
 }

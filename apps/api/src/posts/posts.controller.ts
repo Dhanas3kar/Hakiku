@@ -35,7 +35,7 @@ export class PostsController {
     private readonly postsService: PostsService,
     private readonly likesService: LikesService,
     private readonly commentsService: CommentsService,
-    private readonly postMediaService: PostMediaService
+    private readonly postMediaService: PostMediaService,
   ) {}
 
   @Post()
@@ -73,7 +73,11 @@ export class PostsController {
   }
 
   @Patch(':id')
-  async updatePost(@Req() req: any, @Param('id') id: string, @Body() dto: UpdatePostDto) {
+  async updatePost(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: UpdatePostDto,
+  ) {
     return this.postsService.updatePost(req.user.sub, id, dto);
   }
 
@@ -96,12 +100,20 @@ export class PostsController {
 
   @Post(':id/comments')
   @HttpCode(HttpStatus.CREATED)
-  async createComment(@Req() req: any, @Param('id') id: string, @Body() dto: CreateCommentDto) {
+  async createComment(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Body() dto: CreateCommentDto,
+  ) {
     return this.commentsService.createComment(req.user.sub, id, dto);
   }
 
   @Get(':id/comments')
-  async getPostComments(@Req() req: any, @Param('id') id: string, @Query() query: CommentsQueryDto) {
+  async getPostComments(
+    @Req() req: any,
+    @Param('id') id: string,
+    @Query() query: CommentsQueryDto,
+  ) {
     return this.commentsService.getPostComments(req.user.sub, id, query);
   }
 
@@ -109,7 +121,7 @@ export class PostsController {
   async updateComment(
     @Req() req: any,
     @Param('commentId') commentId: string,
-    @Body() dto: UpdateCommentDto
+    @Body() dto: UpdateCommentDto,
   ) {
     return this.commentsService.updateComment(req.user.sub, commentId, dto);
   }
@@ -120,7 +132,11 @@ export class PostsController {
   }
 
   @Get('user/:userId')
-  async getUserPosts(@Req() req: any, @Param('userId') userId: string, @Query() query: UserPostsQueryDto) {
+  async getUserPosts(
+    @Req() req: any,
+    @Param('userId') userId: string,
+    @Query() query: UserPostsQueryDto,
+  ) {
     return this.postsService.getUserPosts(req.user.sub, userId, query);
   }
 }

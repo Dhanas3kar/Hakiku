@@ -20,13 +20,16 @@ export class EmailService {
 
   async sendOtp(email: string, otp: string): Promise<void> {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      this.logger.warn(`SMTP credentials not set. [MOCK EMAIL] To: ${email} - Your SRM Connect OTP is: ${otp}`);
+      this.logger.warn(
+        `SMTP credentials not set. [MOCK EMAIL] To: ${email} - Your SRM Connect OTP is: ${otp}`,
+      );
       return;
     }
 
     try {
       await this.transporter.sendMail({
-        from: process.env.SMTP_FROM || `"SRM Connect" <${process.env.SMTP_USER}>`,
+        from:
+          process.env.SMTP_FROM || `"SRM Connect" <${process.env.SMTP_USER}>`,
         to: email,
         subject: 'Your SRM Connect Verification Code',
         text: `Welcome to SRM Connect!\n\nYour one-time password (OTP) is: ${otp}\n\nThis code will expire in 5 minutes.`,

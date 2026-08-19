@@ -17,7 +17,9 @@ export class PostMediaService {
   private db;
 
   constructor(private readonly storageProvider: LocalStorageProvider) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -31,7 +33,7 @@ export class PostMediaService {
     mimeType: string,
     width?: number,
     height?: number,
-    durationSeconds?: number
+    durationSeconds?: number,
   ) {
     const validated = MediaValidator.validate(fileBuffer, mimeType);
 
@@ -46,7 +48,11 @@ export class PostMediaService {
     const storageKey = `users/${userId}/posts/media/${randomUUID()}.${ext}`;
 
     // Upload via StorageProvider
-    const fileMeta = await this.storageProvider.uploadFile(fileBuffer, storageKey, validated.mimeType);
+    const fileMeta = await this.storageProvider.uploadFile(
+      fileBuffer,
+      storageKey,
+      validated.mimeType,
+    );
 
     // Save pending upload record
     const [pending] = await this.db
@@ -77,7 +83,12 @@ export class PostMediaService {
   /**
    * Enforce Media Ownership and bind attached media records to a post inside a transaction.
    */
-  async attachMediaToPost(userId: string, postId: string, uploadIds: string[], tx: any) {
+  async attachMediaToPost(
+    userId: string,
+    postId: string,
+    uploadIds: string[],
+    tx: any,
+  ) {
     if (!uploadIds || uploadIds.length === 0) return [];
 
     const dbClient = tx || this.db;
@@ -89,16 +100,22 @@ export class PostMediaService {
       .where(inArray(pendingMediaUploads.id, uploadIds));
 
     if (pendingList.length !== uploadIds.length) {
-      throw new NotFoundException('One or more media upload records were not found');
+      throw new NotFoundException(
+        'One or more media upload records were not found',
+      );
     }
 
     // Verify ownership and attachment status
     for (const pending of pendingList) {
       if (pending.userId !== userId) {
-        throw new ForbiddenException('Media ownership violation: Cannot attach media uploaded by another user');
+        throw new ForbiddenException(
+          'Media ownership violation: Cannot attach media uploaded by another user',
+        );
       }
       if (pending.isAttached) {
-        throw new BadRequestException(`Media upload ${pending.id} has already been attached to a post`);
+        throw new BadRequestException(
+          `Media upload ${pending.id} has already been attached to a post`,
+        );
       }
     }
 

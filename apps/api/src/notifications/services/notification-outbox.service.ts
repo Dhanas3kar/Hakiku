@@ -8,7 +8,9 @@ export class NotificationOutboxService {
   private db;
 
   constructor() {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -17,10 +19,13 @@ export class NotificationOutboxService {
    * This ensures that domain events are safely persisted alongside the business state.
    */
   async appendEvent(tx: any, eventId: string, type: any, payload: any) {
-    await tx.insert(notificationOutbox).values({
-      eventId,
-      type,
-      payload,
-    }).onConflictDoNothing({ target: [notificationOutbox.eventId] });
+    await tx
+      .insert(notificationOutbox)
+      .values({
+        eventId,
+        type,
+        payload,
+      })
+      .onConflictDoNothing({ target: [notificationOutbox.eventId] });
   }
 }

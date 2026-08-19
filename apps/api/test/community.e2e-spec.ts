@@ -1,21 +1,32 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import { AppModule } from '../src/app.module';
 import { db } from '../src/db';
-import { users, profiles, confessions, polls, pollOptions, pollVotes, communityReports } from '../src/db/schema';
+import {
+  users,
+  profiles,
+  confessions,
+  polls,
+  pollOptions,
+  pollVotes,
+  communityReports,
+} from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { JwtService } from '@nestjs/jwt';
 
 describe('CommunityModule (e2e)', () => {
   let app: INestApplication;
   let jwtService: JwtService;
-  
+
   let userAToken: string;
   let userAId: string;
-  
+
   let userBToken: string;
   let userBId: string;
 
@@ -32,24 +43,29 @@ describe('CommunityModule (e2e)', () => {
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
-    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed' });
+    jwtService = new JwtService({
+      secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
+    });
 
     // Pre-cleanup in case of previous test failure
     await db.delete(users).where(eq(users.email, 'communitya@srmist.edu.in'));
     await db.delete(users).where(eq(users.email, 'communityb@srmist.edu.in'));
 
     // Seed test users
-    const userA = await db.insert(users).values({
-      email: 'communitya@srmist.edu.in',
-      fullName: 'Community User A',
-      authProvider: 'EMAIL',
-      providerId: 'commA',
-      isVerified: true,
-      status: 'ACTIVE',
-      role: 'STUDENT'
-    }).returning();
+    const userA = await db
+      .insert(users)
+      .values({
+        email: 'communitya@srmist.edu.in',
+        fullName: 'Community User A',
+        authProvider: 'EMAIL',
+        providerId: 'commA',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'STUDENT',
+      })
+      .returning();
     userAId = userA[0].id;
-    
+
     await db.insert(profiles).values({
       userId: userAId,
       username: 'communitya',
@@ -58,20 +74,27 @@ describe('CommunityModule (e2e)', () => {
       degreeProgram: 'B.Tech',
       batchYear: '2025',
       graduationYear: 2029,
-      department: 'CSE'
+      department: 'CSE',
     });
 
-    userAToken = jwtService.sign({ sub: userAId, email: userA[0].email, role: 'STUDENT' });
+    userAToken = jwtService.sign({
+      sub: userAId,
+      email: userA[0].email,
+      role: 'STUDENT',
+    });
 
-    const userB = await db.insert(users).values({
-      email: 'communityb@srmist.edu.in',
-      fullName: 'Community User B',
-      authProvider: 'EMAIL',
-      providerId: 'commB',
-      isVerified: true,
-      status: 'ACTIVE',
-      role: 'STUDENT'
-    }).returning();
+    const userB = await db
+      .insert(users)
+      .values({
+        email: 'communityb@srmist.edu.in',
+        fullName: 'Community User B',
+        authProvider: 'EMAIL',
+        providerId: 'commB',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'STUDENT',
+      })
+      .returning();
     userBId = userB[0].id;
 
     await db.insert(profiles).values({
@@ -82,10 +105,14 @@ describe('CommunityModule (e2e)', () => {
       degreeProgram: 'B.Tech',
       batchYear: '2025',
       graduationYear: 2029,
-      department: 'ECE'
+      department: 'ECE',
     });
 
-    userBToken = jwtService.sign({ sub: userBId, email: userB[0].email, role: 'STUDENT' });
+    userBToken = jwtService.sign({
+      sub: userBId,
+      email: userB[0].email,
+      role: 'STUDENT',
+    });
   });
 
   afterAll(async () => {
@@ -95,7 +122,9 @@ describe('CommunityModule (e2e)', () => {
       await db.delete(pollOptions);
       await db.delete(polls).where(eq(polls.authorId, userAId));
       await db.delete(confessions).where(eq(confessions.authorId, userAId));
-      await db.delete(communityReports).where(eq(communityReports.reporterId, userAId));
+      await db
+        .delete(communityReports)
+        .where(eq(communityReports.reporterId, userAId));
       await db.delete(profiles).where(eq(profiles.userId, userAId));
       await db.delete(users).where(eq(users.id, userAId));
     }
@@ -116,9 +145,9 @@ describe('CommunityModule (e2e)', () => {
         .set('Authorization', `Bearer ${userAToken}`)
         .send({
           content: 'I love programming in NestJS',
-          campus: 'KTR'
+          campus: 'KTR',
         });
-      
+
       if (response.status !== 201) {
         if (response.status === 401) {
           console.log('401 Body:', response.body);
@@ -134,7 +163,7 @@ describe('CommunityModule (e2e)', () => {
       const response = await request(app.getHttpServer())
         .post(`/community/moderation/confessions/${confessionId}/approve`)
         .set('Authorization', `Bearer ${userAToken}`);
-      
+
       expect(response.status).toBe(200);
     });
 
@@ -142,7 +171,7 @@ describe('CommunityModule (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get('/community/confessions/hero')
         .set('Authorization', `Bearer ${userAToken}`);
-      
+
       expect(response.status).toBe(200);
       expect(response.body.content).toBe('I love programming in NestJS');
       expect(response.body.id).toBe(confessionId);
@@ -162,7 +191,7 @@ describe('CommunityModule (e2e)', () => {
         .send({
           question: 'Best language?',
           options: ['TypeScript', 'Python'],
-          isMultipleChoice: false
+          isMultipleChoice: false,
         });
 
       expect(response.status).toBe(201);
@@ -174,7 +203,7 @@ describe('CommunityModule (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get(`/community/polls/${pollId}`)
         .set('Authorization', `Bearer ${userAToken}`);
-      
+
       expect(response.status).toBe(200);
       expect(response.body.options).toHaveLength(2);
       optionId = response.body.options[0].id;
@@ -185,7 +214,7 @@ describe('CommunityModule (e2e)', () => {
         .post(`/community/polls/${pollId}/vote`)
         .set('Authorization', `Bearer ${userAToken}`)
         .send({ optionId });
-      
+
       expect(response.status).toBe(200);
     });
 
@@ -194,7 +223,7 @@ describe('CommunityModule (e2e)', () => {
         .post(`/community/polls/${pollId}/vote`)
         .set('Authorization', `Bearer ${userAToken}`)
         .send({ optionId });
-      
+
       expect(response.status).toBe(409); // Conflict
     });
 
@@ -203,7 +232,7 @@ describe('CommunityModule (e2e)', () => {
         .delete(`/community/polls/${pollId}/vote`)
         .set('Authorization', `Bearer ${userAToken}`)
         .send({ optionId });
-      
+
       expect(response.status).toBe(200);
     });
   });
@@ -213,7 +242,7 @@ describe('CommunityModule (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get('/community/campus/pulse')
         .set('Authorization', `Bearer ${userAToken}`);
-      
+
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('activePosts');
       expect(response.body).toHaveProperty('activeComments');
@@ -224,7 +253,7 @@ describe('CommunityModule (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get('/community/campus/insights')
         .set('Authorization', `Bearer ${userAToken}`);
-      
+
       expect(response.status).toBe(200);
       expect(response.body.campus).toBe('KTR');
     });
@@ -235,7 +264,7 @@ describe('CommunityModule (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get('/community/people/recommendations')
         .set('Authorization', `Bearer ${userAToken}`);
-      
+
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body.items)).toBeTruthy();
     });
@@ -249,9 +278,9 @@ describe('CommunityModule (e2e)', () => {
         .send({
           targetType: 'USER',
           targetId: userBId,
-          reason: 'Spamming connection requests'
+          reason: 'Spamming connection requests',
         });
-      
+
       expect(response.status).toBe(201);
       expect(response.body.id).toBeDefined();
     });
@@ -260,7 +289,7 @@ describe('CommunityModule (e2e)', () => {
       const response = await request(app.getHttpServer())
         .get('/community/moderation/reports')
         .set('Authorization', `Bearer ${userAToken}`);
-      
+
       expect(response.status).toBe(200);
       expect(response.body.length).toBeGreaterThan(0);
     });

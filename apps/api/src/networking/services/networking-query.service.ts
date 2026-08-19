@@ -2,7 +2,13 @@ import { db } from '../../db/index';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { eq, and, or, sql, desc, lt } from 'drizzle-orm';
 import * as schema from '../../db/schema';
-import { follows, connections, connectionRequests, blocks, users } from '../../db/schema';
+import {
+  follows,
+  connections,
+  connectionRequests,
+  blocks,
+  users,
+} from '../../db/schema';
 import { BlockService } from './block.service';
 import { RelationshipStatusResponse } from '../dto/networking.dto';
 
@@ -21,7 +27,9 @@ export class NetworkingQueryService {
   private db;
 
   constructor(private readonly blockService: BlockService) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -43,7 +51,7 @@ export class NetworkingQueryService {
     if (cursor) {
       const decoded = this.decodeCursor(cursor);
       conditions.push(
-        sql`(${follows.createdAt}, ${follows.followerId}) < (${new Date(decoded.createdAt)}, ${decoded.followerId})`
+        sql`(${follows.createdAt}, ${follows.followerId}) < (${new Date(decoded.createdAt)}, ${decoded.followerId})`,
       );
     }
 
@@ -80,7 +88,7 @@ export class NetworkingQueryService {
     if (cursor) {
       const decoded = this.decodeCursor(cursor);
       conditions.push(
-        sql`(${follows.createdAt}, ${follows.followingId}) < (${new Date(decoded.createdAt)}, ${decoded.followingId})`
+        sql`(${follows.createdAt}, ${follows.followingId}) < (${new Date(decoded.createdAt)}, ${decoded.followingId})`,
       );
     }
 
@@ -112,12 +120,14 @@ export class NetworkingQueryService {
   }
 
   async getConnections(userId: string, limit: number = 20, cursor?: string) {
-    const conditions = [or(eq(connections.userAId, userId), eq(connections.userBId, userId))];
+    const conditions = [
+      or(eq(connections.userAId, userId), eq(connections.userBId, userId)),
+    ];
 
     if (cursor) {
       const decoded = this.decodeCursor(cursor);
       conditions.push(
-        sql`(${connections.createdAt}, ${connections.userAId}, ${connections.userBId}) < (${new Date(decoded.createdAt)}, ${decoded.userAId}, ${decoded.userBId})`
+        sql`(${connections.createdAt}, ${connections.userAId}, ${connections.userBId}) < (${new Date(decoded.createdAt)}, ${decoded.userAId}, ${decoded.userBId})`,
       );
     }
 
@@ -129,7 +139,11 @@ export class NetworkingQueryService {
       })
       .from(connections)
       .where(and(...conditions))
-      .orderBy(desc(connections.createdAt), desc(connections.userAId), desc(connections.userBId))
+      .orderBy(
+        desc(connections.createdAt),
+        desc(connections.userAId),
+        desc(connections.userBId),
+      )
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
@@ -153,13 +167,20 @@ export class NetworkingQueryService {
     return { data, pagination: { nextCursor, hasMore } };
   }
 
-  async getPendingIncomingRequests(userId: string, limit: number = 20, cursor?: string) {
-    const conditions = [eq(connectionRequests.receiverId, userId), eq(connectionRequests.status, 'PENDING')];
+  async getPendingIncomingRequests(
+    userId: string,
+    limit: number = 20,
+    cursor?: string,
+  ) {
+    const conditions = [
+      eq(connectionRequests.receiverId, userId),
+      eq(connectionRequests.status, 'PENDING'),
+    ];
 
     if (cursor) {
       const decoded = this.decodeCursor(cursor);
       conditions.push(
-        sql`(${connectionRequests.createdAt}, ${connectionRequests.id}) < (${new Date(decoded.createdAt)}, ${decoded.id})`
+        sql`(${connectionRequests.createdAt}, ${connectionRequests.id}) < (${new Date(decoded.createdAt)}, ${decoded.id})`,
       );
     }
 
@@ -191,13 +212,20 @@ export class NetworkingQueryService {
     return { data, pagination: { nextCursor, hasMore } };
   }
 
-  async getPendingOutgoingRequests(userId: string, limit: number = 20, cursor?: string) {
-    const conditions = [eq(connectionRequests.senderId, userId), eq(connectionRequests.status, 'PENDING')];
+  async getPendingOutgoingRequests(
+    userId: string,
+    limit: number = 20,
+    cursor?: string,
+  ) {
+    const conditions = [
+      eq(connectionRequests.senderId, userId),
+      eq(connectionRequests.status, 'PENDING'),
+    ];
 
     if (cursor) {
       const decoded = this.decodeCursor(cursor);
       conditions.push(
-        sql`(${connectionRequests.createdAt}, ${connectionRequests.id}) < (${new Date(decoded.createdAt)}, ${decoded.id})`
+        sql`(${connectionRequests.createdAt}, ${connectionRequests.id}) < (${new Date(decoded.createdAt)}, ${decoded.id})`,
       );
     }
 
@@ -235,7 +263,7 @@ export class NetworkingQueryService {
     if (cursor) {
       const decoded = this.decodeCursor(cursor);
       conditions.push(
-        sql`(${blocks.createdAt}, ${blocks.blockedId}) < (${new Date(decoded.createdAt)}, ${decoded.blockedId})`
+        sql`(${blocks.createdAt}, ${blocks.blockedId}) < (${new Date(decoded.createdAt)}, ${decoded.blockedId})`,
       );
     }
 
@@ -266,13 +294,21 @@ export class NetworkingQueryService {
     return { data, pagination: { nextCursor, hasMore } };
   }
 
-  async getRelationshipStatus(currentUserId: string, targetUserId: string): Promise<RelationshipStatusResponse> {
+  async getRelationshipStatus(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<RelationshipStatusResponse> {
     // 1. Block Privacy Interceptor
-    if (await this.blockService.isBlockedByTarget(currentUserId, targetUserId)) {
+    if (
+      await this.blockService.isBlockedByTarget(currentUserId, targetUserId)
+    ) {
       throw new NotFoundException('User not found');
     }
 
-    const isBlockedByMe = await this.blockService.isBlockedByMe(currentUserId, targetUserId);
+    const isBlockedByMe = await this.blockService.isBlockedByMe(
+      currentUserId,
+      targetUserId,
+    );
     if (isBlockedByMe) {
       return {
         targetUserId,
@@ -289,13 +325,25 @@ export class NetworkingQueryService {
       .from(follows)
       .where(
         or(
-          and(eq(follows.followerId, currentUserId), eq(follows.followingId, targetUserId)),
-          and(eq(follows.followerId, targetUserId), eq(follows.followingId, currentUserId))
-        )
+          and(
+            eq(follows.followerId, currentUserId),
+            eq(follows.followingId, targetUserId),
+          ),
+          and(
+            eq(follows.followerId, targetUserId),
+            eq(follows.followingId, currentUserId),
+          ),
+        ),
       );
 
-    const isFollowing = followRows.some((r: any) => r.followerId === currentUserId && r.followingId === targetUserId);
-    const isFollowedBy = followRows.some((r: any) => r.followerId === targetUserId && r.followingId === currentUserId);
+    const isFollowing = followRows.some(
+      (r: any) =>
+        r.followerId === currentUserId && r.followingId === targetUserId,
+    );
+    const isFollowedBy = followRows.some(
+      (r: any) =>
+        r.followerId === targetUserId && r.followingId === currentUserId,
+    );
 
     // 3. Check Active Connection in `connections`
     const minId = currentUserId < targetUserId ? currentUserId : targetUserId;
@@ -304,10 +352,13 @@ export class NetworkingQueryService {
     const connectionRow = await this.db
       .select()
       .from(connections)
-      .where(and(eq(connections.userAId, minId), eq(connections.userBId, maxId)))
+      .where(
+        and(eq(connections.userAId, minId), eq(connections.userBId, maxId)),
+      )
       .limit(1);
 
-    let connectionStatus: 'NONE' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'CONNECTED' = 'NONE';
+    let connectionStatus:
+      'NONE' | 'PENDING_SENT' | 'PENDING_RECEIVED' | 'CONNECTED' = 'NONE';
     let pendingRequestId: string | undefined;
 
     if (connectionRow.length > 0) {
@@ -321,17 +372,24 @@ export class NetworkingQueryService {
           and(
             eq(connectionRequests.status, 'PENDING'),
             or(
-              and(eq(connectionRequests.senderId, currentUserId), eq(connectionRequests.receiverId, targetUserId)),
-              and(eq(connectionRequests.senderId, targetUserId), eq(connectionRequests.receiverId, currentUserId))
-            )
-          )
+              and(
+                eq(connectionRequests.senderId, currentUserId),
+                eq(connectionRequests.receiverId, targetUserId),
+              ),
+              and(
+                eq(connectionRequests.senderId, targetUserId),
+                eq(connectionRequests.receiverId, currentUserId),
+              ),
+            ),
+          ),
         )
         .limit(1);
 
       if (pendingReq.length > 0) {
         const req = pendingReq[0];
         pendingRequestId = req.id;
-        connectionStatus = req.senderId === currentUserId ? 'PENDING_SENT' : 'PENDING_RECEIVED';
+        connectionStatus =
+          req.senderId === currentUserId ? 'PENDING_SENT' : 'PENDING_RECEIVED';
       }
     }
 

@@ -60,6 +60,11 @@ export interface UpdatePostPayload {
   visibility?: PostVisibility
 }
 
+export interface UserPostsResponse {
+  items: PostItem[]
+  nextCursor: string | null
+}
+
 export const postsApi = {
   createPost: (payload: CreatePostPayload): Promise<PostItem> => client.post('/posts', payload),
   
@@ -94,4 +99,12 @@ export const postsApi = {
   updateComment: (commentId: string, content: string): Promise<PostComment> => client.patch(`/posts/comments/${commentId}`, { content }),
 
   deleteComment: (commentId: string): Promise<{ message: string }> => client.delete(`/posts/comments/${commentId}`),
+
+  getUserPosts: async (userId: string, params?: { cursor?: string; limit?: number }): Promise<UserPostsResponse> => {
+    const res = await client.get(`/posts/user/${userId}`, { params })
+    return {
+      items: res.data || [],
+      nextCursor: res.meta?.nextCursor || null
+    }
+  },
 }

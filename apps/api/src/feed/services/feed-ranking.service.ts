@@ -54,25 +54,41 @@ export class FeedRankingService {
     }
 
     let academicScore = 0;
-    if (viewer.department && item.author.department && viewer.department === item.author.department) {
+    if (
+      viewer.department &&
+      item.author.department &&
+      viewer.department === item.author.department
+    ) {
       academicScore += 20;
     }
-    if (viewer.campus && item.author.campus && viewer.campus === item.author.campus) {
+    if (
+      viewer.campus &&
+      item.author.campus &&
+      viewer.campus === item.author.campus
+    ) {
       academicScore += 15;
     }
-    if (viewer.batchYear && item.author.batchYear && viewer.batchYear === item.author.batchYear) {
+    if (
+      viewer.batchYear &&
+      item.author.batchYear &&
+      viewer.batchYear === item.author.batchYear
+    ) {
       academicScore += 10;
     }
 
     let interestScore = 0;
     if (viewer.interestIds && item.author.interestIds) {
-      const sharedInterests = viewer.interestIds.filter((id) => item.author.interestIds!.includes(id));
+      const sharedInterests = viewer.interestIds.filter((id) =>
+        item.author.interestIds!.includes(id),
+      );
       interestScore = Math.min(30, sharedInterests.length * 10);
     }
 
     let skillScore = 0;
     if (viewer.skillIds && item.author.skillIds) {
-      const sharedSkills = viewer.skillIds.filter((id) => item.author.skillIds!.includes(id));
+      const sharedSkills = viewer.skillIds.filter((id) =>
+        item.author.skillIds!.includes(id),
+      );
       skillScore = Math.min(24, sharedSkills.length * 8);
     }
 
@@ -80,17 +96,31 @@ export class FeedRankingService {
     const comments = Math.max(0, item.post.commentsCount || 0);
     const engagementScore = Math.log(1 + likes) + 2 * Math.log(1 + comments);
 
-    const postDate = item.post.createdAt instanceof Date ? item.post.createdAt : new Date(item.post.createdAt);
+    const postDate =
+      item.post.createdAt instanceof Date
+        ? item.post.createdAt
+        : new Date(item.post.createdAt);
     const ageInMs = Math.max(0, Date.now() - postDate.getTime());
     const ageInHours = ageInMs / (1000 * 60 * 60);
     const freshnessScore = Math.max(0, 100 - (ageInHours / 24) * 10);
 
     return Number(
-      (relationshipScore + academicScore + interestScore + skillScore + engagementScore + freshnessScore).toFixed(4)
+      (
+        relationshipScore +
+        academicScore +
+        interestScore +
+        skillScore +
+        engagementScore +
+        freshnessScore
+      ).toFixed(4),
     );
   }
 
-  rankFeedItems(items: FeedItemContext[], viewer: ViewerContext, cursor?: DecodedFeedCursor): RankedFeedItem[] {
+  rankFeedItems(
+    items: FeedItemContext[],
+    viewer: ViewerContext,
+    cursor?: DecodedFeedCursor,
+  ): RankedFeedItem[] {
     const scoredItems: RankedFeedItem[] = items.map((item) => ({
       ...item,
       score: this.calculateScore(item, viewer),
@@ -99,8 +129,14 @@ export class FeedRankingService {
     // Deterministic Sort: score DESC, createdAt DESC, id DESC
     scoredItems.sort((a, b) => {
       if (b.score !== a.score) return b.score - a.score;
-      const dateA = a.post.createdAt instanceof Date ? a.post.createdAt.getTime() : new Date(a.post.createdAt).getTime();
-      const dateB = b.post.createdAt instanceof Date ? b.post.createdAt.getTime() : new Date(b.post.createdAt).getTime();
+      const dateA =
+        a.post.createdAt instanceof Date
+          ? a.post.createdAt.getTime()
+          : new Date(a.post.createdAt).getTime();
+      const dateB =
+        b.post.createdAt instanceof Date
+          ? b.post.createdAt.getTime()
+          : new Date(b.post.createdAt).getTime();
       if (dateB !== dateA) return dateB - dateA;
       return b.post.id.localeCompare(a.post.id);
     });
@@ -112,7 +148,10 @@ export class FeedRankingService {
       if (item.score < cursor.score) return true;
       if (item.score > cursor.score) return false;
 
-      const itemDate = item.post.createdAt instanceof Date ? item.post.createdAt.getTime() : new Date(item.post.createdAt).getTime();
+      const itemDate =
+        item.post.createdAt instanceof Date
+          ? item.post.createdAt.getTime()
+          : new Date(item.post.createdAt).getTime();
       const cursorDate = cursor.createdAt.getTime();
 
       if (itemDate < cursorDate) return true;

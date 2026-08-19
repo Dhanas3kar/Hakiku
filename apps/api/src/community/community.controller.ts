@@ -1,4 +1,18 @@
-import { Controller, Get, Post, Delete, Body, Param, Req, UseGuards, Query, HttpCode, HttpStatus, ParseBoolPipe, DefaultValuePipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Req,
+  UseGuards,
+  Query,
+  HttpCode,
+  HttpStatus,
+  ParseBoolPipe,
+  DefaultValuePipe,
+} from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
 import { ConfessionService } from './confessions/confession.service';
@@ -47,22 +61,33 @@ export class CommunityController {
   @Post('confessions')
   async submitConfession(
     @Req() req: AuthenticatedRequest,
-    @Body() body: { content: string; campus?: string }
+    @Body() body: { content: string; campus?: string },
   ) {
-    return this.confessionService.submitConfession(req.user.sub, body.content, body.campus);
+    return this.confessionService.submitConfession(
+      req.user.sub,
+      body.content,
+      body.campus,
+    );
   }
 
   @Get('confessions')
   async listConfessions(
     @Req() req: AuthenticatedRequest,
     @Query('limit', new DefaultValuePipe(20)) limit: number,
-    @Query('offset', new DefaultValuePipe(0)) offset: number
+    @Query('offset', new DefaultValuePipe(0)) offset: number,
   ) {
-    return this.confessionQueryService.listConfessions(req.user.sub, Number(limit), Number(offset));
+    return this.confessionQueryService.listConfessions(
+      req.user.sub,
+      Number(limit),
+      Number(offset),
+    );
   }
 
   @Delete('confessions/:id')
-  async deleteOwnConfession(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+  async deleteOwnConfession(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
     return this.confessionService.deleteOwnConfession(req.user.sub, id);
   }
 
@@ -74,9 +99,13 @@ export class CommunityController {
   async getRecommendations(
     @Req() req: AuthenticatedRequest,
     @Query('cursor') cursor: string,
-    @Query('limit', new DefaultValuePipe(20)) limit: number
+    @Query('limit', new DefaultValuePipe(20)) limit: number,
   ) {
-    return this.peopleDiscoveryService.getRecommendations(req.user.sub, cursor, Number(limit));
+    return this.peopleDiscoveryService.getRecommendations(
+      req.user.sub,
+      cursor,
+      Number(limit),
+    );
   }
 
   // ==========================================
@@ -100,22 +129,41 @@ export class CommunityController {
   @Post('polls')
   async createPoll(
     @Req() req: AuthenticatedRequest,
-    @Body() body: { question: string; options: string[]; isMultipleChoice?: boolean; campus?: string }
+    @Body()
+    body: {
+      question: string;
+      options: string[];
+      isMultipleChoice?: boolean;
+      campus?: string;
+    },
   ) {
-    return this.pollService.createPoll(req.user.sub, body.question, body.options, body.isMultipleChoice, body.campus);
+    return this.pollService.createPoll(
+      req.user.sub,
+      body.question,
+      body.options,
+      body.isMultipleChoice,
+      body.campus,
+    );
   }
 
   @Get('polls')
   async listPolls(
     @Req() req: AuthenticatedRequest,
     @Query('limit', new DefaultValuePipe(20)) limit: number,
-    @Query('offset', new DefaultValuePipe(0)) offset: number
+    @Query('offset', new DefaultValuePipe(0)) offset: number,
   ) {
-    return this.pollQueryService.listPolls(req.user.sub, Number(limit), Number(offset));
+    return this.pollQueryService.listPolls(
+      req.user.sub,
+      Number(limit),
+      Number(offset),
+    );
   }
 
   @Get('polls/:id')
-  async getPollDetails(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+  async getPollDetails(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
     return this.pollQueryService.getPollDetails(id, req.user.sub);
   }
 
@@ -124,7 +172,7 @@ export class CommunityController {
   async voteOnPoll(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() body: { optionId: string }
+    @Body() body: { optionId: string },
   ) {
     return this.pollService.vote(req.user.sub, id, body.optionId);
   }
@@ -133,7 +181,7 @@ export class CommunityController {
   async removeVote(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() body?: { optionId?: string }
+    @Body() body?: { optionId?: string },
   ) {
     return this.pollService.removeVote(req.user.sub, id, body?.optionId);
   }
@@ -145,9 +193,19 @@ export class CommunityController {
   @Post('report')
   async reportContent(
     @Req() req: AuthenticatedRequest,
-    @Body() body: { targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER'; targetId: string; reason: string }
+    @Body()
+    body: {
+      targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER';
+      targetId: string;
+      reason: string;
+    },
   ) {
-    return this.reportService.reportContent(req.user.sub, body.targetType, body.targetId, body.reason);
+    return this.reportService.reportContent(
+      req.user.sub,
+      body.targetType,
+      body.targetId,
+      body.reason,
+    );
   }
 
   // ==========================================

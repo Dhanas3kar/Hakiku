@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  NotFoundException,
+} from '@nestjs/common';
 import { BlockService } from '../services/block.service';
 
 @Injectable()
@@ -11,7 +16,10 @@ export class BlockPrivacyGuard implements CanActivate {
     const targetUserId = request.params?.targetUserId;
 
     if (currentUserId && targetUserId && currentUserId !== targetUserId) {
-      const isBlockedByTarget = await this.blockService.isBlockedByTarget(currentUserId, targetUserId);
+      const isBlockedByTarget = await this.blockService.isBlockedByTarget(
+        currentUserId,
+        targetUserId,
+      );
       if (isBlockedByTarget) {
         throw new NotFoundException('User not found');
       }

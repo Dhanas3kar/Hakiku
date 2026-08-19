@@ -13,9 +13,11 @@ export class NotificationService {
 
   constructor(
     private readonly privacyService: NotificationPrivacyService,
-    private readonly preferenceService: NotificationPreferenceService
+    private readonly preferenceService: NotificationPreferenceService,
   ) {
-    const connectionString = process.env.DATABASE_URL || 'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+    const connectionString =
+      process.env.DATABASE_URL ||
+      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -26,7 +28,9 @@ export class NotificationService {
     let cursorId: string | null = null;
     if (query.cursor) {
       try {
-        const decoded = JSON.parse(Buffer.from(query.cursor, 'base64').toString('utf-8'));
+        const decoded = JSON.parse(
+          Buffer.from(query.cursor, 'base64').toString('utf-8'),
+        );
         cursorCreatedAt = new Date(decoded.createdAt);
         cursorId = decoded.id;
       } catch (err) {
@@ -38,7 +42,7 @@ export class NotificationService {
 
     if (cursorCreatedAt && cursorId) {
       conditions.push(
-        sql`(${notifications.createdAt}, ${notifications.id}) < (${cursorCreatedAt.toISOString()}, ${cursorId})`
+        sql`(${notifications.createdAt}, ${notifications.id}) < (${cursorCreatedAt.toISOString()}, ${cursorId})`,
       );
     }
 
@@ -56,7 +60,7 @@ export class NotificationService {
     if (hasNextPage && pageData.length > 0) {
       const lastItem = pageData[pageData.length - 1];
       nextCursor = Buffer.from(
-        JSON.stringify({ createdAt: lastItem.createdAt, id: lastItem.id })
+        JSON.stringify({ createdAt: lastItem.createdAt, id: lastItem.id }),
       ).toString('base64');
     }
 
@@ -74,7 +78,12 @@ export class NotificationService {
     const [result] = await this.db
       .select({ count: sql<number>`count(*)::int` })
       .from(notifications)
-      .where(and(eq(notifications.recipientId, userId), eq(notifications.isRead, false)));
+      .where(
+        and(
+          eq(notifications.recipientId, userId),
+          eq(notifications.isRead, false),
+        ),
+      );
 
     return { count: result?.count || 0 };
   }
@@ -83,7 +92,12 @@ export class NotificationService {
     const [existing] = await this.db
       .select()
       .from(notifications)
-      .where(and(eq(notifications.id, notificationId), eq(notifications.recipientId, userId)))
+      .where(
+        and(
+          eq(notifications.id, notificationId),
+          eq(notifications.recipientId, userId),
+        ),
+      )
       .limit(1);
 
     if (!existing) {
@@ -106,7 +120,12 @@ export class NotificationService {
     await this.db
       .update(notifications)
       .set({ isRead: true, readAt: new Date() })
-      .where(and(eq(notifications.recipientId, userId), eq(notifications.isRead, false)));
+      .where(
+        and(
+          eq(notifications.recipientId, userId),
+          eq(notifications.isRead, false),
+        ),
+      );
 
     return { message: 'All notifications marked as read' };
   }
@@ -114,7 +133,12 @@ export class NotificationService {
   async deleteNotification(userId: string, notificationId: string) {
     const deleted = await this.db
       .delete(notifications)
-      .where(and(eq(notifications.id, notificationId), eq(notifications.recipientId, userId)))
+      .where(
+        and(
+          eq(notifications.id, notificationId),
+          eq(notifications.recipientId, userId),
+        ),
+      )
       .returning();
 
     if (deleted.length === 0) {

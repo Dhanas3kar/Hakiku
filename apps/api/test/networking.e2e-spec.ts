@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HttpStatus } from '@nestjs/common';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
-import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
@@ -90,22 +93,36 @@ describe('Networking Module (e2e)', () => {
       .values({ email: 'userc_net@srmist.edu.in', isVerified: true })
       .returning();
 
-    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed' });
+    jwtService = new JwtService({
+      secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
+    });
 
     userA = {
       id: uA.id,
       email: uA.email,
-      token: await jwtService.signAsync({ sub: uA.id, email: uA.email, role: uA.role }),
+      token: await jwtService.signAsync({
+        sub: uA.id,
+        email: uA.email,
+        role: uA.role,
+      }),
     };
     userB = {
       id: uB.id,
       email: uB.email,
-      token: await jwtService.signAsync({ sub: uB.id, email: uB.email, role: uB.role }),
+      token: await jwtService.signAsync({
+        sub: uB.id,
+        email: uB.email,
+        role: uB.role,
+      }),
     };
     userC = {
       id: uC.id,
       email: uC.email,
-      token: await jwtService.signAsync({ sub: uC.id, email: uC.email, role: uC.role }),
+      token: await jwtService.signAsync({
+        sub: uC.id,
+        email: uC.email,
+        role: uC.role,
+      }),
     };
 
     // 4. Initialize Nest Application
@@ -113,7 +130,9 @@ describe('Networking Module (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication<NestFastifyApplication>(new FastifyAdapter());
+    app = moduleFixture.createNestApplication<NestFastifyApplication>(
+      new FastifyAdapter(),
+    );
 
     await app.register(fastifyCookie, { secret: 'test-secret' });
     await app.register(fastifyCsrf, { cookieOpts: { signed: true } });
