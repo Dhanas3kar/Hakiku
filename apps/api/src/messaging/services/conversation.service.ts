@@ -102,7 +102,7 @@ export class ConversationService {
 
     // Fetch targets' profiles
     if (items.length === 0) {
-      return { data: [], nextCursor: null };
+      return { items: [], nextCursor: null, hasMore: false };
     }
 
     const targetIds = items.map(i => i.targetUserId);
@@ -124,12 +124,18 @@ export class ConversationService {
       lastMessageId: item.lastMessageId,
       updatedAt: item.updatedAt,
       unreadCount: item.unreadCount,
-      targetUser: targetMap.get(item.targetUserId) || null
+      targetUser: targetMap.has(item.targetUserId) ? {
+        ...targetMap.get(item.targetUserId),
+        avatarUrl: targetMap.get(item.targetUserId)!.avatarKey 
+          ? `${process.env.BASE_URL || 'http://localhost:3000'}/uploads/${targetMap.get(item.targetUserId)!.avatarKey}` 
+          : null
+      } : null
     }));
 
     return {
-      data,
-      nextCursor
+      items: data,
+      nextCursor,
+      hasMore: hasNextPage
     };
   }
 

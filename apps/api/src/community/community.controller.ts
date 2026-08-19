@@ -14,7 +14,7 @@ import { CommunityModerationService } from './moderation/community-moderation.se
 
 interface AuthenticatedRequest extends FastifyRequest {
   user: {
-    id: string;
+    sub: string;
     email: string;
   };
 }
@@ -41,7 +41,7 @@ export class CommunityController {
 
   @Get('confessions/hero')
   async getHeroConfession(@Req() req: AuthenticatedRequest) {
-    return this.confessionQueryService.getHeroConfession(req.user.id);
+    return this.confessionQueryService.getHeroConfession(req.user.sub);
   }
 
   @Post('confessions')
@@ -49,7 +49,7 @@ export class CommunityController {
     @Req() req: AuthenticatedRequest,
     @Body() body: { content: string; campus?: string }
   ) {
-    return this.confessionService.submitConfession(req.user.id, body.content, body.campus);
+    return this.confessionService.submitConfession(req.user.sub, body.content, body.campus);
   }
 
   @Get('confessions')
@@ -58,12 +58,12 @@ export class CommunityController {
     @Query('limit', new DefaultValuePipe(20)) limit: number,
     @Query('offset', new DefaultValuePipe(0)) offset: number
   ) {
-    return this.confessionQueryService.listConfessions(req.user.id, Number(limit), Number(offset));
+    return this.confessionQueryService.listConfessions(req.user.sub, Number(limit), Number(offset));
   }
 
   @Delete('confessions/:id')
   async deleteOwnConfession(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
-    return this.confessionService.deleteOwnConfession(req.user.id, id);
+    return this.confessionService.deleteOwnConfession(req.user.sub, id);
   }
 
   // ==========================================
@@ -76,7 +76,7 @@ export class CommunityController {
     @Query('cursor') cursor: string,
     @Query('limit', new DefaultValuePipe(20)) limit: number
   ) {
-    return this.peopleDiscoveryService.getRecommendations(req.user.id, cursor, Number(limit));
+    return this.peopleDiscoveryService.getRecommendations(req.user.sub, cursor, Number(limit));
   }
 
   // ==========================================
@@ -90,7 +90,7 @@ export class CommunityController {
 
   @Get('campus/insights')
   async getCampusInsights(@Req() req: AuthenticatedRequest) {
-    return this.campusInsightsService.getInsights(req.user.id);
+    return this.campusInsightsService.getInsights(req.user.sub);
   }
 
   // ==========================================
@@ -102,7 +102,7 @@ export class CommunityController {
     @Req() req: AuthenticatedRequest,
     @Body() body: { question: string; options: string[]; isMultipleChoice?: boolean; campus?: string }
   ) {
-    return this.pollService.createPoll(req.user.id, body.question, body.options, body.isMultipleChoice, body.campus);
+    return this.pollService.createPoll(req.user.sub, body.question, body.options, body.isMultipleChoice, body.campus);
   }
 
   @Get('polls')
@@ -111,12 +111,12 @@ export class CommunityController {
     @Query('limit', new DefaultValuePipe(20)) limit: number,
     @Query('offset', new DefaultValuePipe(0)) offset: number
   ) {
-    return this.pollQueryService.listPolls(req.user.id, Number(limit), Number(offset));
+    return this.pollQueryService.listPolls(req.user.sub, Number(limit), Number(offset));
   }
 
   @Get('polls/:id')
   async getPollDetails(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
-    return this.pollQueryService.getPollDetails(id, req.user.id);
+    return this.pollQueryService.getPollDetails(id, req.user.sub);
   }
 
   @Post('polls/:id/vote')
@@ -126,7 +126,7 @@ export class CommunityController {
     @Param('id') id: string,
     @Body() body: { optionId: string }
   ) {
-    return this.pollService.vote(req.user.id, id, body.optionId);
+    return this.pollService.vote(req.user.sub, id, body.optionId);
   }
 
   @Delete('polls/:id/vote')
@@ -135,7 +135,7 @@ export class CommunityController {
     @Param('id') id: string,
     @Body() body?: { optionId?: string }
   ) {
-    return this.pollService.removeVote(req.user.id, id, body?.optionId);
+    return this.pollService.removeVote(req.user.sub, id, body?.optionId);
   }
 
   // ==========================================
@@ -147,7 +147,7 @@ export class CommunityController {
     @Req() req: AuthenticatedRequest,
     @Body() body: { targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER'; targetId: string; reason: string }
   ) {
-    return this.reportService.reportContent(req.user.id, body.targetType, body.targetId, body.reason);
+    return this.reportService.reportContent(req.user.sub, body.targetType, body.targetId, body.reason);
   }
 
   // ==========================================

@@ -143,7 +143,7 @@ describe('Posts Module (e2e)', () => {
     const userBId = uA.id < uB.id ? uB.id : uA.id;
     await db.insert(connections).values({ userAId, userBId });
 
-    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'super-secret' });
+    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed' });
 
     studentA = { id: uA.id, email: uA.email, token: await jwtService.signAsync({ sub: uA.id, email: uA.email, role: uA.role }) };
     studentB = { id: uB.id, email: uB.email, token: await jwtService.signAsync({ sub: uB.id, email: uB.email, role: uB.role }) };

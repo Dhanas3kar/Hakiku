@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -13,6 +14,8 @@ async function bootstrap() {
   await app.register(fastifyCookie as any, {
     secret: process.env.COOKIE_SECRET || 'super-secret',
   });
+
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
 
   await app.register(fastifyCsrf as any, {
     cookieOpts: { signed: true },

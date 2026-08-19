@@ -97,7 +97,7 @@ describe('Profile Module (e2e)', () => {
       .values({ email: 'admind_prof@srmist.edu.in', isVerified: true, status: 'ACTIVE', role: 'ADMIN' })
       .returning();
 
-    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'super-secret' });
+    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed' });
 
     studentA = { id: uA.id, email: uA.email, token: await jwtService.signAsync({ sub: uA.id, email: uA.email, role: uA.role }) };
     studentB = { id: uB.id, email: uB.email, token: await jwtService.signAsync({ sub: uB.id, email: uB.email, role: uB.role }) };

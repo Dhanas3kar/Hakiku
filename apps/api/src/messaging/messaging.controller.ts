@@ -79,14 +79,14 @@ export class MessagingController {
 
   @Get('unread-count')
   async getUnreadCount(@Req() req: any) {
-    return this.messageQueryService.getTotalUnreadCount(req.user.sub);
+    return this.messageQueryService.getUnreadCount(req.user.sub);
   }
 
   @Post('media/upload')
   async requestMediaUpload(
     @Req() req: any,
-    @Body() dto: { extension: string, mimeType: string, fileSize: number }
+    @Body() dto: { mimeType: string, fileSize: number }
   ) {
-    return this.messageMediaService.getPresignedUploadUrl(req.user.sub, dto.extension, dto.mimeType, dto.fileSize);
+    return this.messageMediaService.requestMediaUpload(req.user.sub, dto.mimeType, dto.fileSize);
   }
 }

@@ -90,7 +90,7 @@ describe('Networking Module (e2e)', () => {
       .values({ email: 'userc_net@srmist.edu.in', isVerified: true })
       .returning();
 
-    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'super-secret' });
+    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed' });
 
     userA = {
       id: uA.id,

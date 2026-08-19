@@ -24,11 +24,12 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.JWT_SECRET || 'super-secret',
+        secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
       });
       (request as any).user = payload;
       return true;
-    } catch {
+    } catch (e) {
+      console.error('JwtAuthGuard Error:', e);
       throw new UnauthorizedException('Invalid or expired authentication token');
     }
   }

@@ -27,12 +27,12 @@ describe('CommunityModule (e2e)', () => {
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
     );
-    app.register(fastifyCookie, { secret: 'test-secret' });
+    await app.register(fastifyCookie as any, { secret: 'test-secret' });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
-    jwtService = moduleFixture.get<JwtService>(JwtService);
+    jwtService = new JwtService({ secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed' });
 
     // Pre-cleanup in case of previous test failure
     await db.delete(users).where(eq(users.email, 'communitya@srmist.edu.in'));
@@ -44,6 +44,9 @@ describe('CommunityModule (e2e)', () => {
       fullName: 'Community User A',
       authProvider: 'EMAIL',
       providerId: 'commA',
+      isVerified: true,
+      status: 'ACTIVE',
+      role: 'STUDENT'
     }).returning();
     userAId = userA[0].id;
     
@@ -58,13 +61,16 @@ describe('CommunityModule (e2e)', () => {
       department: 'CSE'
     });
 
-    userAToken = jwtService.sign({ sub: userAId, email: userA[0].email });
+    userAToken = jwtService.sign({ sub: userAId, email: userA[0].email, role: 'STUDENT' });
 
     const userB = await db.insert(users).values({
       email: 'communityb@srmist.edu.in',
       fullName: 'Community User B',
       authProvider: 'EMAIL',
       providerId: 'commB',
+      isVerified: true,
+      status: 'ACTIVE',
+      role: 'STUDENT'
     }).returning();
     userBId = userB[0].id;
 
@@ -79,7 +85,7 @@ describe('CommunityModule (e2e)', () => {
       department: 'ECE'
     });
 
-    userBToken = jwtService.sign({ sub: userBId, email: userB[0].email });
+    userBToken = jwtService.sign({ sub: userBId, email: userB[0].email, role: 'STUDENT' });
   });
 
   afterAll(async () => {
@@ -114,7 +120,9 @@ describe('CommunityModule (e2e)', () => {
         });
       
       if (response.status !== 201) {
-        console.log(response.body);
+        if (response.status === 401) {
+          console.log('401 Body:', response.body);
+        }
       }
       expect(response.status).toBe(201);
       expect(response.body.message).toBe('Confession submitted for moderation');

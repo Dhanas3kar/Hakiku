@@ -15,16 +15,16 @@ export class PeopleDiscoveryService {
     });
 
     if (!currentUserProfile) {
-      return { recommendations: [], nextCursor: null };
+      return { items: [], nextCursor: null };
     }
 
     const currentUserSkills = await db.query.profileSkills.findMany({
-      where: eq(profileSkills.userId, userId),
+      where: eq(profileSkills.profileId, currentUserProfile.id),
     });
     const currentUserSkillIds = new Set(currentUserSkills.map(s => s.skillId));
 
     const currentUserInterests = await db.query.profileInterests.findMany({
-      where: eq(profileInterests.userId, userId),
+      where: eq(profileInterests.profileId, currentUserProfile.id),
     });
     const currentUserInterestIds = new Set(currentUserInterests.map(i => i.interestId));
 
@@ -67,38 +67,39 @@ export class PeopleDiscoveryService {
 
     // 2. Fetch candidates (limiting to 200 for memory scoring to prevent OOM)
     // We could optimize this heavily in SQL but for prototype doing it in memory is acceptable
-    const allProfiles = await db.query.profiles.findMany({
-      with: {
-        user: true,
-      },
-      limit: 500, // Hard cap for initial fetch
-    });
+    const allProfiles = await db.select({
+      profile: profiles,
+      user: users,
+    })
+    .from(profiles)
+    .innerJoin(users, eq(profiles.userId, users.id))
+    .limit(500);
 
-    const candidates = allProfiles.filter(p => !excludedIds.has(p.userId));
+    const candidates = allProfiles.filter(p => !excludedIds.has(p.profile.userId));
 
     // 3. Score candidates
     const scoredCandidates = await Promise.all(candidates.map(async (candidate) => {
       let score = 0;
 
-      if (candidate.campus && candidate.campus === currentUserProfile.campus) {
+      if (candidate.profile.campus && candidate.profile.campus === currentUserProfile.campus) {
         score += 10;
       }
-      if (candidate.department && candidate.department === currentUserProfile.department) {
+      if (candidate.profile.department && candidate.profile.department === currentUserProfile.department) {
         score += 15;
       }
-      if (candidate.batchYear && candidate.batchYear === currentUserProfile.batchYear) {
+      if (candidate.profile.batchYear && candidate.profile.batchYear === currentUserProfile.batchYear) {
         score += 10;
       }
 
       // Shared skills & interests
       const candidateSkills = await db.query.profileSkills.findMany({
-        where: eq(profileSkills.userId, candidate.userId)
+        where: eq(profileSkills.profileId, candidate.profile.id)
       });
       const sharedSkillsCount = candidateSkills.filter(s => currentUserSkillIds.has(s.skillId)).length;
       score += sharedSkillsCount * 15;
 
       const candidateInterests = await db.query.profileInterests.findMany({
-        where: eq(profileInterests.userId, candidate.userId)
+        where: eq(profileInterests.profileId, candidate.profile.id)
       });
       const sharedInterestsCount = candidateInterests.filter(i => currentUserInterestIds.has(i.interestId)).length;
       score += sharedInterestsCount * 15;
@@ -106,13 +107,13 @@ export class PeopleDiscoveryService {
       // Mutual connections
       const candidateConns = await db.query.connections.findMany({
         where: or(
-          eq(connections.userAId, candidate.userId),
-          eq(connections.userBId, candidate.userId)
+          eq(connections.userAId, candidate.profile.userId),
+          eq(connections.userBId, candidate.profile.userId)
         )
       });
       let mutualCount = 0;
       candidateConns.forEach(c => {
-        const id = c.userAId === candidate.userId ? c.userBId : c.userAId;
+        const id = c.userAId === candidate.profile.userId ? c.userBId : c.userAId;
         if (connectionIds.has(id)) mutualCount++;
       });
       score += mutualCount * 40;
@@ -132,15 +133,25 @@ export class PeopleDiscoveryService {
     const nextOffset = offset + limit;
     const nextCursor = nextOffset < scoredCandidates.length ? Buffer.from(nextOffset.toString()).toString('base64') : null;
 
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+
     return {
-      recommendations: paginated.map(p => ({
-        userId: p.userId,
-        fullName: p.user?.fullName,
-        headline: p.headline,
-        campus: p.campus,
-        department: p.department,
-        avatarUrl: p.avatarUrl,
-        score: p.score
+      items: paginated.map(p => ({
+        id: p.profile.id,
+        userId: p.profile.userId,
+        username: p.profile.username,
+        displayName: p.profile.displayName,
+        bio: p.profile.bio,
+        campus: p.profile.campus,
+        department: p.profile.department,
+        avatarUrl: p.profile.avatarKey ? `${baseUrl}/uploads/${p.profile.avatarKey}` : null,
+        headline: p.profile.bio || null,
+        score: p.score,
+        reasons: [
+          p.profile.campus === currentUserProfile.campus ? 'Same campus' : null,
+          p.profile.department === currentUserProfile.department ? 'Same department' : null,
+          p.profile.batchYear === currentUserProfile.batchYear ? 'Same batch' : null,
+        ].filter(Boolean) as string[],
       })),
       nextCursor
     };

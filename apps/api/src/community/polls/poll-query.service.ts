@@ -18,7 +18,8 @@ export class PollQueryService {
     const safePolls = activePolls.filter(p => !activeBlocks.has(p.authorId));
     const paginated = safePolls.slice(offset, offset + limit);
 
-    return Promise.all(paginated.map(p => this.getPollDetails(p.id, viewerId)));
+    const results = await Promise.all(paginated.map(p => this.getPollDetails(p.id, viewerId)));
+    return { items: results.filter(Boolean) };
   }
 
   async getPollDetails(pollId: string, viewerId: string) {
@@ -47,9 +48,12 @@ export class PollQueryService {
       question: poll.question,
       isMultipleChoice: poll.isMultipleChoice,
       campus: poll.campus,
-      endsAt: poll.endsAt,
+      authorId: poll.authorId,
+      expiresAt: poll.endsAt || null,
+      isActive: poll.status === 'PUBLISHED',
       createdAt: poll.createdAt,
       totalVotes,
+      userVotedOptionIds,
       options: options.map(opt => ({
         id: opt.id,
         text: opt.text,

@@ -1,12 +1,18 @@
 import { Controller, Post, Get, Body, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
+import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
 import { AuthService } from './auth.service';
 
 class SendOtpDto {
+  @IsEmail()
   email: string;
 }
 
 class VerifyOtpDto {
+  @IsEmail()
   email: string;
+
+  @IsString()
+  @IsNotEmpty()
   otp: string;
 }
 
@@ -65,7 +71,7 @@ export class AuthController {
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict' as const,
+      sameSite: 'lax' as const,
       path: '/',
     };
 

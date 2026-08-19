@@ -102,11 +102,14 @@ export class MessageService {
       // 5. Update outbox for notifications
       const targetUserId = conversation.userAId === userId ? conversation.userBId : conversation.userAId;
       await this.outboxService.appendEvent(tx, crypto.randomUUID(), 'MESSAGE', {
-        messageId: newMessageId,
-        conversationId,
-        senderId: userId,
+        actorId: userId,
         recipientId: targetUserId,
-        messageType: dto.messageType
+        entityType: 'CONVERSATION',
+        entityId: conversationId,
+        data: {
+          messageId: newMessageId,
+          messageType: dto.messageType
+        }
       });
 
       return msg;
