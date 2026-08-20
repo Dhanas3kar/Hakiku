@@ -330,7 +330,11 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
   }
 
   return (
+<<<<<<< HEAD
     <div className="relative flex flex-col overflow-hidden rounded-none sm:rounded-2xl border-b sm:border border-border bg-surface-elevated shadow-sm transition-all duration-300">
+=======
+    <div className="relative flex flex-col rounded-none sm:rounded-xl border-b sm:border border-border bg-surface-elevated shadow-none sm:shadow-sm dark:shadow-none transition-colors overflow-hidden">
+>>>>>>> e760939bc2c945b2a23bfecf6cdf06437713a9e8
       {/* Hidden file inputs */}
       <input
         ref={coverInputRef}
@@ -419,11 +423,22 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
           </div>
         </div>
 
+<<<<<<< HEAD
         <div className="mt-5">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight leading-none">
             {profile.displayName || profile.fullName}
           </h1>
           <p className="text-base text-foreground-muted font-medium mt-1">@{profile.username}</p>
+=======
+        <div className="mt-4">
+          <h1 className="text-xl sm:text-2xl font-extrabold text-foreground tracking-tight leading-tight">{profile.displayName || profile.fullName}</h1>
+          <p className="text-sm sm:text-base text-foreground-muted font-medium mt-0.5">@{profile.username}</p>
+          
+          {/* @ts-ignore - bio might not be typed but we render if it exists */}
+          {profile.bio && (
+            <p className="mt-3 text-sm sm:text-base text-foreground leading-relaxed">{profile.bio}</p>
+          )}
+>>>>>>> e760939bc2c945b2a23bfecf6cdf06437713a9e8
           
           {/* @ts-ignore - bio might not be typed but we render if it exists */}
           {profile.bio && (
