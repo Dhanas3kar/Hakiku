@@ -148,7 +148,7 @@ export class PostMediaService {
 
       attachedMedia.push({
         ...mediaRecord,
-        url: `${process.env.BASE_URL || 'http://localhost:3000'}/uploads/${mediaRecord.storageKey}`,
+        url: `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${mediaRecord.storageKey}`,
       });
     }
 
@@ -165,7 +165,7 @@ export class PostMediaService {
       .where(eq(postMedia.postId, postId))
       .orderBy(postMedia.displayOrder);
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
     return mediaList.map((m: any) => ({
       ...m,
       url: `${baseUrl}/uploads/${m.storageKey}`,

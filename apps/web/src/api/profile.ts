@@ -14,6 +14,7 @@ export interface UserProfile {
   avatarUrl: string | null;
   coverUrl: string | null;
   socialLinks: Record<string, string> | null;
+  isVerifiedIdentity?: boolean;
   skillIds?: string[];
   interestIds?: string[];
   skills?: { id: string; name: string; category?: string }[];

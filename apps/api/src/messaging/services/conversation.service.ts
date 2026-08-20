@@ -151,7 +151,7 @@ export class ConversationService {
         ? {
             ...targetMap.get(item.targetUserId),
             avatarUrl: targetMap.get(item.targetUserId)!.avatarKey
-              ? `${process.env.BASE_URL || 'http://localhost:3000'}/uploads/${targetMap.get(item.targetUserId)!.avatarKey}`
+              ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${targetMap.get(item.targetUserId)!.avatarKey}`
               : null,
           }
         : null,

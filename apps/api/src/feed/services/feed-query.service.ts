@@ -141,7 +141,7 @@ export class FeedQueryService {
     profilesRows.forEach((pr: any) => profileMap.set(pr.userId, pr));
 
     const mediaMap = new Map<string, any[]>();
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
     mediaRows.forEach((m: any) => {
       const list = mediaMap.get(m.postId) || [];
       list.push({

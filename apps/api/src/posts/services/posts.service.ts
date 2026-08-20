@@ -94,7 +94,7 @@ export class PostsService {
         username: authorProfile?.username || 'user',
         displayName: authorProfile?.displayName || 'Student',
         avatarUrl: authorProfile?.avatarKey
-          ? `${process.env.BASE_URL || 'http://localhost:3000'}/uploads/${authorProfile.avatarKey}`
+          ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
           : null,
       },
       media: attachedMedia,
@@ -135,7 +135,7 @@ export class PostsService {
         username: authorProfile?.username || 'user',
         displayName: authorProfile?.displayName || 'Student',
         avatarUrl: authorProfile?.avatarKey
-          ? `${process.env.BASE_URL || 'http://localhost:3000'}/uploads/${authorProfile.avatarKey}`
+          ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
           : null,
       },
       media,

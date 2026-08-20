@@ -1,0 +1,1 @@
+ALTER TABLE "profiles" ADD COLUMN "is_verified_identity" boolean DEFAULT false NOT NULL;

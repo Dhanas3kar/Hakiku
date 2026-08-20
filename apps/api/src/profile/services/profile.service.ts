@@ -207,7 +207,7 @@ export class ProfileService {
       .innerJoin(interests, eq(profileInterests.interestId, interests.id))
       .where(eq(profileInterests.profileId, profile.id));
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
     return {
       ...profile,
       avatarUrl: profile.avatarKey
@@ -492,7 +492,7 @@ export class ProfileService {
       )
       .limit(1);
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
     const avatarUrl = targetProfile.avatarKey
       ? `${baseUrl}/uploads/${targetProfile.avatarKey}`
       : null;
@@ -643,7 +643,7 @@ export class ProfileService {
       .filter((r: any) => !blockedUserIds.has(r.profile.userId))
       .slice(0, limit);
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:3000';
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
     const data = filtered.map((r: any) => ({
       id: r.profile.id,
       userId: r.profile.userId,

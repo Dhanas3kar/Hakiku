@@ -223,6 +223,9 @@ export const profiles = pgTable(
       .notNull(),
     completionPercentage: integer('completion_percentage').default(0).notNull(),
 
+    // System Identity
+    isVerifiedIdentity: boolean('is_verified_identity').default(false).notNull(),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
