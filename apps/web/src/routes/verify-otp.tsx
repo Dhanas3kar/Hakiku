@@ -32,7 +32,6 @@ function VerifyOtpPage() {
     onSuccess: async () => {
       // Re-fetch the auth session to populate profile / know if onboarding is needed
       await refetchSession()
-      navigate({ to: '/onboarding', replace: true }) // will be intercepted by router if fully onboarded
     },
   })
 

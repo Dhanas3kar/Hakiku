@@ -216,6 +216,40 @@ export class PostsService {
   }
 
   /**
+   * Admin soft delete post (Bypass Author Ownership).
+   */
+  async adminSoftDeletePost(
+    adminId: string,
+    postId: string,
+    reason: string,
+  ) {
+    const [existing] = await this.db
+      .select()
+      .from(posts)
+      .where(eq(posts.id, postId))
+      .limit(1);
+
+    if (!existing || existing.deletedAt) {
+      throw new NotFoundException('Post not found');
+    }
+
+    await this.db.transaction(async (tx: any) => {
+      await tx
+        .update(posts)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(eq(posts.id, postId));
+
+      await tx.insert(schema.auditLogs).values({
+        userId: adminId,
+        event: 'ADMIN_MODERATE_POST',
+        metadata: { targetId: postId, reason },
+      });
+    });
+
+    return { message: 'Post deleted successfully', postId };
+  }
+
+  /**
    * Get paginated user posts with visibility and block privacy enforcement.
    */
   async getUserPosts(

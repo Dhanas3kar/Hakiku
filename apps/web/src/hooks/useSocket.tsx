@@ -113,7 +113,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     <SocketContext.Provider value={{ notificationSocket, messagingSocket, isConnected }}>
       {children}
       {isDisconnected && (
-        <div className="fixed bottom-16 md:bottom-4 left-4 z-[100] flex items-center gap-2 rounded-full bg-surface/90 backdrop-blur-sm border border-border px-3 py-1.5 shadow-sm text-xs font-medium text-foreground-muted animate-in fade-in slide-in-from-bottom-2">
+        <div className="fixed bottom-16 md:bottom-4 left-4 z-[100] pointer-events-none flex items-center gap-2 rounded-full bg-surface/90 backdrop-blur-sm border border-border px-3 py-1.5 shadow-sm text-xs font-medium text-foreground-muted animate-in fade-in slide-in-from-bottom-2">
           <span className="relative flex h-2 w-2">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 bg-warning"></span>

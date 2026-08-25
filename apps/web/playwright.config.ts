@@ -8,7 +8,7 @@ export default defineConfig({
   workers: 1, // To avoid concurrent data issues with QA_USER accounts
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:3003',
+    baseURL: 'http://localhost:3000',
     trace: 'on',
     screenshot: 'on',
   },

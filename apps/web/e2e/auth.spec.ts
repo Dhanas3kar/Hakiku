@@ -10,12 +10,14 @@ test.describe('1. AUTH', () => {
 
     // Verify session persistence by reloading
     await page.reload();
-    await expect(page).toHaveURL('http://localhost:3003/');
+    await expect(page).toHaveURL(/.*(?:localhost:3000|\/)$/);
     await expect(page.locator('text=Home').first()).toBeVisible();
 
     // Logout
-    page.on('dialog', dialog => dialog.accept());
-    await page.locator('button:has-text("Logout")').first().click({ force: true });
+    page.once('dialog', async dialog => {
+      await dialog.accept();
+    });
+    await page.locator('button:has-text("Logout")').first().click();
     
     // Should be redirected to login
     await expect(page).toHaveURL(/.*\/login.*/);

@@ -280,4 +280,44 @@ export class CommentsService {
 
     return { message: 'Comment deleted successfully', commentId };
   }
+  /**
+   * Admin soft delete comment (Bypass Author Ownership). Transactionally decrements comments_count.
+   */
+  async adminSoftDeleteComment(
+    adminId: string,
+    commentId: string,
+    reason: string,
+  ) {
+    const [existing] = await this.db
+      .select()
+      .from(comments)
+      .where(eq(comments.id, commentId))
+      .limit(1);
+
+    if (!existing || existing.deletedAt) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    await this.db.transaction(async (tx: any) => {
+      await tx
+        .update(comments)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(eq(comments.id, commentId));
+
+      await tx
+        .update(posts)
+        .set({
+          commentsCount: sql`GREATEST(${posts.commentsCount} - 1, 0)`,
+        })
+        .where(eq(posts.id, existing.postId));
+
+      await tx.insert(schema.auditLogs).values({
+        userId: adminId,
+        event: 'ADMIN_MODERATE_COMMENT',
+        metadata: { targetId: commentId, reason },
+      });
+    });
+
+    return { message: 'Comment deleted successfully', commentId };
+  }
 }
