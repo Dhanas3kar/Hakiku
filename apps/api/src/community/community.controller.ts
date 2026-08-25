@@ -15,6 +15,8 @@ import {
 } from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { ConfessionService } from './confessions/confession.service';
 import { ConfessionQueryService } from './confessions/confession-query.service';
 import { ConfessionModerationService } from './confessions/confession-moderation.service';
@@ -30,6 +32,7 @@ interface AuthenticatedRequest extends FastifyRequest {
   user: {
     sub: string;
     email: string;
+    role: string;
   };
 }
 
@@ -213,40 +216,54 @@ export class CommunityController {
   // ==========================================
 
   @Get('moderation/confessions')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   async getPendingConfessions() {
     return this.confessionModerationService.getPendingConfessions();
   }
 
   @Post('moderation/confessions/:id/approve')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   async approveConfession(@Param('id') id: string) {
     return this.confessionModerationService.approveConfession(id);
   }
 
   @Post('moderation/confessions/:id/reject')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   async rejectConfession(@Param('id') id: string) {
     return this.confessionModerationService.rejectConfession(id);
   }
 
   @Delete('moderation/confessions/:id')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   async removeConfession(@Param('id') id: string) {
     return this.confessionModerationService.removeConfession(id);
   }
 
   @Get('moderation/reports')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   async getPendingReports() {
     return this.moderationService.getPendingReports();
   }
 
   @Post('moderation/reports/:id/resolve')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   async resolveReport(@Param('id') id: string) {
     return this.moderationService.resolveReport(id);
   }
 
   @Post('moderation/reports/:id/dismiss')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN', 'MODERATOR')
   async dismissReport(@Param('id') id: string) {
     return this.moderationService.dismissReport(id);
   }

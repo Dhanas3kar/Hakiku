@@ -30,6 +30,9 @@ describe('CommunityModule (e2e)', () => {
   let userBToken: string;
   let userBId: string;
 
+  let modToken: string;
+  let modId: string;
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -50,6 +53,7 @@ describe('CommunityModule (e2e)', () => {
     // Pre-cleanup in case of previous test failure
     await db.delete(users).where(eq(users.email, 'communitya@srmist.edu.in'));
     await db.delete(users).where(eq(users.email, 'communityb@srmist.edu.in'));
+    await db.delete(users).where(eq(users.email, 'communitymod@srmist.edu.in'));
 
     // Seed test users
     const userA = await db
@@ -113,6 +117,37 @@ describe('CommunityModule (e2e)', () => {
       email: userB[0].email,
       role: 'STUDENT',
     });
+
+    const modUser = await db
+      .insert(users)
+      .values({
+        email: 'communitymod@srmist.edu.in',
+        fullName: 'Community Moderator',
+        authProvider: 'EMAIL',
+        providerId: 'commMod',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'MODERATOR',
+      })
+      .returning();
+    modId = modUser[0].id;
+
+    await db.insert(profiles).values({
+      userId: modId,
+      username: 'communitymod',
+      displayName: 'Community Mod',
+      campus: 'KTR',
+      degreeProgram: 'B.Tech',
+      batchYear: 2025,
+      graduationYear: 2029,
+      department: 'CSE',
+    });
+
+    modToken = jwtService.sign({
+      sub: modId,
+      email: modUser[0].email,
+      role: 'MODERATOR',
+    });
   });
 
   afterAll(async () => {
@@ -131,6 +166,10 @@ describe('CommunityModule (e2e)', () => {
     if (userBId) {
       await db.delete(profiles).where(eq(profiles.userId, userBId));
       await db.delete(users).where(eq(users.id, userBId));
+    }
+    if (modId) {
+      await db.delete(profiles).where(eq(profiles.userId, modId));
+      await db.delete(users).where(eq(users.id, modId));
     }
 
     await app.close();
@@ -159,10 +198,34 @@ describe('CommunityModule (e2e)', () => {
       confessionId = response.body.id;
     });
 
-    it('POST /community/moderation/confessions/:id/approve (approves confession)', async () => {
+    it('STUDENT: POST /community/moderation/confessions/:id/approve (returns 403)', async () => {
       const response = await request(app.getHttpServer())
         .post(`/community/moderation/confessions/${confessionId}/approve`)
         .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(response.status).toBe(403);
+    });
+
+    it('STUDENT: POST /community/moderation/confessions/:id/reject (returns 403)', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/community/moderation/confessions/${confessionId}/reject`)
+        .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(response.status).toBe(403);
+    });
+
+    it('STUDENT: DELETE /community/moderation/confessions/:id (returns 403)', async () => {
+      const response = await request(app.getHttpServer())
+        .delete(`/community/moderation/confessions/${confessionId}`)
+        .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(response.status).toBe(403);
+    });
+
+    it('MODERATOR: POST /community/moderation/confessions/:id/approve (approves confession)', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/community/moderation/confessions/${confessionId}/approve`)
+        .set('Authorization', `Bearer ${modToken}`);
 
       expect(response.status).toBe(200);
     });
@@ -285,10 +348,18 @@ describe('CommunityModule (e2e)', () => {
       expect(response.body.id).toBeDefined();
     });
 
-    it('GET /community/moderation/reports', async () => {
+    it('STUDENT: GET /community/moderation/reports (returns 403)', async () => {
       const response = await request(app.getHttpServer())
         .get('/community/moderation/reports')
         .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(response.status).toBe(403);
+    });
+
+    it('MODERATOR: GET /community/moderation/reports (returns list)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/community/moderation/reports')
+        .set('Authorization', `Bearer ${modToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.length).toBeGreaterThan(0);
