@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { Heart, MessageCircle, MoreVertical, Share2, Globe, Users, Lock, Trash2, Edit2, Flag } from 'lucide-react'
 import { CommentsSection } from './CommentsSection'
 import { ReportDialog } from '../community/ReportDialog'
+import { PollCard } from '../community/PollCard'
 import { toast } from 'sonner'
 
 interface PostCardProps {
@@ -38,11 +39,8 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
   const likeMutation = useMutation({
     mutationFn: (liked: boolean) => (liked ? postsApi.likePost(post.id) : postsApi.unlikePost(post.id)),
     onMutate: async (liked) => {
-      // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['feed'] })
-      // Snapshot the previous value
       const previousQueries = queryClient.getQueriesData({ queryKey: ['feed'] })
-      // Optimistically update
       queryClient.setQueriesData({ queryKey: ['feed'] }, (old: any) => {
         if (!old || !old.pages) return old
         return {
@@ -84,7 +82,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to delete post')
-    }
+    },
   })
 
   const handleLikeClick = () => {
@@ -106,51 +104,63 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
   return (
     <article className="mb-0 sm:mb-4 rounded-none sm:rounded-xl border-b sm:border border-border bg-surface-elevated shadow-none sm:shadow-sm dark:shadow-none overflow-hidden transition-colors">
       <div className="p-4 sm:p-5">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 overflow-hidden rounded-full bg-surface-muted border border-border shrink-0">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt={authorName} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted">
-                  {initial}
-                </div>
-              )}
+        {/* Header – perfectly aligned avatar + meta + menu */}
+        <div className="flex items-start gap-3 mb-3">
+          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-surface-muted border border-border">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={authorName}
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted">
+                {initial}
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-semibold text-foreground text-sm sm:text-base leading-tight truncate">
+                {authorName}
+              </span>
+              <span className="text-xs text-foreground-muted truncate">@{authorUsername}</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-foreground text-sm sm:text-base leading-tight">
-                  {authorName}
-                </span>
-                <span className="text-xs text-foreground-muted">@{authorUsername}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-foreground-muted mt-0.5">
-                <span>{new Date(post.createdAt).toLocaleDateString()}</span>
-                <span>•</span>
-                <span className="flex items-center gap-1" title={VISIBILITY_LABELS[post.visibility] || 'Public'}>
-                  <VisibilityIcon className="h-3 w-3" />
-                  <span className="sr-only">{VISIBILITY_LABELS[post.visibility] || 'Public'}</span>
-                </span>
-                {department && (
-                  <>
-                    <span>•</span>
-                    <span className="truncate max-w-[120px]">{department}</span>
-                  </>
-                )}
-              </div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-foreground-muted">
+              <time dateTime={post.createdAt}>
+                {new Date(post.createdAt).toLocaleDateString()}
+              </time>
+              <span aria-hidden="true">·</span>
+              <span
+                className="inline-flex items-center gap-1"
+                title={VISIBILITY_LABELS[post.visibility] || 'Public'}
+              >
+                <VisibilityIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                <span className="sr-only">{VISIBILITY_LABELS[post.visibility] || 'Public'}</span>
+              </span>
+              {department && (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="truncate max-w-[140px]">{department}</span>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="relative">
+          {/* Menu */}
+          <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu(!showMenu)}
               className="p-1.5 rounded-full text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-colors"
               aria-label="More options"
+              aria-expanded={showMenu}
             >
               <MoreVertical className="h-4 w-4" />
             </button>
-            
+
             {showMenu && (
               <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border border-border bg-surface shadow-md py-1 z-10">
                 {isOwner ? (
@@ -202,77 +212,96 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
 
         {/* Media Grid */}
         {post.media && post.media.length > 0 && (
-          <div className={`mt-3 -mx-4 sm:mx-0 grid gap-0.5 sm:gap-1 overflow-hidden sm:rounded-xl border-y sm:border border-border dark:border-transparent bg-surface-muted ${
-            post.media.length === 1 ? 'grid-cols-1' :
-            post.media.length === 2 ? 'grid-cols-2 aspect-video' :
-            post.media.length === 3 ? 'grid-cols-2 grid-rows-2 aspect-square' :
-            'grid-cols-2 grid-rows-2 aspect-square'
-          }`}>
+          <div
+            className={`mt-3 -mx-4 sm:mx-0 grid gap-0.5 sm:gap-1 overflow-hidden sm:rounded-xl border-y sm:border border-border dark:border-transparent bg-surface-muted ${post.media.length === 1
+                ? 'grid-cols-1'
+                : post.media.length === 2
+                  ? 'grid-cols-2 aspect-video'
+                  : 'grid-cols-2 grid-rows-2 aspect-square'
+              }`}
+          >
             {(post.media ?? []).slice(0, 4).map((m, i) => (
               <div
                 key={m.id}
                 onClick={() => onMediaClick?.(post.media ?? [], i)}
-                className={`relative cursor-pointer overflow-hidden group ${
-                  post.media.length === 3 && i === 0 ? 'row-span-2' : ''
-                }`}
+                className={`relative cursor-pointer overflow-hidden group ${post.media!.length === 3 && i === 0 ? 'row-span-2' : ''
+                  }`}
               >
                 {m.type === 'VIDEO' ? (
                   <video src={m.url} className="h-full w-full object-cover" />
                 ) : (
-                  <img src={m.url} alt="Post media" loading="lazy" decoding="async" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                  <img
+                    src={m.url}
+                    alt="Post media"
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
                 )}
-                {/* Overlay for +N more images */}
-                {post.media.length > 4 && i === 3 && (
+                {post.media!.length > 4 && i === 3 && (
                   <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                    <span className="text-white text-xl font-bold">+{post.media.length - 4}</span>
+                    <span className="text-white text-xl font-bold">+{post.media!.length - 4}</span>
                   </div>
                 )}
               </div>
             ))}
           </div>
         )}
+
+        {/* Embedded Poll */}
+        {(post as any).poll && (
+          <div className="mt-3">
+            <PollCard poll={(post as any).poll} />
+          </div>
+        )}
       </div>
 
-      {/* Actions */}
+      {/* Actions – single perfectly aligned row */}
       <div className="flex items-center justify-between border-t border-border/60 px-4 py-2 bg-surface-muted/30">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={handleLikeClick}
             disabled={likeMutation.isPending}
-            className={`flex items-center gap-1.5 p-1.5 rounded-lg text-sm font-medium transition-all ${
-              post.isLiked ? 'text-primary' : 'text-foreground-muted hover:text-foreground hover:bg-surface-muted active:scale-95'
-            }`}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all ${post.isLiked
+                ? 'text-primary'
+                : 'text-foreground-muted hover:text-foreground hover:bg-surface-muted active:scale-95'
+              }`}
+            aria-pressed={post.isLiked}
           >
             <Heart className={`h-4 w-4 ${post.isLiked ? 'fill-current' : ''}`} />
             <span>{post.likeCount > 0 ? post.likeCount : 'Like'}</span>
           </button>
-          
+
           <button
             onClick={() => setShowComments(!showComments)}
-            className="flex items-center gap-1.5 p-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95"
+            aria-expanded={showComments}
           >
             <MessageCircle className="h-4 w-4" />
             <span>{post.commentCount > 0 ? post.commentCount : 'Comment'}</span>
           </button>
         </div>
 
-        <button className="flex items-center gap-1.5 p-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95">
+        <button
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95"
+          aria-label="Share post"
+        >
           <Share2 className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Comments Section */}
+      {/* Comments */}
       {showComments && (
         <div className="border-t border-border/60 bg-surface-muted/10 p-4">
           <CommentsSection postId={post.id} />
         </div>
       )}
 
-      <ReportDialog 
-        isOpen={reportOpen} 
-        onClose={() => setReportOpen(false)} 
-        targetId={post.id} 
-        targetType="POST" 
+      <ReportDialog
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetId={post.id}
+        targetType="POST"
       />
     </article>
   )

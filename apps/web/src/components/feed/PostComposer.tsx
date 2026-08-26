@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postsApi, type PostVisibility, type PostMedia, type PostItem } from '../../api/posts'
+import { communityApi } from '../../api/community'
 import { useAuth } from '../../hooks/useAuth'
-import { Image, X, Loader2, Globe, Users, Lock, Send } from 'lucide-react'
+import { Image, X, Loader2, Globe, Users, Lock, Send, BarChart2, Plus } from 'lucide-react'
 
 interface PostComposerProps {
   onPostCreated?: (newPost: PostItem) => void
@@ -19,15 +20,35 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
   const [mediaList, setMediaList] = useState<PostMedia[]>([])
   const [isUploadingMedia, setIsUploadingMedia] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
+
+  // Poll state
+  const [isCreatingPoll, setIsCreatingPoll] = useState(false)
+  const [pollOptions, setPollOptions] = useState<string[]>(['', ''])
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const createPostMutation = useMutation({
-    mutationFn: (payload: { content: string; visibility: PostVisibility; mediaUploadIds?: string[] }) =>
-      postsApi.createPost(payload),
+    mutationFn: async (payload: { content: string; visibility: PostVisibility; mediaUploadIds?: string[] }) => {
+      let pollId: string | undefined = undefined
+
+      // If user is creating a poll, create it first
+      const validPollOptions = pollOptions.filter((o) => o.trim().length > 0)
+      if (isCreatingPoll && validPollOptions.length >= 2) {
+        // Create poll requires a 'question' but in the new flow, the post content IS the context.
+        // We'll pass the first 255 chars of content as the poll question for legacy reasons or just use content.
+        const pollQuestion = content.trim().substring(0, 255) || 'Poll'
+        const poll = await communityApi.createPoll({ question: pollQuestion, options: validPollOptions })
+        pollId = poll.id
+      }
+
+      return postsApi.createPost({ ...payload, pollId })
+    },
     onSuccess: (newPost) => {
       setContent('')
       setMediaList([])
       setUploadError(null)
+      setIsCreatingPoll(false)
+      setPollOptions(['', ''])
       // Insert the server response into the TanStack Query cache
       queryClient.setQueriesData({ queryKey: ['feed'] }, (old: any) => {
         if (!old || !old.pages || old.pages.length === 0) return old
@@ -100,20 +121,34 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
     })
   }
 
+  const canSubmit =
+    !createPostMutation.isPending &&
+    !isUploadingMedia &&
+    (content.trim().length > 0 ||
+      mediaList.length > 0 ||
+      (isCreatingPoll && pollOptions.filter((o) => o.trim().length > 0).length >= 2))
+
   return (
     <div className="mb-2 sm:mb-6 rounded-none sm:rounded-xl border-b sm:border border-border bg-surface-elevated p-4 sm:p-5 shadow-none sm:shadow-sm dark:shadow-none transition-colors">
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Avatar + Textarea */}
         <div className="flex items-start gap-3">
           <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-surface-muted border border-border">
             {user?.avatarUrl ? (
-              <img src={user.avatarUrl} alt={user.displayName || user.fullName || 'User'} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+              <img
+                src={user.avatarUrl}
+                alt={user.displayName || user.fullName || 'User'}
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover"
+              />
             ) : (
               <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted">
                 {(user?.displayName || user?.fullName || 'S').charAt(0)}
               </div>
             )}
           </div>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <textarea
               rows={3}
               value={content}
@@ -128,11 +163,20 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
         {mediaList.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2">
             {mediaList.map((item) => (
-              <div key={item.id} className="relative aspect-video rounded-lg overflow-hidden border border-border bg-surface-muted group">
+              <div
+                key={item.id}
+                className="relative aspect-video rounded-lg overflow-hidden border border-border bg-surface-muted group"
+              >
                 {item.type === 'VIDEO' ? (
                   <video src={item.url} className="h-full w-full object-cover" />
                 ) : (
-                  <img src={item.url} alt="Uploaded media" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  <img
+                    src={item.url}
+                    alt="Uploaded media"
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
                 )}
                 <button
                   type="button"
@@ -166,8 +210,67 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
           </p>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
-          <div className="flex items-center gap-2">
+        {/* Poll UI */}
+        {isCreatingPoll && (
+          <div className="space-y-3 mt-4 border border-border rounded-xl p-4 bg-surface-muted/50">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-foreground">Poll Options</h4>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreatingPoll(false)
+                  setPollOptions(['', ''])
+                }}
+                className="text-foreground-muted hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {pollOptions.map((opt, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={opt}
+                    onChange={(e) => {
+                      const newOpts = [...pollOptions]
+                      newOpts[i] = e.target.value
+                      setPollOptions(newOpts)
+                    }}
+                    placeholder={`Option ${i + 1}`}
+                    className="flex-1 bg-surface border border-border rounded-lg p-2 text-sm focus:outline-none focus:border-primary"
+                    maxLength={50}
+                  />
+                  {pollOptions.length > 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))}
+                      className="p-1.5 text-foreground-muted hover:text-danger rounded-lg transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {pollOptions.length < 5 && (
+              <button
+                type="button"
+                onClick={() => setPollOptions([...pollOptions, ''])}
+                className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-hover transition-colors mt-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add option
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Action bar – Media · Poll · Visibility · Post on ONE row */}
+        <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-3">
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
             <input
               type="file"
               ref={fileInputRef}
@@ -178,18 +281,30 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
             />
             <label
               htmlFor="composer-file-input"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95 cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95 cursor-pointer shrink-0"
             >
               <Image className="h-4 w-4 text-primary" />
               <span>Media</span>
             </label>
 
+            <button
+              type="button"
+              onClick={() => setIsCreatingPoll(!isCreatingPoll)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 cursor-pointer shrink-0 ${isCreatingPoll
+                  ? 'text-primary bg-primary/10'
+                  : 'text-foreground-muted hover:text-foreground hover:bg-surface-muted'
+                }`}
+            >
+              <BarChart2 className={`h-4 w-4 ${isCreatingPoll ? 'text-primary' : 'text-secondary'}`} />
+              <span>Poll</span>
+            </button>
+
             {/* Visibility Selector */}
-            <div className="relative inline-block text-xs">
+            <div className="relative inline-block text-xs shrink-0">
               <select
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as PostVisibility)}
-                className="appearance-none rounded-lg border border-border bg-surface-muted px-3 py-1.5 pr-7 text-xs font-medium text-foreground focus:border-focus focus:outline-none"
+                className="appearance-none rounded-lg border border-border bg-surface-muted px-2.5 py-1.5 pr-7 text-xs font-medium text-foreground focus:border-focus focus:outline-none"
               >
                 <option value="PUBLIC">Public</option>
                 <option value="CONNECTIONS_ONLY">Connections Only</option>
@@ -205,8 +320,8 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
 
           <button
             type="submit"
-            disabled={createPostMutation.isPending || isUploadingMedia || (!content.trim() && mediaList.length === 0)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
+            disabled={!canSubmit}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 shrink-0"
           >
             {createPostMutation.isPending ? (
               <>

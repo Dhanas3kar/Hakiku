@@ -86,14 +86,17 @@ export class NotificationService {
         case 'POST_COMMENT':
           content = 'commented on your post';
           break;
+        case 'COMMENT_REPLY':
+          content = 'replied to your comment';
+          break;
         case 'CONNECTION_REQUEST':
           content = 'sent you a connection request';
           break;
         case 'CONNECTION_ACCEPTED':
           content = 'accepted your connection request';
           break;
-        case 'MENTION' as any:
-          content = 'mentioned you in a post';
+        case 'MESSAGE':
+          content = 'sent you a message';
           break;
         default:
           content = (notification.payload as any)?.message || 'You have a new notification';

@@ -8,8 +8,9 @@ import { EmailService } from './email/email.service';
 import { OtpService } from './otp/otp.service';
 import { SessionService } from './session/session.service';
 import { db } from '../db';
-import { users, auditLogs } from '../db/schema';
+import { users, auditLogs, adminCredentials } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import * as argon2 from 'argon2';
 
 @Injectable()
 export class AuthService {
@@ -64,6 +65,7 @@ export class AuthService {
       .from(users)
       .where(eq(users.email, normalized));
     let user;
+    
     if (existingUsers.length === 0) {
       const [newUser] = await db
         .insert(users)
@@ -71,15 +73,23 @@ export class AuthService {
           email: normalized,
           isVerified: true,
           emailVerifiedAt: new Date(),
+          role: 'STUDENT',
         })
         .returning();
       user = newUser;
     } else {
       user = existingUsers[0];
+      const updates: any = {};
+
       if (!user.isVerified) {
+        updates.isVerified = true;
+        updates.emailVerifiedAt = new Date();
+      }
+
+      if (Object.keys(updates).length > 0) {
         const [updatedUser] = await db
           .update(users)
-          .set({ isVerified: true, emailVerifiedAt: new Date() })
+          .set(updates)
           .where(eq(users.id, user.id))
           .returning();
         user = updatedUser;
@@ -157,5 +167,79 @@ export class AuthService {
       await this.sessionService.revokeSession(familyId);
     }
     // We can insert a LOGOUT audit event if needed
+  }
+
+  async adminLogin(email: string, passwordPlain: string, ipAddress?: string, userAgent?: string) {
+    const normalized = email.trim().toLowerCase();
+
+    // 1. Find user by email
+    const existingUsers = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, normalized));
+    
+    if (existingUsers.length === 0) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    const user = existingUsers[0];
+
+    // 2. Ensure user is ADMIN
+    if (user.role !== 'ADMIN') {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    // 3. Find admin_credentials
+    const creds = await db
+      .select()
+      .from(adminCredentials)
+      .where(eq(adminCredentials.userId, user.id));
+
+    if (creds.length === 0) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    // 4. Verify password
+    const isValid = await argon2.verify(creds[0].passwordHash, passwordPlain);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid admin credentials');
+    }
+
+    // 5. Generate Session (Refresh Token)
+    const { rawToken, session } = await this.sessionService.createSession(
+      user.id,
+      ipAddress,
+      userAgent,
+    );
+
+    // 6. Generate Access JWT (15 mins)
+    const payload = { sub: user.id, email: user.email, role: user.role };
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    await db.insert(auditLogs).values({
+      userId: user.id,
+      event: 'ADMIN_LOGIN' as any,
+      ipAddress,
+    });
+
+    return {
+      accessToken,
+      refreshToken: rawToken,
+      familyId: session.tokenFamilyId,
+    };
+  }
+
+  async adminLogout(familyId: string, userId?: string, ipAddress?: string) {
+    if (familyId) {
+      await this.sessionService.revokeSession(familyId);
+    }
+    
+    if (userId) {
+      await db.insert(auditLogs).values({
+        userId,
+        event: 'ADMIN_LOGOUT' as any,
+        ipAddress,
+      });
+    }
   }
 }

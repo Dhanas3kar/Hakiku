@@ -6,6 +6,8 @@ import { OtpService } from './otp/otp.service';
 import { SessionService } from './session/session.service';
 import { JwtModule } from '@nestjs/jwt';
 
+import { AdminAuthController } from './admin-auth.controller';
+
 @Module({
   imports: [
     JwtModule.register({
@@ -14,7 +16,7 @@ import { JwtModule } from '@nestjs/jwt';
       signOptions: { expiresIn: '15m' },
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, AdminAuthController],
   providers: [AuthService, EmailService, OtpService, SessionService],
   exports: [AuthService],
 })

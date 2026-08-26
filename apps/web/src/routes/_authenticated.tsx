@@ -63,6 +63,11 @@ function AuthenticatedLayout() {
     return null
   }
 
+  // Prevent flashing protected content before redirect completes
+  if (needsOnboarding && !location.pathname.startsWith('/onboarding')) {
+    return null
+  }
+
   return (
     <ShellLayout>
       <Outlet />

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { eq, and, or, ilike, sql, desc } from 'drizzle-orm';
 import {
@@ -85,7 +86,7 @@ export class ProfileService {
       .limit(1);
 
     if (!user) {
-      throw new NotFoundException('User account not found');
+      throw new UnauthorizedException('User account not found or session invalid');
     }
 
     if (!user.isVerified) {
@@ -180,6 +181,9 @@ export class ProfileService {
   }
 
   async getMyProfile(userId: string) {
+    await this.checkUserAccountStatus(userId);
+
+
     const [profile] = await this.db
       .select()
       .from(profiles)

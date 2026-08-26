@@ -9,11 +9,11 @@ export interface HeroConfession {
 }
 
 export const confessionsApi = {
-  getHeroConfession: async (): Promise<HeroConfession | null> => {
+  getHeroConfession: async (): Promise<{items: HeroConfession[], isFallback: boolean}> => {
     try {
       return await client.get('/community/confessions/hero')
     } catch {
-      return null
+      return { items: [], isFallback: false }
     }
   },
 }

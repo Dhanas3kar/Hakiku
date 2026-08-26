@@ -8,6 +8,7 @@ import {
 import fastifyCookie from '@fastify/cookie';
 import { AppModule } from '../src/app.module';
 import { db } from '../src/db';
+import { ensureTestDatabase } from './test-utils';
 import {
   users,
   profiles,
@@ -33,6 +34,9 @@ describe('CommunityModule (e2e)', () => {
   let modToken: string;
   let modId: string;
 
+  let adminToken: string;
+  let adminId: string;
+
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
@@ -51,9 +55,11 @@ describe('CommunityModule (e2e)', () => {
     });
 
     // Pre-cleanup in case of previous test failure
+    ensureTestDatabase();
     await db.delete(users).where(eq(users.email, 'communitya@srmist.edu.in'));
     await db.delete(users).where(eq(users.email, 'communityb@srmist.edu.in'));
     await db.delete(users).where(eq(users.email, 'communitymod@srmist.edu.in'));
+    await db.delete(users).where(eq(users.email, 'communityadmin@srmist.edu.in'));
 
     // Seed test users
     const userA = await db
@@ -148,6 +154,37 @@ describe('CommunityModule (e2e)', () => {
       email: modUser[0].email,
       role: 'MODERATOR',
     });
+
+    const adminUser = await db
+      .insert(users)
+      .values({
+        email: 'communityadmin@srmist.edu.in',
+        fullName: 'Community Admin',
+        authProvider: 'EMAIL',
+        providerId: 'commAdmin',
+        isVerified: true,
+        status: 'ACTIVE',
+        role: 'ADMIN',
+      })
+      .returning();
+    adminId = adminUser[0].id;
+
+    await db.insert(profiles).values({
+      userId: adminId,
+      username: 'communityadmin',
+      displayName: 'Community Admin',
+      campus: 'KTR',
+      degreeProgram: 'B.Tech',
+      batchYear: 2025,
+      graduationYear: 2029,
+      department: 'CSE',
+    });
+
+    adminToken = jwtService.sign({
+      sub: adminId,
+      email: adminUser[0].email,
+      role: 'ADMIN',
+    });
   });
 
   afterAll(async () => {
@@ -170,6 +207,11 @@ describe('CommunityModule (e2e)', () => {
     if (modId) {
       await db.delete(profiles).where(eq(profiles.userId, modId));
       await db.delete(users).where(eq(users.id, modId));
+    }
+
+    if (adminId) {
+      await db.delete(profiles).where(eq(profiles.userId, adminId));
+      await db.delete(users).where(eq(users.id, adminId));
     }
 
     await app.close();
@@ -300,23 +342,49 @@ describe('CommunityModule (e2e)', () => {
     });
   });
 
-  describe('Campus Intelligence', () => {
-    it('GET /community/campus/pulse', async () => {
+  describe('Campus Intelligence (Admin Only)', () => {
+    it('STUDENT: GET /community/campus/pulse (returns 403)', async () => {
       const response = await request(app.getHttpServer())
         .get('/community/campus/pulse')
         .set('Authorization', `Bearer ${userAToken}`);
+      expect(response.status).toBe(403);
+    });
 
+    it('MODERATOR: GET /community/campus/pulse (returns 403)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/community/campus/pulse')
+        .set('Authorization', `Bearer ${modToken}`);
+      expect(response.status).toBe(403);
+    });
+
+    it('ADMIN: GET /community/campus/pulse (returns 200)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/community/campus/pulse')
+        .set('Authorization', `Bearer ${adminToken}`);
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty('activePosts');
       expect(response.body).toHaveProperty('activeComments');
       expect(response.body).toHaveProperty('newConnections');
     });
 
-    it('GET /community/campus/insights', async () => {
+    it('STUDENT: GET /community/campus/insights (returns 403)', async () => {
       const response = await request(app.getHttpServer())
         .get('/community/campus/insights')
         .set('Authorization', `Bearer ${userAToken}`);
+      expect(response.status).toBe(403);
+    });
 
+    it('MODERATOR: GET /community/campus/insights (returns 403)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/community/campus/insights')
+        .set('Authorization', `Bearer ${modToken}`);
+      expect(response.status).toBe(403);
+    });
+
+    it('ADMIN: GET /community/campus/insights (returns 200)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/community/campus/insights')
+        .set('Authorization', `Bearer ${adminToken}`);
       expect(response.status).toBe(200);
       expect(response.body.campus).toBe('KTR');
     });

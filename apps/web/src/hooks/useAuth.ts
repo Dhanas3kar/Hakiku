@@ -53,6 +53,8 @@ export function useAuth() {
   } else if (isError) {
     if (error?.status === 401) {
       status = 'unauthenticated'
+    } else if (error?.status === 404) {
+      status = 'needs_onboarding'
     } else {
       status = profile ? 'authenticated' : 'error'
     }

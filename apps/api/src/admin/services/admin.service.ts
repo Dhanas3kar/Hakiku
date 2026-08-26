@@ -79,16 +79,16 @@ export class AdminService {
 
       // Audit Log
       await tx.insert(schema.auditLogs).values({
-        adminId,
+        userId: adminId,
         event:
           action === 'DISMISS'
-            ? 'ADMIN_DISMISS_REPORT'
-            : 'ADMIN_RESOLVE_REPORT',
-        targetId: reportId,
+            ? 'REPORT_DISMISSED'
+            : 'REPORT_RESOLVED',
         metadata: {
           reason,
           targetType: report.targetType,
           targetId: report.targetId,
+          reportId,
         },
       });
     });

@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import { notificationsApi } from '../api/notifications'
 import type { NotificationItem } from '../api/notifications'
 import { useIntersectionObserver } from 'usehooks-ts'
@@ -14,16 +15,19 @@ export const Route = createFileRoute('/_authenticated/notifications')({
 
 function getNotificationIcon(type: string) {
   switch (type) {
-    case 'LIKE':
+    case 'POST_LIKE':
       return <Heart className="h-5 w-5 text-red-500 fill-current" />
-    case 'COMMENT':
+    case 'POST_COMMENT':
+    case 'COMMENT_REPLY':
       return <MessageCircle className="h-5 w-5 text-blue-500 fill-current" />
     case 'CONNECTION_REQUEST':
       return <UserPlus className="h-5 w-5 text-amber-500" />
     case 'CONNECTION_ACCEPTED':
       return <CheckCircle2 className="h-5 w-5 text-green-500" />
-    case 'MENTION':
-      return <div className="h-5 w-5 text-purple-500 font-bold flex items-center justify-center">@</div>
+    case 'FOLLOW':
+      return <UserPlus className="h-5 w-5 text-purple-500" />
+    case 'MESSAGE':
+      return <MessageCircle className="h-5 w-5 text-emerald-500" />
     default:
       return <Info className="h-5 w-5 text-foreground-muted" />
   }
@@ -165,6 +169,48 @@ function NotificationItemRow({ notification }: { notification: NotificationItem 
     },
   })
 
+  const navigate = useNavigate()
+
+  const handleNavigation = () => {
+    // 1. Mark as read
+    if (!notification.isRead) {
+      markAsReadMutation.mutate(notification.id)
+    }
+
+    // 2. Navigate based on type
+    switch (notification.type) {
+      case 'CONNECTION_REQUEST':
+      case 'CONNECTION_ACCEPTED':
+      case 'FOLLOW':
+        if (notification.actor?.username) {
+          navigate({ to: '/profile/$username', params: { username: notification.actor.username } })
+        }
+        break;
+      case 'MESSAGE':
+        if (notification.payload?.conversationId) {
+          navigate({ to: '/messages/$conversationId', params: { conversationId: notification.payload.conversationId } })
+        } else if (notification.entityId) {
+          navigate({ to: '/messages/$conversationId', params: { conversationId: notification.entityId } })
+        }
+        break;
+      case 'POST_LIKE':
+      case 'POST_COMMENT':
+      case 'COMMENT_REPLY':
+        const postId = notification.payload?.postId || notification.entityId;
+        if (postId) {
+          navigate({ to: '/', search: { postId } as any })
+        } else {
+          navigate({ to: '/' })
+        }
+        break;
+      case 'SYSTEM':
+      default:
+        // Fallback to home/discover
+        navigate({ to: '/' })
+        break;
+    }
+  }
+
   const deleteMutation = useMutation({
     mutationFn: notificationsApi.deleteNotification,
     onSuccess: () => {
@@ -196,7 +242,8 @@ function NotificationItemRow({ notification }: { notification: NotificationItem 
   return (
     <div
       ref={ref}
-      className={`group relative flex items-start gap-4 rounded-lg p-4 transition-colors hover:bg-surface-muted ${
+      onClick={handleNavigation}
+      className={`group relative flex items-start gap-4 rounded-lg p-4 transition-colors cursor-pointer hover:bg-surface-muted ${
         !notification.isRead ? 'bg-primary/5' : ''
       }`}
     >

@@ -7,7 +7,7 @@ interface ReportDialogProps {
   isOpen: boolean
   onClose: () => void
   targetId: string
-  targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER'
+  targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER' | 'HOT_TAKE'
 }
 
 const REPORT_REASONS = [
@@ -76,7 +76,7 @@ export function ReportDialog({ isOpen, onClose, targetId, targetType }: ReportDi
                 <div>
                   <h3 className="text-lg font-bold text-foreground">Report Submitted</h3>
                   <p className="text-sm text-foreground-muted mt-1">
-                    Thank you for helping keep the SRM Connect community safe. Our team will review this shortly.
+                    Thank you for helping keep the HAKIKU community safe. Our team will review this shortly.
                   </p>
                 </div>
               </div>

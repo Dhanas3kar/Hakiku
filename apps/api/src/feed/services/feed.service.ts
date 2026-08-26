@@ -3,6 +3,7 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import { users } from '../../db/schema';
@@ -42,7 +43,7 @@ export class FeedService {
       .limit(1);
 
     if (!viewer) {
-      throw new NotFoundException('User account not found');
+      throw new UnauthorizedException('User account not found or session invalid');
     }
 
     if (viewer.status !== 'ACTIVE') {
@@ -123,6 +124,7 @@ export class FeedService {
       commentCount: item.post.commentsCount,
       createdAt: item.post.createdAt,
       media: (item.post as any).media || [],
+      poll: (item.post as any).poll || null,
       author: {
         id: item.author.userId,
         userId: item.author.userId,
@@ -214,6 +216,7 @@ export class FeedService {
       commentCount: item.post.commentsCount,
       createdAt: item.post.createdAt,
       media: (item.post as any).media || [],
+      poll: (item.post as any).poll || null,
       author: {
         id: item.author.userId,
         userId: item.author.userId,

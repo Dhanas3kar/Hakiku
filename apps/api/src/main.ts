@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import {
@@ -9,8 +10,37 @@ import fastifyCsrf from '@fastify/csrf-protection';
 import fastifyStatic from '@fastify/static';
 import { ValidationPipe } from '@nestjs/common';
 import * as path from 'path';
+import { db } from './db';
+import { sql } from 'drizzle-orm';
+
+async function runMigration() {
+  console.log('Running auto-migration...');
+  try {
+    await db.execute(sql`
+      ALTER TABLE polls ADD COLUMN IF NOT EXISTS post_id UUID REFERENCES posts(id) ON DELETE CASCADE;
+      CREATE TABLE IF NOT EXISTS hot_takes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "date" TEXT;
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "place" TEXT;
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "time" TEXT;
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "media" TEXT;
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "other_details" TEXT;
+      CREATE INDEX IF NOT EXISTS idx_hot_takes_author_created ON hot_takes(author_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_hot_takes_created_at ON hot_takes(created_at);
+      CREATE INDEX IF NOT EXISTS idx_polls_post_id ON polls(post_id);
+    `);
+    console.log('Migration successful.');
+  } catch (err) {
+    console.error('Migration failed:', err);
+  }
+}
 
 async function bootstrap() {
+  await runMigration();
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter(),

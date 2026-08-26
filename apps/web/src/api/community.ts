@@ -184,7 +184,7 @@ export const communityApi = {
   },
 
   // Reporting
-  reportContent: async (data: { targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER'; targetId: string; reason: string }): Promise<void> => {
+  reportContent: async (data: { targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER' | 'HOT_TAKE'; targetId: string; reason: string }): Promise<void> => {
     await client.post('/community/report', data)
   }
 }

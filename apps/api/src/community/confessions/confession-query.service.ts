@@ -12,7 +12,7 @@ export class ConfessionQueryService {
     // In a real scenario, this might be explicitly flagged, but we use freshness here
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    const candidates = await db.query.confessions.findMany({
+    let candidates = await db.query.confessions.findMany({
       where: and(
         eq(confessions.status, 'PUBLISHED'),
         gt(confessions.publishedAt, twentyFourHoursAgo),
@@ -21,11 +21,24 @@ export class ConfessionQueryService {
       limit: 20, // Fetch a batch to filter out blocked users
     });
 
-    const safeHero = candidates.find((c) => !activeBlocks.has(c.authorId));
+    let isFallback = false;
 
-    if (!safeHero) return null;
+    // Fallback: if no 24h confessions, just fetch the latest published
+    if (candidates.length === 0) {
+      candidates = await db.query.confessions.findMany({
+        where: eq(confessions.status, 'PUBLISHED'),
+        orderBy: [desc(confessions.publishedAt)],
+        limit: 20,
+      });
+      isFallback = true;
+    }
 
-    return this.mapToPublic(safeHero, viewerId);
+    const safeHeroes = candidates.filter((c) => !activeBlocks.has(c.authorId)).slice(0, 3);
+
+    return {
+      items: safeHeroes.map(c => this.mapToPublic(c, viewerId)),
+      isFallback
+    };
   }
 
   async listConfessions(

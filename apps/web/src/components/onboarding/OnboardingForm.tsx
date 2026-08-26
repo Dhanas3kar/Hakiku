@@ -53,7 +53,7 @@ export function OnboardingForm() {
       <div className="mb-6">
         <h2 className="text-2xl font-bold tracking-tight text-foreground">Complete your profile</h2>
         <p className="mt-2 text-sm text-foreground-muted">
-          Tell us a bit about yourself so others can find you on SRM Connect.
+          Tell us a bit about yourself so others can find you on HAKIKU.
         </p>
       </div>
 

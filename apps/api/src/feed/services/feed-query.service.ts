@@ -10,6 +10,8 @@ import {
   connections,
   profileSkills,
   profileInterests,
+  polls,
+  pollOptions,
 } from '../../db/schema';
 import * as schema from '../../db/schema';
 import { FeedItemContext, ViewerContext } from './feed-ranking.service';
@@ -81,7 +83,7 @@ export class FeedQueryService {
     const nonSelfAuthorIds = authorIds.filter((id) => id !== viewerId);
 
     // 2. Execute Parallel Batch Detail Queries (O(1) roundtrips)
-    const [profilesRows, mediaRows, likesRows, followsRows, connRows] =
+    const [profilesRows, mediaRows, likesRows, followsRows, connRows, pollsRows] =
       await Promise.all([
         // Author Profiles
         this.db
@@ -134,7 +136,21 @@ export class FeedQueryService {
                 ),
               )
           : Promise.resolve([]),
+        // Associated Polls
+        this.db
+          .select()
+          .from(polls)
+          .where(inArray(polls.postId, postIds)),
       ]);
+
+    // Fetch Poll Options for the polls we found
+    let pollOptsRows: any[] = [];
+    if (pollsRows.length > 0) {
+      pollOptsRows = await this.db
+        .select()
+        .from(pollOptions)
+        .where(inArray(pollOptions.pollId, pollsRows.map((p: any) => p.id)));
+    }
 
     // Build Lookup Maps
     const profileMap = new Map<string, any>();
@@ -160,6 +176,14 @@ export class FeedQueryService {
       connectedUserIds.add(otherId);
     });
 
+    const pollMap = new Map<string, any>();
+    pollsRows.forEach((p: any) => {
+      pollMap.set(p.postId, {
+        ...p,
+        options: pollOptsRows.filter((opt: any) => opt.pollId === p.id),
+      });
+    });
+
     // Assemble Hydrated Feed Contexts
     return postRows.map((p: any) => {
       const authorProf = profileMap.get(p.authorId);
@@ -174,6 +198,7 @@ export class FeedQueryService {
           deletedAt: p.deletedAt,
           authorId: p.authorId,
           media: mediaMap.get(p.id) || [],
+          poll: pollMap.get(p.id) || null,
         },
         author: {
           userId: p.authorId,

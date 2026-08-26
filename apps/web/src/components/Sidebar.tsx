@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Home, Compass, MessageSquare, Bell, User, Settings, LogOut } from 'lucide-react'
+import { Home, Compass, MessageSquare, Bell, User, Settings, LogOut, Shield } from 'lucide-react'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useAuth } from '../hooks/useAuth'
 
@@ -14,13 +14,16 @@ export function Sidebar() {
     { label: 'Profile', to: `/profile/${user?.username || ''}`, icon: User },
     { label: 'Settings', to: '/settings', icon: Settings },
   ]
+  if (user?.role === 'ADMIN') {
+    navItems.push({ label: 'Admin', to: '/admin', icon: Shield })
+  }
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-border dark:border-transparent bg-surface px-4 py-6 md:flex h-[100dvh] sticky top-0 overflow-y-auto">
       <Link to="/" className="mb-8 flex items-center gap-2 px-2 text-foreground no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-sm">
-        <img src="/Dark_theme_logo.png" alt="SRM Connect" className="h-8 w-auto hidden dark:block" />
-        <img src="/light_theme_logo.png" alt="SRM Connect" className="h-8 w-auto block dark:hidden" />
-        <span className="sr-only">SRM Connect</span>
+        <img src="/Dark_theme_logo.png" alt="HAKIKU" className="h-8 w-auto hidden dark:block" />
+        <img src="/light_theme_logo.png" alt="HAKIKU" className="h-8 w-auto block dark:hidden" />
+        <span className="sr-only">HAKIKU</span>
       </Link>
 
       <nav className="flex flex-1 flex-col gap-1">

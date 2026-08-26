@@ -51,9 +51,9 @@ function RegisterPage() {
     <div className="flex min-h-[100dvh] flex-col bg-background text-foreground">
       <header className="flex items-center justify-between p-4 md:p-6">
         <Link to="/" className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-sm">
-          <img src="/Dark_theme_logo.png" alt="SRM Connect" className="h-8 w-auto hidden dark:block" />
-          <img src="/light_theme_logo.png" alt="SRM Connect" className="h-8 w-auto block dark:hidden" />
-          <span className="sr-only">SRM Connect</span>
+          <img src="/Dark_theme_logo.png" alt="HAKIKU" className="h-8 w-auto hidden dark:block" />
+          <img src="/light_theme_logo.png" alt="HAKIKU" className="h-8 w-auto block dark:hidden" />
+          <span className="sr-only">HAKIKU</span>
         </Link>
         <ThemeToggle />
       </header>
@@ -62,7 +62,7 @@ function RegisterPage() {
         <div className="mx-auto w-full max-w-md">
           <div className="rounded-none sm:rounded-2xl border-y sm:border border-border bg-surface sm:bg-surface-elevated px-4 py-8 sm:px-10 shadow-none sm:shadow-sm dark:shadow-none">
             <div className="mb-8 text-center">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Join SRM Connect</h1>
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Join HAKIKU</h1>
               <p className="mt-2 text-sm text-foreground-muted font-medium">
                 Use your SRM institutional email to verify your student status.
               </p>

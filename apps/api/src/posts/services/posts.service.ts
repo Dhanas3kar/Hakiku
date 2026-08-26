@@ -13,6 +13,7 @@ import {
   users,
   blocks,
   connections,
+  polls,
 } from '../../db/schema';
 import * as schema from '../../db/schema';
 import { PostAccessService } from './post-access.service';
@@ -74,6 +75,13 @@ export class PostsService {
           dto.mediaUploadIds!,
           tx,
         );
+      }
+
+      if (dto.pollId) {
+        await tx
+          .update(polls)
+          .set({ postId: createdPost.id })
+          .where(and(eq(polls.id, dto.pollId), eq(polls.authorId, authorId)));
       }
     });
 

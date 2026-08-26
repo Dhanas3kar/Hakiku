@@ -12,10 +12,10 @@ async function resetQA() {
   
   const nodeEnv = process.env.NODE_ENV || 'development';
   const dbUrl = process.env.DATABASE_URL || '';
-  const connectxEmail = process.env.CONNECTX_ADMIN_EMAIL;
+  const connectxEmail = process.env.HAKIKU_ADMIN_EMAIL;
   
   if (!connectxEmail) {
-    console.error('[ERROR] CONNECTX_ADMIN_EMAIL is not defined in the environment.');
+    console.error('[ERROR] HAKIKU_ADMIN_EMAIL is not defined in the environment.');
     process.exit(1);
   }
 

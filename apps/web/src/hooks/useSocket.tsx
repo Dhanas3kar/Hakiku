@@ -26,10 +26,10 @@ export function useSocket() {
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
   const queryClient = useQueryClient()
-  
+
   const [notificationSocket, setNotificationSocket] = useState<Socket | null>(null)
   const [messagingSocket, setMessagingSocket] = useState<Socket | null>(null)
-  
+
   const [isConnected, setIsConnected] = useState({
     notifications: false,
     messaging: false,
@@ -65,14 +65,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     // Connect to Notifications namespace (default `/`)
     const notifSocket = io(apiUrl, socketOptions)
-    
+
     // Connect to Messaging namespace (`/messages`)
     const msgSocket = io(`${apiUrl}/messages`, socketOptions)
 
     notifSocket.on('connect', () => {
       setIsConnected(prev => ({ ...prev, notifications: true }))
     })
-    
+
     notifSocket.io.on('reconnect', () => {
       // Trigger REST resynchronization
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
@@ -86,7 +86,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     msgSocket.on('connect', () => {
       setIsConnected(prev => ({ ...prev, messaging: true }))
     })
-    
+
     msgSocket.io.on('reconnect', () => {
       // Trigger REST resynchronization
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
@@ -112,15 +112,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   return (
     <SocketContext.Provider value={{ notificationSocket, messagingSocket, isConnected }}>
       {children}
-      {isDisconnected && (
-        <div className="fixed bottom-16 md:bottom-4 left-4 z-[100] pointer-events-none flex items-center gap-2 rounded-full bg-surface/90 backdrop-blur-sm border border-border px-3 py-1.5 shadow-sm text-xs font-medium text-foreground-muted animate-in fade-in slide-in-from-bottom-2">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-warning"></span>
-          </span>
-          Reconnecting...
-        </div>
-      )}
     </SocketContext.Provider>
   )
 }

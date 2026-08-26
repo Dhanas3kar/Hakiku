@@ -2,25 +2,37 @@ import { client as apiClient } from './client'
 import type { UserProfile } from './profile'
 
 export type NotificationType = 
-  | 'LIKE' 
-  | 'COMMENT' 
-  | 'MENTION' 
+  | 'POST_LIKE' 
+  | 'POST_COMMENT' 
+  | 'COMMENT_REPLY' 
+  | 'FOLLOW'
+  | 'MESSAGE'
   | 'CONNECTION_REQUEST' 
   | 'CONNECTION_ACCEPTED'
   | 'SYSTEM'
 
-export interface NotificationItem {
+export type NotificationPayload = 
+  | { type: 'POST_LIKE'; payload?: { postId: string; actorId?: string } }
+  | { type: 'POST_COMMENT'; payload?: { postId: string; commentId?: string; actorId?: string } }
+  | { type: 'COMMENT_REPLY'; payload?: { postId: string; commentId?: string; actorId?: string } }
+  | { type: 'FOLLOW'; payload?: any }
+  | { type: 'MESSAGE'; payload?: { conversationId?: string } }
+  | { type: 'CONNECTION_REQUEST'; payload?: any }
+  | { type: 'CONNECTION_ACCEPTED'; payload?: any }
+  | { type: 'SYSTEM'; payload?: any }
+
+export type NotificationItem = {
   id: string
   recipientId: string
   actorId?: string
   actor?: UserProfile
-  type: NotificationType
   entityId?: string
   content: string
   isRead: boolean
   createdAt: string
   updatedAt: string
-}
+} & NotificationPayload
+
 
 export interface PaginatedNotifications {
   items: NotificationItem[]

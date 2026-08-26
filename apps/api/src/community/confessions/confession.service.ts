@@ -9,12 +9,17 @@ export class ConfessionService {
   constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
 
   async submitConfession(userId: string, content: string, campus?: string) {
-    const rateLimitKey = `confession:rate_limit:${userId}`;
+    const rateLimitKey = `confession:rate_limit_v2:${userId}`;
     const hasSubmittedRecently = await this.redis.get(rateLimitKey);
+
+    const rateLimitSeconds = parseInt(
+      process.env.CONFESSION_RATE_LIMIT_SECONDS || String(12 * 60 * 60),
+      10,
+    );
 
     if (hasSubmittedRecently) {
       throw new HttpException(
-        'You can only submit one confession every 12 hours.',
+        'You can only submit one confession per the configured cooldown period.',
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -29,8 +34,8 @@ export class ConfessionService {
       })
       .returning();
 
-    // Set 12 hour rate limit
-    await this.redis.set(rateLimitKey, '1', 'EX', 12 * 60 * 60);
+    // Set configurable rate limit
+    await this.redis.set(rateLimitKey, '1', 'EX', rateLimitSeconds);
 
     return {
       message: 'Confession submitted for moderation',

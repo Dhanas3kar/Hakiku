@@ -11,6 +11,7 @@ import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { clearTestDatabase } from './test-utils';
 import {
   users,
   profiles,
@@ -62,27 +63,7 @@ describe('Feed Module (e2e)', () => {
     db = drizzle(client);
 
     // Clean DB
-    await db.delete(comments);
-    await db.delete(postLikes);
-    await db.delete(postMedia);
-    await db.delete(pendingMediaUploads);
-    await db.delete(posts);
-    await db.delete(profileSkills);
-    await db.delete(profileInterests);
-    await db.delete(skills);
-    await db.delete(interests);
-    await db.delete(profiles);
-    await db.delete(blocks);
-    await db.delete(connectionRequests);
-    await db.delete(connections);
-    await db.delete(follows);
-    await db.delete(authSessions);
-    await db.delete(auditLogs);
-    await db.delete(notifications);
-    await db.delete(notificationOutbox);
-    await db.delete(notificationEvents);
-    await db.delete(notificationPreferences);
-    await db.delete(users);
+    await clearTestDatabase();
 
     // Create Users
     const [uA] = await db

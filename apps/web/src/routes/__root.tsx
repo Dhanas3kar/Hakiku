@@ -21,7 +21,7 @@ export const Route = createRootRoute({
         content: 'width=device-width, initial-scale=1, viewport-fit=cover',
       },
       {
-        title: 'SRM Connect',
+        title: 'HAKIKU',
       },
     ],
     links: [

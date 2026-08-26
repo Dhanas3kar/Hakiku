@@ -11,6 +11,7 @@ import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
+import { clearTestDatabase } from './test-utils';
 import { eq } from 'drizzle-orm';
 import {
   users,
@@ -46,15 +47,7 @@ describe('Messaging Module (e2e)', () => {
     db = drizzle(client);
 
     // Clean tables
-    await db.delete(messageReadReceipts);
-    await db.delete(messageMedia);
-    await db.delete(messages);
-    await db.delete(conversationParticipants);
-    await db.delete(conversations);
-    await db.delete(blocks);
-    await db.delete(connections);
-    await db.delete(profiles);
-    await db.delete(users);
+    await clearTestDatabase();
 
     // 3. Insert Test Users
     const [uA] = await db

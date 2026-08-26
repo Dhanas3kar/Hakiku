@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { feedApi } from '../api/feed'
 import { ConfessionHero } from '../components/feed/ConfessionHero'
@@ -7,16 +7,25 @@ import { PostCard } from '../components/feed/PostCard'
 import { FeedSkeleton } from '../components/feed/FeedSkeleton'
 import { EditPostModal } from '../components/feed/EditPostModal'
 import { MediaViewerModal } from '../components/feed/MediaViewerModal'
+import { PostDetailModal } from '../components/feed/PostDetailModal'
 import { useState, useEffect, useRef } from 'react'
 import type { PostItem } from '../api/posts'
+import { z } from 'zod'
+
+const searchSchema = z.object({
+  postId: z.string().optional(),
+})
 
 export const Route = createFileRoute('/_authenticated/')({
   component: Home,
+  validateSearch: searchSchema,
 })
 
 function Home() {
   const [editingPost, setEditingPost] = useState<PostItem | null>(null)
   const [viewingMedia, setViewingMedia] = useState<{ media: any[]; index: number } | null>(null)
+  const { postId } = Route.useSearch()
+  const navigate = useNavigate()
   
   const {
     data,
@@ -53,10 +62,14 @@ function Home() {
     return () => observer.disconnect()
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
+  const handleClosePostModal = () => {
+    navigate({ to: '/', search: {} })
+  }
+
   return (
     <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full pb-20">
-      <ConfessionHero />
       <PostComposer />
+      <ConfessionHero />
 
       <div className="flex flex-col">
         {status === 'pending' ? (
@@ -122,6 +135,15 @@ function Home() {
           media={viewingMedia.media}
           initialIndex={viewingMedia.index}
           onClose={() => setViewingMedia(null)}
+        />
+      )}
+
+      {postId && (
+        <PostDetailModal 
+          postId={postId} 
+          onClose={handleClosePostModal} 
+          onEdit={setEditingPost}
+          onMediaClick={(media, index) => setViewingMedia({ media, index })}
         />
       )}
     </div>

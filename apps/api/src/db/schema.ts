@@ -65,6 +65,16 @@ export const eventEnum = pgEnum('event', [
   'LOGIN_FAILED',
   'LOGOUT',
   'TOKEN_REFRESHED',
+  // Admin events
+  'ADMIN_LOGIN',
+  'ADMIN_LOGOUT',
+  'ADMIN_MODERATE_POST',
+  'ADMIN_MODERATE_COMMENT',
+  'ADMIN_MODERATE_HOT_TAKE',
+  'USER_SUSPENDED',
+  'USER_BANNED',
+  'REPORT_RESOLVED',
+  'REPORT_DISMISSED',
 ]);
 
 export const auditLogs = pgTable('audit_logs', {
@@ -74,6 +84,14 @@ export const auditLogs = pgTable('audit_logs', {
   ipAddress: varchar('ip_address', { length: 45 }),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const adminCredentials = pgTable('admin_credentials', {
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  passwordHash: varchar('password_hash', { length: 255 }).notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 // --- PHASE 3: NETWORKING & RELATIONSHIPS ---
@@ -733,6 +751,7 @@ export const reportTargetTypeEnum = pgEnum('report_target_type', [
   'POST',
   'COMMENT',
   'USER',
+  'HOT_TAKE',
 ]);
 
 // 1. Confessions Table
@@ -770,6 +789,7 @@ export const polls = pgTable(
   'polls',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    postId: uuid('post_id').references(() => posts.id, { onDelete: 'cascade' }),
     authorId: uuid('author_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -787,6 +807,7 @@ export const polls = pgTable(
       table.createdAt,
     ),
     endsAtIdx: index('idx_polls_ends_at').on(table.endsAt),
+    postIdx: index('idx_polls_post_id').on(table.postId),
   }),
 );
 
@@ -853,5 +874,30 @@ export const communityReports = pgTable(
       'no_self_report_confession',
       sql`${table.targetType} != 'USER' OR ${table.reporterId} != ${table.targetId}`,
     ),
+  }),
+);
+
+// 6. Hot Takes Table
+export const hotTakes = pgTable(
+  'hot_takes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    date: text('date'),
+    place: text('place'),
+    time: text('time'),
+    media: text('media'),
+    otherDetails: text('other_details'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    authorCreatedIdx: index('idx_hot_takes_author_created').on(
+      table.authorId,
+      table.createdAt,
+    ),
+    createdAtIdx: index('idx_hot_takes_created_at').on(table.createdAt),
   }),
 );

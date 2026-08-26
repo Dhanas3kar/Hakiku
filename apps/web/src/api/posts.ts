@@ -53,6 +53,7 @@ export interface CreatePostPayload {
   content?: string
   visibility?: PostVisibility
   mediaUploadIds?: string[]
+  pollId?: string
 }
 
 export interface UpdatePostPayload {

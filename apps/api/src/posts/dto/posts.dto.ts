@@ -27,6 +27,10 @@ export class CreatePostDto {
   @IsArray()
   @IsUUID('4', { each: true })
   mediaUploadIds?: string[];
+
+  @IsOptional()
+  @IsUUID('4')
+  pollId?: string;
 }
 
 export class UpdatePostDto {

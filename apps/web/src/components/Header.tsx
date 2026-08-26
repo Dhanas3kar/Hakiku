@@ -10,9 +10,9 @@ export default function Header() {
             to="/"
             className="inline-flex items-center gap-2 text-foreground no-underline"
           >
-            <img src="/Dark_theme_logo.png" alt="SRM Connect" className="h-8 w-auto hidden dark:block" />
-            <img src="/light_theme_logo.png" alt="SRM Connect" className="h-8 w-auto block dark:hidden" />
-            <span className="sr-only">SRM Connect</span>
+            <img src="/Dark_theme_logo.png" alt="HAKIKU" className="h-8 w-auto hidden dark:block" />
+            <img src="/light_theme_logo.png" alt="HAKIKU" className="h-8 w-auto block dark:hidden" />
+            <span className="sr-only">HAKIKU</span>
           </Link>
         </h2>
 

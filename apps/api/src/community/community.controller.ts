@@ -10,6 +10,7 @@ import {
   Query,
   HttpCode,
   HttpStatus,
+  HttpException,
   ParseBoolPipe,
   DefaultValuePipe,
 } from '@nestjs/common';
@@ -27,6 +28,7 @@ import { PollService } from './polls/poll.service';
 import { PollQueryService } from './polls/poll-query.service';
 import { CommunityReportService } from './moderation/community-report.service';
 import { CommunityModerationService } from './moderation/community-moderation.service';
+import { HotTakesService } from './hot-takes/hot-takes.service';
 
 interface AuthenticatedRequest extends FastifyRequest {
   user: {
@@ -50,7 +52,8 @@ export class CommunityController {
     private readonly pollQueryService: PollQueryService,
     private readonly reportService: CommunityReportService,
     private readonly moderationService: CommunityModerationService,
-  ) {}
+    private readonly hotTakesService: HotTakesService,
+  ) { }
 
   // ==========================================
   // CONFESSIONS
@@ -116,11 +119,15 @@ export class CommunityController {
   // ==========================================
 
   @Get('campus/pulse')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   async getGlobalPulse() {
     return this.campusPulseService.getGlobalPulse();
   }
 
   @Get('campus/insights')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   async getCampusInsights(@Req() req: AuthenticatedRequest) {
     return this.campusInsightsService.getInsights(req.user.sub);
   }
@@ -190,6 +197,64 @@ export class CommunityController {
   }
 
   // ==========================================
+  // HOT TAKES
+  // ==========================================
+
+  @Post('hot-takes')
+  async createHotTake(
+    @Req() req: AuthenticatedRequest,
+    @Body()
+    body: {
+      content: string;
+      date?: string;
+      place?: string;
+      time?: string;
+      media?: string;
+      otherDetails?: string;
+    },
+  ) {
+    if (!body.content || body.content.length > 100) {
+      throw new HttpException('Content is required and must be under 100 characters', HttpStatus.BAD_REQUEST);
+    }
+    return this.hotTakesService.createHotTake(req.user.sub, body);
+  }
+
+  @Get('hot-takes')
+  async listHotTakes(
+    @Query('limit', new DefaultValuePipe(20)) limit: number,
+    @Query('offset', new DefaultValuePipe(0)) offset: number,
+  ) {
+    return this.hotTakesService.getHotTakes(Number(limit), Number(offset));
+  }
+
+  @Delete('hot-takes/:id')
+  async deleteHotTake(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    return this.hotTakesService.deleteHotTake(req.user.sub, id);
+  }
+
+  @Patch('hot-takes/:id')
+  async updateHotTake(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { 
+      content: string;
+      date?: string;
+      place?: string;
+      time?: string;
+      media?: string;
+      otherDetails?: string;
+    },
+  ) {
+    if (!body.content || body.content.length > 100) {
+      throw new HttpException('Content is required and must be under 100 characters', HttpStatus.BAD_REQUEST);
+    }
+    return this.hotTakesService.updateHotTake(req.user.sub, id, body);
+  }
+
+  // ==========================================
   // REPORTING
   // ==========================================
 
@@ -198,7 +263,7 @@ export class CommunityController {
     @Req() req: AuthenticatedRequest,
     @Body()
     body: {
-      targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER';
+      targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER' | 'HOT_TAKE';
       targetId: string;
       reason: string;
     },

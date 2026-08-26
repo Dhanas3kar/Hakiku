@@ -10,6 +10,7 @@ import { PollService } from './polls/poll.service';
 import { PollQueryService } from './polls/poll-query.service';
 import { CommunityReportService } from './moderation/community-report.service';
 import { CommunityModerationService } from './moderation/community-moderation.service';
+import { HotTakesService } from './hot-takes/hot-takes.service';
 import { ProfileModule } from '../profile/profile.module';
 import { NetworkingModule } from '../networking/networking.module';
 import { NotificationsModule } from '../notifications/notifications.module';
@@ -28,6 +29,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     PollQueryService,
     CommunityReportService,
     CommunityModerationService,
+    HotTakesService,
   ],
   exports: [],
 })

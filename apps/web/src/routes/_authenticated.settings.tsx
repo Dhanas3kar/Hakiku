@@ -86,7 +86,7 @@ function SettingsPage() {
             </h2>
           </div>
           <div className="p-4 space-y-4">
-            <p className="text-sm text-foreground-muted mb-3">Choose how SRM Connect looks to you.</p>
+            <p className="text-sm text-foreground-muted mb-3">Choose how HAKIKU looks to you.</p>
             <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={() => handleThemeChange('light')}

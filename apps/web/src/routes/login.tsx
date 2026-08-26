@@ -52,9 +52,9 @@ function LoginPage() {
     <div className="flex min-h-[100dvh] flex-col bg-background text-foreground">
       <header className="flex items-center justify-between p-4 md:p-6">
         <Link to="/" className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-sm">
-          <img src="/Dark_theme_logo.png" alt="SRM Connect" className="h-8 w-auto hidden dark:block" />
-          <img src="/light_theme_logo.png" alt="SRM Connect" className="h-8 w-auto block dark:hidden" />
-          <span className="sr-only">SRM Connect</span>
+          <img src="/Dark_theme_logo.png" alt="HAKIKU" className="h-8 w-auto hidden dark:block" />
+          <img src="/light_theme_logo.png" alt="HAKIKU" className="h-8 w-auto block dark:hidden" />
+          <span className="sr-only">HAKIKU</span>
         </Link>
         <ThemeToggle />
       </header>
@@ -106,7 +106,7 @@ function LoginPage() {
           </div>
 
           <p className="mt-8 text-center text-sm text-foreground-muted font-medium">
-            New to SRM Connect?{' '}
+            New to HAKIKU?{' '}
             <Link
               to="/register"
               search={{ redirect }}

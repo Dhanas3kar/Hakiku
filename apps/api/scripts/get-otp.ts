@@ -8,7 +8,7 @@ try {
   const lines = content.split('\n');
   let otp = null;
   for (let i = lines.length - 1; i >= 0; i--) {
-    const match = lines[i].match(/\[MOCK EMAIL\] To: (.*?) - Your SRM Connect OTP is: (\d{6})/);
+    const match = lines[i].match(/\[MOCK EMAIL\] To: (.*?) - Your Hakiku OTP is: (\d{6})/);
     if (match) {
       if (emailArg && match[1] !== emailArg) continue;
       otp = match[2];

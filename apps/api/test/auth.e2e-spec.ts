@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, HttpStatus } from '@nestjs/common';
 import { db } from '../src/db/index';
+import { clearTestDatabase } from './test-utils';
 import {
   users,
   profiles,
@@ -29,14 +30,7 @@ describe('AuthController (e2e)', () => {
     redis = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379');
     await redis.flushdb();
 
-    await db.delete(profiles);
-    await db.delete(authSessions);
-    await db.delete(auditLogs);
-    await db.delete(notifications);
-    await db.delete(notificationOutbox);
-    await db.delete(notificationEvents);
-    await db.delete(notificationPreferences);
-    await db.delete(users);
+    await clearTestDatabase();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],

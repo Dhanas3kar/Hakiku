@@ -11,7 +11,7 @@ import { useIntersectionObserver } from 'usehooks-ts'
 
 export function ChatWindow({ conversationId }: { conversationId: string }) {
   const { profile } = useAuth()
-  const currentUserId = profile?.id
+  const currentUserId = profile?.userId
   const { isConnected, messagingSocket } = useSocket()
   const queryClient = useQueryClient()
   
