@@ -210,6 +210,7 @@ export class FeedQueryService {
           campus: authorProf?.campus,
           department: authorProf?.department,
           batchYear: authorProf?.batchYear,
+          isVerifiedIdentity: authorProf?.isVerifiedIdentity || false,
         },
         viewerState: {
           isLiked: likedPostIds.has(p.id),

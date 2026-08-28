@@ -128,7 +128,7 @@ function ConfessionCard({ confession }: { confession: Confession }) {
           </div>
         </div>
         
-        <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap">
+        <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap break-words">
           {confession.content}
         </p>
 

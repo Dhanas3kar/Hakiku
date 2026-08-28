@@ -45,6 +45,18 @@ export class ConnectionService {
       throw new NotFoundException('User not found');
     }
 
+    const receiverProfile = await this.db
+      .select()
+      .from(schema.profiles)
+      .where(eq(schema.profiles.userId, receiverId))
+      .limit(1);
+
+    if (receiverProfile.length > 0 && receiverProfile[0].isVerifiedIdentity) {
+      throw new BadRequestException(
+        'You cannot connect with official verified accounts. You can follow them instead.',
+      );
+    }
+
     if (await this.blockService.isBlockedByMe(senderId, receiverId)) {
       throw new BadRequestException(
         'Please unblock the user before sending a connection request',

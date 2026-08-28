@@ -268,9 +268,9 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
           </div>
         )}
 
-        {/* Action bar – Media · Poll · Visibility · Post on ONE row */}
+        {/* Action bar — wraps gracefully on very narrow screens */}
         <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-3">
-          <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+          <div className="flex items-center gap-0.5 sm:gap-1 min-w-0 flex-wrap">
             <input
               type="file"
               ref={fileInputRef}
@@ -281,36 +281,38 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
             />
             <label
               htmlFor="composer-file-input"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95 cursor-pointer shrink-0"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95 cursor-pointer shrink-0"
             >
               <Image className="h-4 w-4 text-primary" />
-              <span>Media</span>
+              <span className="hidden xs:inline sm:inline">Media</span>
             </label>
 
             <button
               type="button"
               onClick={() => setIsCreatingPoll(!isCreatingPoll)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 cursor-pointer shrink-0 ${isCreatingPoll
+              className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all active:scale-95 cursor-pointer shrink-0 ${
+                isCreatingPoll
                   ? 'text-primary bg-primary/10'
                   : 'text-foreground-muted hover:text-foreground hover:bg-surface-muted'
-                }`}
+              }`}
             >
               <BarChart2 className={`h-4 w-4 ${isCreatingPoll ? 'text-primary' : 'text-secondary'}`} />
-              <span>Poll</span>
+              <span className="hidden xs:inline sm:inline">Poll</span>
             </button>
 
-            {/* Visibility Selector */}
+            {/* Visibility Selector — abbreviated on tiny screens */}
             <div className="relative inline-block text-xs shrink-0">
               <select
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as PostVisibility)}
-                className="appearance-none rounded-lg border border-border bg-surface-muted px-2.5 py-1.5 pr-7 text-xs font-medium text-foreground focus:border-focus focus:outline-none"
+                className="appearance-none rounded-lg border border-border bg-surface-muted pl-2 pr-6 py-1.5 text-xs font-medium text-foreground focus:border-focus focus:outline-none max-w-[90px] sm:max-w-none"
+                aria-label="Post visibility"
               >
                 <option value="PUBLIC">Public</option>
-                <option value="CONNECTIONS_ONLY">Connections Only</option>
+                <option value="CONNECTIONS_ONLY">Connections</option>
                 <option value="PRIVATE">Only Me</option>
               </select>
-              <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-foreground-muted">
+              <div className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 text-foreground-muted">
                 {visibility === 'PUBLIC' && <Globe className="h-3 w-3" />}
                 {visibility === 'CONNECTIONS_ONLY' && <Users className="h-3 w-3" />}
                 {visibility === 'PRIVATE' && <Lock className="h-3 w-3" />}

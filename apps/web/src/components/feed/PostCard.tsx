@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postsApi, type PostItem, type PostVisibility } from '../../api/posts'
+import { FormattedContent } from '@/components/ui/FormattedContent'
 import { useAuth } from '../../hooks/useAuth'
 import { Heart, MessageCircle, MoreVertical, Share2, Globe, Users, Lock, Trash2, Edit2, Flag } from 'lucide-react'
 import { CommentsSection } from './CommentsSection'
 import { ReportDialog } from '../community/ReportDialog'
 import { PollCard } from '../community/PollCard'
 import { toast } from 'sonner'
+import { VerifiedBadge } from '../ui/VerifiedBadge'
 
 interface PostCardProps {
   post: PostItem
@@ -124,12 +126,13 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-foreground text-sm sm:text-base leading-tight truncate">
+              <span className="font-semibold text-foreground text-sm sm:text-base leading-tight truncate max-w-[160px] sm:max-w-none">
                 {authorName}
               </span>
+              {post.author?.isVerifiedIdentity && <VerifiedBadge />}
               <span className="text-xs text-foreground-muted truncate">@{authorUsername}</span>
             </div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-foreground-muted">
+            <div className="mt-0.5 flex items-center gap-1.5 text-xs text-foreground-muted flex-wrap">
               <time dateTime={post.createdAt}>
                 {new Date(post.createdAt).toLocaleDateString()}
               </time>
@@ -144,13 +147,13 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
               {department && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="truncate max-w-[140px]">{department}</span>
+                  <span className="truncate max-w-[120px] sm:max-w-[180px]">{department}</span>
                 </>
               )}
             </div>
           </div>
 
-          {/* Menu */}
+          {/* Menu — right-aligned dropdown, clamped so it never overflows left edge */}
           <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu(!showMenu)}
@@ -162,7 +165,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 rounded-lg border border-border bg-surface shadow-md py-1 z-10">
+              <div className="absolute right-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface shadow-md py-1 z-10">
                 {isOwner ? (
                   <>
                     <button
@@ -205,9 +208,9 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
 
         {/* Content */}
         {post.content && (
-          <div className="text-sm sm:text-base text-foreground whitespace-pre-wrap break-words mb-3 leading-relaxed">
-            {post.content}
-          </div>
+          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
+            <FormattedContent content={post.content} />
+          </p>
         )}
 
         {/* Media Grid */}

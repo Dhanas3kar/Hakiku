@@ -14,6 +14,7 @@ export interface HotTake {
     displayName: string
     username: string
     avatarUrl: string | null
+    isVerifiedIdentity?: boolean
   }
 }
 

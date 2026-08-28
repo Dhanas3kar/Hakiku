@@ -123,6 +123,8 @@ body {
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent layout shifts from scrollbar appearance */
+  scrollbar-gutter: stable;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -166,4 +168,38 @@ a:hover {
 .nav-link:hover,
 .nav-link.is-active {
   color: var(--foreground);
+}
+
+/* =========================================================
+   MOBILE RESPONSIVE UTILITIES
+   ========================================================= */
+
+/* Remove tap highlight on interactive elements */
+button,
+a,
+label,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+
+/* Scrollbar hide utility (used on horizontal scroll containers) */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ensure long unbreakable strings (URLs, emails) never overflow cards */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Safe-area aware bottom navigation spacing helper */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }

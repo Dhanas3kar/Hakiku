@@ -4,6 +4,8 @@ import { hotTakesApi } from '../../api/hotTakes'
 import { Flame, Loader2, Send, Trash2, MapPin, Calendar, Clock, Link as LinkIcon, Info, Edit2, Flag } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { ReportDialog } from './ReportDialog'
+import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { FormattedContent } from '@/components/ui/FormattedContent'
 
 // Simple URL validator
 const isValidUrl = (string: string) => {
@@ -122,7 +124,7 @@ export function HotTakesFeed() {
             placeholder="What's your controversial opinion?"
             className="w-full bg-surface-muted border border-border rounded-lg p-3 min-h-[100px] resize-none focus:outline-none focus:border-primary"
           />
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2 bg-surface-muted border border-border rounded-lg px-3 py-2">
               <Calendar className="h-4 w-4 text-foreground-muted shrink-0" />
               <input type="text" placeholder="Date (Optional)" value={date} onChange={e => setDate(e.target.value)} className="bg-transparent border-none outline-none w-full" />
@@ -139,7 +141,7 @@ export function HotTakesFeed() {
               <LinkIcon className="h-4 w-4 text-foreground-muted shrink-0" />
               <input type="url" placeholder="Media URL (Optional)" value={media} onChange={e => setMedia(e.target.value)} className="bg-transparent border-none outline-none w-full" />
             </div>
-            <div className="col-span-2 flex items-center gap-2 bg-surface-muted border border-border rounded-lg px-3 py-2">
+            <div className="sm:col-span-2 flex items-center gap-2 bg-surface-muted border border-border rounded-lg px-3 py-2">
               <Info className="h-4 w-4 text-foreground-muted shrink-0" />
               <input type="text" placeholder="Other Details (Optional)" value={otherDetails} onChange={e => setOtherDetails(e.target.value)} className="bg-transparent border-none outline-none w-full" />
             </div>
@@ -185,7 +187,7 @@ export function HotTakesFeed() {
                   </div>
                   <div className="relative z-10 mb-6">
                     <div className="flex justify-between items-start gap-4 mb-2">
-                      <p className="text-lg font-medium text-foreground whitespace-pre-wrap">"{take.content}"</p>
+                      <p className="text-lg font-medium text-foreground whitespace-pre-wrap">"<FormattedContent content={take.content} />"</p>
                       <div className="flex items-center gap-1 shrink-0">
                         {user?.id === take.author.id ? (
                           <>
@@ -281,7 +283,10 @@ export function HotTakesFeed() {
                       )}
                     </div>
                     <div className="flex flex-col overflow-hidden">
-                      <span className="text-sm font-semibold text-foreground truncate">{take.author.displayName}</span>
+                      <div className="flex items-center gap-1">
+                        <span className="text-sm font-semibold text-foreground truncate">{take.author.displayName}</span>
+                        {take.author.isVerifiedIdentity && <VerifiedBadge />}
+                      </div>
                       <span className="text-xs text-foreground-muted truncate">@{take.author.username}</span>
                     </div>
                   </div>

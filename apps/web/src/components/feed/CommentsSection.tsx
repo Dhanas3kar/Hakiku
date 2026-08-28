@@ -4,6 +4,8 @@ import { postsApi } from '../../api/posts'
 import { useAuth } from '../../hooks/useAuth'
 import { Flag, Send } from 'lucide-react'
 import { ReportDialog } from '../community/ReportDialog'
+import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { FormattedContent } from '@/components/ui/FormattedContent'
 import { toast } from 'sonner'
 
 interface CommentsSectionProps {
@@ -140,16 +142,17 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
               )}
             </div>
             <div className="flex-1">
-              <div className="rounded-2xl bg-surface p-3 border border-border/50 text-sm">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="font-semibold text-foreground">
-                    {authorName}
-                  </span>
-                  <span className="text-xs text-foreground-muted shrink-0">
+              <div className="flex-1 min-w-0 bg-surface-muted rounded-2xl rounded-tl-none px-3 py-2 border border-border">
+                <div className="flex items-center justify-between gap-2 mb-0.5">
+                  <div className="flex items-center truncate">
+                    <span className="font-semibold text-sm text-foreground truncate">{authorName}</span>
+                    {comment.author?.isVerifiedIdentity && <VerifiedBadge />}
+                  </div>
+                  <time className="text-xs text-foreground-muted whitespace-nowrap shrink-0">
                     {new Date(comment.createdAt).toLocaleDateString()}
-                  </span>
+                  </time>
                 </div>
-                <p className="text-foreground whitespace-pre-wrap break-words leading-relaxed">{comment.content}</p>
+                <p className="text-foreground whitespace-pre-wrap break-words leading-relaxed"><FormattedContent content={comment.content} /></p>
               </div>
               
               {(user?.userId || user?.id) === comment.authorId ? (

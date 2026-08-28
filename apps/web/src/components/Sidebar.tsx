@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { Home, Compass, MessageSquare, Bell, User, Settings, LogOut, Shield } from 'lucide-react'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useAuth } from '../hooks/useAuth'
+import ThemeToggle from './ThemeToggle'
 
 export function Sidebar() {
   const { logout, user } = useAuth()
@@ -50,7 +51,10 @@ export function Sidebar() {
         ))}
       </nav>
 
-      <div className="mt-auto border-t border-border pt-4">
+      <div className="mt-auto border-t border-border pt-4 flex flex-col gap-2">
+        <div className="px-3">
+          <ThemeToggle />
+        </div>
         <button
           type="button"
           onClick={() => {

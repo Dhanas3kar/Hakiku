@@ -83,6 +83,41 @@ export class PostsService {
           .set({ postId: createdPost.id })
           .where(and(eq(polls.id, dto.pollId), eq(polls.authorId, authorId)));
       }
+
+      // Mentions Extraction
+      if (trimmedContent) {
+        const mentions = Array.from(
+          new Set(trimmedContent.match(/@([\w._-]+)/g) || []),
+        ).map((m) => m.slice(1));
+
+        if (mentions.length > 0) {
+          const { inArray } = require('drizzle-orm');
+          const mentionedProfiles = await tx
+            .select()
+            .from(schema.profiles)
+            .where(inArray(schema.profiles.username, mentions));
+
+          for (const profile of mentionedProfiles) {
+            if (profile.userId !== authorId) {
+              await tx
+                .insert(schema.notificationOutbox)
+                .values({
+                  eventId: `POST_MENTION_${createdPost.id}_${profile.userId}`,
+                  type: 'MENTION',
+                  payload: {
+                    actorId: authorId,
+                    recipientId: profile.userId,
+                    entityType: 'POST',
+                    entityId: createdPost.id,
+                  },
+                })
+                .onConflictDoNothing({
+                  target: [schema.notificationOutbox.eventId],
+                });
+            }
+          }
+        }
+      }
     });
 
     const [authorProfile] = await this.db
@@ -90,6 +125,7 @@ export class PostsService {
         username: profiles.username,
         displayName: profiles.displayName,
         avatarKey: profiles.avatarKey,
+        isVerifiedIdentity: profiles.isVerifiedIdentity,
       })
       .from(profiles)
       .where(eq(profiles.userId, authorId))
@@ -104,6 +140,7 @@ export class PostsService {
         avatarUrl: authorProfile?.avatarKey
           ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
           : null,
+        isVerifiedIdentity: authorProfile?.isVerifiedIdentity || false,
       },
       media: attachedMedia,
     };
@@ -123,6 +160,7 @@ export class PostsService {
         username: profiles.username,
         displayName: profiles.displayName,
         avatarKey: profiles.avatarKey,
+        isVerifiedIdentity: profiles.isVerifiedIdentity,
       })
       .from(profiles)
       .where(eq(profiles.userId, post.authorId))
@@ -145,6 +183,7 @@ export class PostsService {
         avatarUrl: authorProfile?.avatarKey
           ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
           : null,
+        isVerifiedIdentity: authorProfile?.isVerifiedIdentity || false,
       },
       media,
       isLikedByViewer: !!likeRecord,

@@ -7,6 +7,7 @@ import { useState, useRef, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { EditProfileModal } from './EditProfileModal'
+import { VerifiedBadge } from '../ui/VerifiedBadge'
 
 interface Props {
   profile: UserProfile
@@ -177,7 +178,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
         <button
           onClick={() => unblockMutation.mutate()}
           disabled={isActionPending}
-          className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted disabled:opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           <Ban className="h-4 w-4" />
           Unblock
@@ -194,7 +195,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
           <button
             key="connected"
             onClick={() => setShowMoreMenu(!showMoreMenu)}
-            className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <UserCheck className="h-4 w-4 text-success" />
             Connected
@@ -207,7 +208,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
             key="pending-sent"
             onClick={() => relationship.pendingRequestId && cancelConnectionMutation.mutate(relationship.pendingRequestId)}
             disabled={isActionPending}
-            className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted hover:text-danger hover:border-danger/30 transition-colors disabled:opacity-50 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted hover:text-danger hover:border-danger/30 transition-colors disabled:opacity-50 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <Clock className="h-4 w-4 group-hover:hidden" />
             <UserX className="h-4 w-4 hidden group-hover:block" />
@@ -222,7 +223,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
             key="accept"
             onClick={() => relationship.pendingRequestId && acceptConnectionMutation.mutate(relationship.pendingRequestId)}
             disabled={isActionPending}
-            className="flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <UserCheck className="h-4 w-4" />
             Accept
@@ -231,7 +232,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
             key="reject"
             onClick={() => relationship.pendingRequestId && rejectConnectionMutation.mutate(relationship.pendingRequestId)}
             disabled={isActionPending}
-            className="flex items-center justify-center rounded-full border border-border bg-surface h-8 w-8 sm:h-9 sm:w-9 text-foreground hover:bg-surface-muted hover:text-danger hover:border-danger/30 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="flex shrink-0 items-center justify-center rounded-full border border-border bg-surface h-8 w-8 sm:h-9 sm:w-9 text-foreground hover:bg-surface-muted hover:text-danger hover:border-danger/30 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
             title="Reject connection"
           >
             <UserX className="h-4 w-4" />
@@ -245,7 +246,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
             key="connect"
             onClick={() => sendConnectionMutation.mutate()}
             disabled={isActionPending}
-            className="flex items-center gap-2 rounded-full bg-primary px-5 py-1.5 sm:px-6 sm:py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-1.5 sm:px-6 sm:py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             <UserPlus className="h-4 w-4" />
             Connect
@@ -262,7 +263,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
             key="unfollow"
             onClick={() => unfollowMutation.mutate()}
             disabled={isActionPending}
-            className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground-muted hover:bg-surface-muted hover:text-danger transition-colors disabled:opacity-50 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground-muted hover:bg-surface-muted hover:text-danger transition-colors disabled:opacity-50 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <span className="group-hover:hidden">Following</span>
             <span className="hidden group-hover:inline">Unfollow</span>
@@ -274,7 +275,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
             key="follow"
             onClick={() => followMutation.mutate()}
             disabled={isActionPending}
-            className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <UserPlus className="h-4 w-4" />
             Follow
@@ -283,12 +284,12 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
       }
     }
 
-    // Message button (only for connected users or anyone)
+    // Message button
     buttons.push(
       <button
         key="message"
         onClick={handleMessageUser}
-        className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+        className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         title="Send message"
       >
         <MessageSquare className="h-4 w-4 hidden sm:block" />
@@ -298,7 +299,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
 
     // More menu (block)
     buttons.push(
-      <div key="more" className="relative">
+      <div key="more" className="relative shrink-0">
         <button
           onClick={() => setShowMoreMenu(!showMoreMenu)}
           className="flex items-center justify-center rounded-full border border-border bg-surface h-8 w-8 sm:h-9 sm:w-9 text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
@@ -422,12 +423,12 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
             </div>
           </div>
 
-          {/* Actions Area */}
-          <div className="flex gap-2 flex-wrap items-center mt-2 sm:mt-0 sm:pb-4 lg:pb-6">
+          {/* Actions Area — scrollable on mobile so buttons never wrap off-screen */}
+          <div className="flex gap-2 items-center mt-2 sm:mt-0 sm:pb-4 lg:pb-6 overflow-x-auto [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden flex-nowrap sm:flex-wrap">
             {isOwnProfile ? (
               <button
                 onClick={() => setIsEditModalOpen(true)}
-                className="flex items-center gap-2 rounded-full border border-border bg-surface px-5 py-2 text-sm font-semibold text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-5 py-2 text-sm font-semibold text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
               >
                 <Edit2 className="h-4 w-4" />
                 <span>Edit Profile</span>
@@ -443,15 +444,15 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
           <h1 className="flex items-center gap-2 text-2xl sm:text-3xl font-bold text-foreground tracking-tight leading-tight">
             {profile.displayName || profile.fullName}
             {profile.isVerifiedIdentity && (
-              <BadgeCheck className="h-6 w-6 sm:h-7 sm:w-7 text-primary shrink-0" aria-label="Verified System Identity" />
+              <VerifiedBadge className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 ml-1" />
             )}
           </h1>
           <p className="text-base text-foreground-muted mt-0.5">@{profile.username}</p>
           
-          {/* Headline / Bio */}
+          {/* Bio */}
           {/* @ts-ignore */}
           {profile.bio && (
-            <p className="mt-4 text-base text-foreground leading-relaxed whitespace-pre-wrap">
+            <p className="mt-4 text-base text-foreground leading-relaxed whitespace-pre-wrap break-words">
               {profile.bio}
             </p>
           )}

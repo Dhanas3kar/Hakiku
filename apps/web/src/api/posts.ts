@@ -18,6 +18,7 @@ export interface PostAuthor {
   avatarUrl: string | null
   department: string | null
   batch: string | null
+  isVerifiedIdentity?: boolean
 }
 
 export interface PostItem {

@@ -111,48 +111,50 @@ function NotificationsPage() {
   const notifications = data?.pages.flatMap((page) => page.items) ?? []
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6 lg:px-8 bg-surface border border-border sm:rounded-xl shadow-sm min-h-[calc(100vh-8rem)]">
-      <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
-        <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
-          <Bell className="h-6 w-6 text-primary" />
-          Notifications
-        </h1>
-        <button
-          onClick={() => markAllAsReadMutation.mutate()}
-          disabled={markAllAsReadMutation.isPending || notifications.length === 0}
-          className="text-sm text-primary hover:text-primary/80 disabled:opacity-50 font-medium transition-colors"
-        >
-          Mark all as read
-        </button>
-      </div>
+    <div className="w-full bg-surface sm:border sm:border-border sm:rounded-xl sm:shadow-sm min-h-screen sm:min-h-0">
+      <div className="px-4 py-6 sm:px-6">
+        <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+            <Bell className="h-6 w-6 text-primary" />
+            Notifications
+          </h1>
+          <button
+            onClick={() => markAllAsReadMutation.mutate()}
+            disabled={markAllAsReadMutation.isPending || notifications.length === 0}
+            className="text-sm text-primary hover:text-primary/80 disabled:opacity-50 font-medium transition-colors"
+          >
+            Mark all as read
+          </button>
+        </div>
 
-      {status === 'pending' ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : status === 'error' ? (
-        <div className="text-center py-12 text-danger">
-          Failed to load notifications. Please try again.
-        </div>
-      ) : notifications.length === 0 ? (
-        <div className="text-center py-24 px-4">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-surface-muted mb-4">
-            <Bell className="h-8 w-8 text-foreground-muted" />
+        {status === 'pending' ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
-          <h3 className="text-lg font-medium text-foreground mb-1">No notifications</h3>
-          <p className="text-foreground-muted">When you get notifications, they'll show up here.</p>
-        </div>
-      ) : (
-        <div className="space-y-1">
-          {notifications.map((notification) => (
-            <NotificationItemRow key={notification.id} notification={notification} />
-          ))}
-          
-          <div ref={bottomRef} className="py-4 flex justify-center">
-            {isFetchingNextPage && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
+        ) : status === 'error' ? (
+          <div className="text-center py-12 text-danger">
+            Failed to load notifications. Please try again.
           </div>
-        </div>
-      )}
+        ) : notifications.length === 0 ? (
+          <div className="text-center py-24 px-4">
+            <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-surface-muted mb-4">
+              <Bell className="h-8 w-8 text-foreground-muted" />
+            </div>
+            <h3 className="text-lg font-medium text-foreground mb-1">No notifications</h3>
+            <p className="text-foreground-muted">When you get notifications, they'll show up here.</p>
+          </div>
+        ) : (
+          <div className="space-y-1">
+            {notifications.map((notification) => (
+              <NotificationItemRow key={notification.id} notification={notification} />
+            ))}
+            
+            <div ref={bottomRef} className="py-4 flex justify-center">
+              {isFetchingNextPage && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -262,8 +264,8 @@ function NotificationItemRow({ notification }: { notification: NotificationItem 
         </div>
       </div>
 
-      <div className="flex-1 min-w-0 pr-8">
-        <p className="text-sm text-foreground">
+      <div className="flex-1 min-w-0 pr-8 sm:pr-10">
+        <p className="text-sm text-foreground break-words">
           <span className="font-semibold">{notification.actor?.displayName || 'Someone'}</span>{' '}
           {(notification.content || '').replace(notification.actor?.displayName || '', '').trim()}
         </p>

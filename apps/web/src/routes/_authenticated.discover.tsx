@@ -15,8 +15,12 @@ function DiscoverPage() {
   const [activeTab, setActiveTab] = useState<Tab>('pulse_people')
 
   return (
-    <div className="flex-1 w-full flex flex-col items-center bg-surface pb-20 md:pb-0 h-[100dvh] overflow-hidden">
-      <div className="w-full max-w-2xl flex flex-col h-full bg-surface border-x border-border shadow-sm">
+    /* Discover uses its own scroll container separate from the shell.
+       Height = full dvh minus header (~53px mobile) minus bottom nav (~56px mobile + safe-area).
+       On md+ the sidebar/bottom-nav don't exist so we use a simpler calc. */
+    <div className="flex-1 w-full flex flex-col items-center bg-surface">
+      <div className="w-full max-w-2xl flex flex-col bg-surface border-x border-border shadow-sm"
+           style={{ minHeight: 'calc(100dvh - 3.5rem - env(safe-area-inset-bottom, 0px))' }}>
 
         {/* Header */}
         <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-md border-b border-border p-4 shrink-0">
@@ -25,13 +29,13 @@ function DiscoverPage() {
             Discover what's happening around SRM
           </p>
 
-          {/* Tabs */}
-          <div className="flex gap-1 mt-4 p-1 bg-surface-muted rounded-xl overflow-x-auto scrollbar-hide">
+          {/* Scrollable tabs — no overflow-hidden so pills don't clip */}
+          <div className="flex gap-1 mt-4 p-1 bg-surface-muted rounded-xl overflow-x-auto [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabButton
               active={activeTab === 'pulse_people'}
               onClick={() => setActiveTab('pulse_people')}
             >
-              Pulse & People
+              Pulse &amp; People
             </TabButton>
             <TabButton
               active={activeTab === 'hot_takes'}
@@ -54,10 +58,8 @@ function DiscoverPage() {
           </div>
         </header>
 
-
-
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto w-full relative scroll-smooth">
+        {/* Content Area — natural document flow, no fixed height trap */}
+        <div className="flex-1 w-full">
           {activeTab === 'pulse_people' && <PulseAndPeopleTab />}
           {activeTab === 'hot_takes' && <HotTakesTab />}
           {activeTab === 'confessions' && <ConfessionsTab />}

@@ -27,6 +27,43 @@ export class HotTakesService {
         otherDetails: data.otherDetails?.trim() || null,
       })
       .returning();
+
+    // Mentions Extraction
+    const trimmedContent = data.content.trim();
+    if (trimmedContent) {
+      const mentions = Array.from(
+        new Set(trimmedContent.match(/@([\w._-]+)/g) || []),
+      ).map((m) => m.slice(1));
+
+      if (mentions.length > 0) {
+        const { notificationOutbox } = require('../../db/schema');
+        const mentionedProfiles = await this.db
+          .select()
+          .from(profiles)
+          .where(inArray(profiles.username, mentions));
+
+        for (const profile of mentionedProfiles) {
+          if (profile.userId !== authorId) {
+            await this.db
+              .insert(notificationOutbox)
+              .values({
+                eventId: `HOTTAKE_MENTION_${inserted.id}_${profile.userId}`,
+                type: 'MENTION',
+                payload: {
+                  actorId: authorId,
+                  recipientId: profile.userId,
+                  entityType: 'HOT_TAKE',
+                  entityId: inserted.id,
+                },
+              })
+              .onConflictDoNothing({
+                target: [notificationOutbox.eventId],
+              });
+          }
+        }
+      }
+    }
+
     return inserted;
   }
 
@@ -109,6 +146,7 @@ export class HotTakesService {
           displayName: prof?.displayName || 'Student',
           username: prof?.username || 'user',
           avatarUrl: prof?.avatarKey ? `${baseUrl}/uploads/${prof.avatarKey}` : null,
+          isVerifiedIdentity: prof?.isVerifiedIdentity || false,
         }
       };
     });

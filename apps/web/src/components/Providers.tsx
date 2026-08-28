@@ -2,6 +2,24 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import React, { useState } from 'react'
 import { SocketProvider } from '../hooks/useSocket'
+import { SplashScreen } from './SplashScreen'
+import { useSplash } from '../hooks/useSplash'
+
+/**
+ * Inner wrapper that can use React Query hooks (needs to be inside QueryClientProvider)
+ */
+function AppShell({ children }: { children: React.ReactNode }) {
+  const { showSplash, splashReady } = useSplash()
+
+  return (
+    <>
+      {showSplash && <SplashScreen ready={splashReady} />}
+      <SocketProvider>
+        {children}
+      </SocketProvider>
+    </>
+  )
+}
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -22,10 +40,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SocketProvider>
+      <AppShell>
         {children}
-      </SocketProvider>
-      <ReactQueryDevtools initialIsOpen={false} />
+      </AppShell>
+      <div className="hidden md:block">
+        <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
+      </div>
     </QueryClientProvider>
   )
 }

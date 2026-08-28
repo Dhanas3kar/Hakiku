@@ -19,11 +19,11 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly otpService: OtpService,
     private readonly sessionService: SessionService,
-  ) {}
+  ) { }
 
   private enforceDomain(email: string) {
     const normalized = email.trim().toLowerCase();
-    if (!normalized.endsWith('@srmist.edu.in')) {
+    if (!normalized.endsWith('@srmist.edu.in') && normalized !== 'connectx@gmail.com') {
       throw new BadRequestException('Only @srmist.edu.in emails are allowed');
     }
     return normalized;
@@ -65,7 +65,7 @@ export class AuthService {
       .from(users)
       .where(eq(users.email, normalized));
     let user;
-    
+
     if (existingUsers.length === 0) {
       const [newUser] = await db
         .insert(users)
@@ -172,12 +172,16 @@ export class AuthService {
   async adminLogin(email: string, passwordPlain: string, ipAddress?: string, userAgent?: string) {
     const normalized = email.trim().toLowerCase();
 
+    if (normalized === 'connectx@gmail.com') {
+      throw new UnauthorizedException('Official system account cannot be used for manual admin login');
+    }
+
     // 1. Find user by email
     const existingUsers = await db
       .select()
       .from(users)
       .where(eq(users.email, normalized));
-    
+
     if (existingUsers.length === 0) {
       throw new UnauthorizedException('Invalid admin credentials');
     }
@@ -233,7 +237,7 @@ export class AuthService {
     if (familyId) {
       await this.sessionService.revokeSession(familyId);
     }
-    
+
     if (userId) {
       await db.insert(auditLogs).values({
         userId,

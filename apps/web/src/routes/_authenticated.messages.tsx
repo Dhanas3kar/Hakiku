@@ -10,9 +10,14 @@ function MessagesLayout() {
   const isConversationSelected = matchRoute({ to: '/messages/$conversationId', fuzzy: true })
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] md:h-[calc(100vh-2rem)] w-full overflow-hidden bg-background md:rounded-xl md:border md:border-border shadow-sm">
+    /* Full height minus: mobile header (≈53px ≈ 3.375rem) and bottom nav (3.5rem) + safe area.
+       On md+ there's no bottom nav, just subtract the header. */
+    <div className="flex w-full overflow-hidden bg-background
+      h-[calc(100dvh-3.375rem-3.5rem-env(safe-area-inset-bottom,0px))]
+      md:h-[calc(100dvh-2rem)]
+      md:rounded-xl md:border md:border-border shadow-sm">
       {/* Sidebar / Conversation List */}
-      <div 
+      <div
         className={`w-full md:w-80 lg:w-96 flex-shrink-0 border-r border-border bg-surface flex flex-col transition-all ${
           isConversationSelected ? 'hidden md:flex' : 'flex'
         }`}
@@ -21,7 +26,7 @@ function MessagesLayout() {
       </div>
 
       {/* Main Chat Area */}
-      <div 
+      <div
         className={`flex-1 flex flex-col min-w-0 bg-background ${
           !isConversationSelected ? 'hidden md:flex' : 'flex'
         }`}

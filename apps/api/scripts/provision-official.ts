@@ -8,22 +8,17 @@ import { v4 as uuidv4 } from 'uuid';
 // Load .env from apps/api
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-async function provisionConnectX() {
-  console.log('--- PROVISION CONNECTX SYSTEM IDENTITY ---');
-  
+async function provisionOfficial() {
+  console.log('--- PROVISION HAKIKU OFFICIAL ACCOUNT ---');
+
+  const officialEmail = 'connectx@gmail.com';
   const nodeEnv = process.env.NODE_ENV || 'development';
   const dbUrl = process.env.DATABASE_URL || '';
-  const connectxEmail = process.env.CONNECTX_ADMIN_EMAIL;
-  
-  if (!connectxEmail) {
-    console.error('[ERROR] CONNECTX_ADMIN_EMAIL is not defined in the environment.');
-    process.exit(1);
-  }
 
   const urlObj = new URL(dbUrl);
   const maskedHost = urlObj.hostname;
-  
-  if (nodeEnv === 'production' || maskedHost !== '127.0.0.1' && maskedHost !== 'localhost') {
+
+  if (nodeEnv === 'production' || (maskedHost !== '127.0.0.1' && maskedHost !== 'localhost')) {
     console.error(`[ERROR] This appears to be a production database. Disabling provisioning.`);
     process.exit(1);
   }
@@ -31,14 +26,14 @@ async function provisionConnectX() {
   try {
     // 1. Check if user already exists
     let user = await db.query.users.findFirst({
-      where: eq(schema.users.email, connectxEmail),
+      where: eq(schema.users.email, officialEmail),
     });
 
     if (!user) {
-      console.log(`User ${connectxEmail} not found. Creating user...`);
+      console.log(`User ${officialEmail} not found. Creating user...`);
       const [newUser] = await db.insert(schema.users).values({
         id: uuidv4(),
-        email: connectxEmail,
+        email: officialEmail,
         isVerified: true,
         emailVerifiedAt: new Date(),
         role: 'ADMIN',
@@ -46,7 +41,7 @@ async function provisionConnectX() {
       }).returning();
       user = newUser;
     } else {
-      console.log(`User ${connectxEmail} found. Updating role...`);
+      console.log(`User ${officialEmail} found. Updating role...`);
       const [updatedUser] = await db.update(schema.users).set({
         role: 'ADMIN',
         isVerified: true,
@@ -60,43 +55,45 @@ async function provisionConnectX() {
     });
 
     if (!profile) {
-      console.log(`Profile for ${connectxEmail} not found. Creating profile...`);
+      console.log(`Profile for ${officialEmail} not found. Creating profile...`);
       await db.insert(schema.profiles).values({
         id: uuidv4(),
         userId: user.id,
-        username: 'connectx',
-        displayName: 'ConnectX',
+        username: 'hakiku',
+        displayName: 'HAKIKU Official',
+        bio: 'The official broadcast account for HAKIKU. Stay tuned for updates!',
         campus: 'SYSTEM',
         department: 'ADMINISTRATION',
         degreeProgram: 'SYSTEM',
-        batchYear: 2024,
-        graduationYear: 2028,
+        batchYear: new Date().getFullYear(),
+        graduationYear: new Date().getFullYear() + 4,
         isVerifiedIdentity: true,
         isProfileCompleted: true,
         completionPercentage: 100,
         visibility: 'PUBLIC',
       });
     } else {
-      console.log(`Profile for ${connectxEmail} found. Updating verified identity...`);
+      console.log(`Profile for ${officialEmail} found. Updating verified identity...`);
       await db.update(schema.profiles).set({
-        username: 'connectx',
-        displayName: 'ConnectX',
+        username: 'hakiku',
+        displayName: 'HAKIKU Official',
         isVerifiedIdentity: true,
+        bio: 'The official broadcast account for HAKIKU. Stay tuned for updates!',
       }).where(eq(schema.profiles.id, profile.id));
     }
 
-    console.log(`\n[SUCCESS] ConnectX identity provisioned successfully.`);
-    console.log(`  Email: ${connectxEmail}`);
-    console.log(`  Role: ADMIN`);
-    console.log(`  Username: connectx`);
-    console.log(`  Verified Identity: true\n`);
-    
-  } catch (err) {
-    console.error('Error provisioning ConnectX:', err);
+    console.log('--- PROVISIONING COMPLETE ---');
+    console.log(`Official Account Identity:`);
+    console.log(`- Email: ${officialEmail}`);
+    console.log(`- Username: @hakiku`);
+    console.log(`- Role: ADMIN`);
+    console.log(`- Verified: YES`);
+
+    process.exit(0);
+  } catch (error) {
+    console.error('Error provisioning Hakiku Official Account:', error);
     process.exit(1);
   }
-
-  process.exit(0);
 }
 
-provisionConnectX();
+provisionOfficial();

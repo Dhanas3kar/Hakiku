@@ -1,11 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { AlertCircle, ShieldAlert } from 'lucide-react';
-import { fetchWithInterceptor } from '@/lib/api';
+import { useAuth } from '../hooks/useAuth';
 
 export const Route = createFileRoute('/admin/login')({
   component: AdminLogin,
@@ -29,13 +25,14 @@ function AdminLogin() {
     setError('');
 
     try {
-      const response = await fetchWithInterceptor(
+      const response = await fetch(
         `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/admin/auth/login`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password }),
-        },
+          credentials: 'include',
+        }
       );
 
       if (!response.ok) {
@@ -70,7 +67,7 @@ function AdminLogin() {
           <p className="text-neutral-400">Restricted Access Only</p>
         </div>
 
-        <Card className="bg-neutral-900/50 border-neutral-800 p-6 backdrop-blur-xl">
+        <div className="bg-neutral-900/50 border border-neutral-800 p-6 rounded-xl backdrop-blur-xl shadow-xl">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-2 text-red-400 text-sm">
@@ -80,44 +77,44 @@ function AdminLogin() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-neutral-300">
+              <label htmlFor="email" className="block text-sm font-medium text-neutral-300">
                 Admin Email
-              </Label>
-              <Input
+              </label>
+              <input
                 id="email"
                 type="email"
                 placeholder="admin@srmist.edu.in"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="bg-neutral-800/50 border-neutral-700 text-white placeholder:text-neutral-500"
+                className="w-full px-3 py-2 bg-neutral-800/50 border border-neutral-700 rounded-md text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500"
                 disabled={isLoading}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-neutral-300">
+              <label htmlFor="password" className="block text-sm font-medium text-neutral-300">
                 Password
-              </Label>
-              <Input
+              </label>
+              <input
                 id="password"
                 type="password"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-neutral-800/50 border-neutral-700 text-white placeholder:text-neutral-500"
+                className="w-full px-3 py-2 bg-neutral-800/50 border border-neutral-700 rounded-md text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500"
                 disabled={isLoading}
               />
             </div>
 
-            <Button
+            <button
               type="submit"
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium"
+              className="w-full flex justify-center items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               {isLoading ? 'Authenticating...' : 'Secure Login'}
-            </Button>
+            </button>
           </form>
-        </Card>
+        </div>
 
         <p className="text-center text-xs text-neutral-500">
           Unauthorized access is strictly prohibited and logged.

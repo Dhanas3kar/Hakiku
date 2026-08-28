@@ -13,6 +13,7 @@ import {
   HttpException,
   ParseBoolPipe,
   DefaultValuePipe,
+  Patch,
 } from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
@@ -239,7 +240,7 @@ export class CommunityController {
   async updateHotTake(
     @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
-    @Body() body: { 
+    @Body() body: {
       content: string;
       date?: string;
       place?: string;

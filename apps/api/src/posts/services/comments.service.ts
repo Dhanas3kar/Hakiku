@@ -83,6 +83,37 @@ export class CommentsService {
           },
         });
       }
+
+      // Mentions Extraction
+      if (trimmedContent) {
+        const mentions = Array.from(
+          new Set(trimmedContent.match(/@([\w._-]+)/g) || []),
+        ).map((m) => m.slice(1));
+
+        if (mentions.length > 0) {
+          const { inArray } = require('drizzle-orm');
+          const mentionedProfiles = await tx
+            .select()
+            .from(schema.profiles)
+            .where(inArray(schema.profiles.username, mentions));
+
+          for (const profile of mentionedProfiles) {
+            if (profile.userId !== authorId) {
+              await this.outboxService.appendEvent(
+                tx,
+                `COMMENT_MENTION_${inserted.id}_${profile.userId}`,
+                'MENTION',
+                {
+                  actorId: authorId,
+                  recipientId: profile.userId,
+                  entityType: 'COMMENT',
+                  entityId: inserted.id,
+                }
+              );
+            }
+          }
+        }
+      }
     });
 
     const [authorProfile] = await this.db
@@ -90,6 +121,7 @@ export class CommentsService {
         username: profiles.username,
         displayName: profiles.displayName,
         avatarKey: profiles.avatarKey,
+        isVerifiedIdentity: profiles.isVerifiedIdentity,
       })
       .from(profiles)
       .where(eq(profiles.userId, authorId))
@@ -104,6 +136,7 @@ export class CommentsService {
         avatarUrl: authorProfile?.avatarKey
           ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
           : null,
+        isVerifiedIdentity: authorProfile?.isVerifiedIdentity || false,
       },
     };
   }
@@ -170,6 +203,7 @@ export class CommentsService {
             username: profiles.username,
             displayName: profiles.displayName,
             avatarKey: profiles.avatarKey,
+            isVerifiedIdentity: profiles.isVerifiedIdentity,
           })
           .from(profiles)
           .where(eq(profiles.userId, c.authorId))
@@ -184,6 +218,7 @@ export class CommentsService {
             avatarUrl: authorProfile?.avatarKey
               ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
               : null,
+            isVerifiedIdentity: authorProfile?.isVerifiedIdentity || false,
           },
         };
       }),

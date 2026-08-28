@@ -293,8 +293,8 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
         )}
       </div>
 
-      {/* Input Area */}
-      <div className="p-3 border-t border-border bg-surface shrink-0">
+      {/* Input Area \u2014 pb-safe for iOS home indicator */}
+      <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-border bg-surface shrink-0">
         <form onSubmit={handleSend} className="flex items-end gap-2">
           <button 
             type="button" 

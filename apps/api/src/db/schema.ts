@@ -492,6 +492,7 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'COMMENT_REPLY',
   'SYSTEM',
   'MESSAGE',
+  'MENTION',
 ]);
 
 export const outboxStatusEnum = pgEnum('outbox_status', [
