@@ -286,6 +286,7 @@ openapi.json
 /artifacts/
 /screenshots/
 *.html
+load-tests/tokens.json
 
 # ------------------------------------------------------------
 # Local Development Config
