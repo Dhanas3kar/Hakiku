@@ -36,8 +36,8 @@ export class ConfessionQueryService {
     const safeHeroes = candidates.filter((c) => !activeBlocks.has(c.authorId)).slice(0, 3);
 
     return {
-      items: safeHeroes.map(c => this.mapToPublic(c, viewerId)),
-      isFallback
+      items: safeHeroes.map((c) => this.mapToPublic(c, viewerId)),
+      isFallback,
     };
   }
 

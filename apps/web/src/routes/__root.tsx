@@ -47,19 +47,21 @@ function RootDocument() {
           <Providers>
             <Outlet />
             <Toaster position="bottom-center" theme="system" richColors />
-            <div className="hidden md:block">
-              <TanStackDevtools
-                config={{
-                  position: 'top-right',
-                }}
-                plugins={[
-                  {
-                    name: 'Tanstack Router',
-                    render: <TanStackRouterDevtoolsPanel />,
-                  },
-                ]}
-              />
-            </div>
+            {import.meta.env.DEV && (
+              <div className="hidden md:block">
+                <TanStackDevtools
+                  config={{
+                    position: 'top-right',
+                  }}
+                  plugins={[
+                    {
+                      name: 'Tanstack Router',
+                      render: <TanStackRouterDevtoolsPanel />,
+                    },
+                  ]}
+                />
+              </div>
+            )}
           </Providers>
         </GlobalErrorBoundary>
         <Scripts />

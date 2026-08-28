@@ -23,7 +23,7 @@ export class AuthService {
 
   private enforceDomain(email: string) {
     const normalized = email.trim().toLowerCase();
-    if (!normalized.endsWith('@srmist.edu.in') && normalized !== 'connectx@gmail.com') {
+    if (!normalized.endsWith('@srmist.edu.in') && normalized !== 'connectxsrm@gmail.com') {
       throw new BadRequestException('Only @srmist.edu.in emails are allowed');
     }
     return normalized;
@@ -172,7 +172,7 @@ export class AuthService {
   async adminLogin(email: string, passwordPlain: string, ipAddress?: string, userAgent?: string) {
     const normalized = email.trim().toLowerCase();
 
-    if (normalized === 'connectx@gmail.com') {
+    if (normalized === 'connectxsrm@gmail.com') {
       throw new UnauthorizedException('Official system account cannot be used for manual admin login');
     }
 

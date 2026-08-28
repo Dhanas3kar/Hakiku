@@ -27,12 +27,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 60 * 1000, // 1 minute
+            staleTime: 60 * 1000,
+            gcTime: 5 * 60 * 1000,
             retry: (failureCount, error: any) => {
               if ([401, 403, 404, 429].includes(error?.status)) return false
               return failureCount < 1
             },
             refetchOnWindowFocus: false,
+            refetchOnReconnect: true,
           },
         },
       })
@@ -43,9 +45,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <AppShell>
         {children}
       </AppShell>
-      <div className="hidden md:block">
-        <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
-      </div>
+      {import.meta.env.DEV && (
+        <div className="hidden md:block">
+          <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" />
+        </div>
+      )}
     </QueryClientProvider>
   )
 }

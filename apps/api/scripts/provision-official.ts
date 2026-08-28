@@ -11,7 +11,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 async function provisionOfficial() {
   console.log('--- PROVISION HAKIKU OFFICIAL ACCOUNT ---');
 
-  const officialEmail = 'connectx@gmail.com';
+  const officialEmail = 'connectxsrm@gmail.com';
   const nodeEnv = process.env.NODE_ENV || 'development';
   const dbUrl = process.env.DATABASE_URL || '';
 

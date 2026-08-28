@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate, Navigate } from '@tanstack/react-router'
+import { createFileRoute, Link, Navigate } from '@tanstack/react-router'
 import { useState, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/auth'
@@ -21,7 +21,6 @@ export const Route = createFileRoute('/verify-otp')({
 })
 
 function VerifyOtpPage() {
-  const navigate = useNavigate()
   const { isAuthenticated, needsOnboarding, refetchSession } = useAuth()
   const { email, redirect } = Route.useSearch()
   const [otp, setOtp] = useState(['', '', '', '', '', ''])

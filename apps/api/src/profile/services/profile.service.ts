@@ -145,6 +145,7 @@ export class ProfileService {
             graduationYear: dto.graduationYear,
             bio: dto.bio ? dto.bio.trim() : null,
             visibility: dto.visibility || 'PUBLIC',
+            socialLinks: dto.socialLinks || {},
             completionPercentage,
             isProfileCompleted,
           })
@@ -319,6 +320,7 @@ export class ProfileService {
                   : null
                 : existing.bio,
             visibility: dto.visibility || existing.visibility,
+            socialLinks: dto.socialLinks !== undefined ? dto.socialLinks : existing.socialLinks,
             completionPercentage,
             isProfileCompleted,
             updatedAt: new Date(),

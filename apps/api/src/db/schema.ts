@@ -244,6 +244,9 @@ export const profiles = pgTable(
     // System Identity
     isVerifiedIdentity: boolean('is_verified_identity').default(false).notNull(),
 
+    // Profile Extras
+    socialLinks: jsonb('social_links').default({}),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },

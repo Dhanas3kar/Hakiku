@@ -22,7 +22,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo)
+    if (import.meta.env.DEV) {
+      console.error('Uncaught error:', error, errorInfo)
+    }
   }
 
   public render() {
@@ -36,25 +38,25 @@ export class GlobalErrorBoundary extends Component<Props, State> {
             <div className="space-y-2">
               <h1 className="text-xl font-bold tracking-tight text-foreground">Something went wrong</h1>
               <p className="text-sm text-foreground-muted">
-                An unexpected error occurred. We've been notified and are looking into it.
+                An unexpected error occurred. Please refresh the page and try again.
               </p>
             </div>
-            
-            {this.state.error && (
-               <div className="w-full rounded-md bg-muted p-3 text-left overflow-x-auto">
-                 <p className="text-xs font-mono text-foreground-muted whitespace-pre-wrap break-words">
-                   {this.state.error.toString()}
-                 </p>
-               </div>
+
+            {import.meta.env.DEV && this.state.error && (
+              <div className="w-full rounded-md bg-muted p-3 text-left overflow-x-auto">
+                <p className="text-xs font-mono text-foreground-muted whitespace-pre-wrap break-words">
+                  {this.state.error.toString()}
+                </p>
+              </div>
             )}
 
             <div className="pt-2">
               <button
-                onClick={() => window.location.href = '/'}
+                onClick={() => window.location.reload()}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <RefreshCcw className="h-4 w-4" />
-                Return to Home
+                Reload page
               </button>
             </div>
           </div>

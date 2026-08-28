@@ -6,7 +6,7 @@ dotenv.config();
 
 const connectionString =
   process.env.DATABASE_URL ||
-  'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
+  'postgres://postgres:postgres@127.0.0.1:5433/srm_connect';
 
 // Disable prefetch as it is not supported for "Transaction" pool mode
 const client = postgres(connectionString, {

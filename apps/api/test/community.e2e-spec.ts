@@ -277,11 +277,12 @@ describe('CommunityModule (e2e)', () => {
         .get('/community/confessions/hero')
         .set('Authorization', `Bearer ${userAToken}`);
 
-      expect(response.status).toBe(200);
-      expect(response.body.content).toBe('I love programming in NestJS');
-      expect(response.body.id).toBe(confessionId);
-      // Ensure authorId is NOT leaked
-      expect(response.body.authorId).toBeUndefined();
+        expect(response.status).toBe(200);
+        expect(Array.isArray(response.body.items)).toBeTruthy();
+        expect(response.body.items[0].content).toBe('I love programming in NestJS');
+        expect(response.body.items[0].id).toBe(confessionId);
+        // Ensure authorId is NOT leaked
+        expect(response.body.items[0].authorId).toBeUndefined();
     });
   });
 

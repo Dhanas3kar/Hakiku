@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from './useAuth'
 import { io, Socket } from 'socket.io-client'
@@ -26,33 +26,56 @@ export function useSocket() {
 export function SocketProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
   const queryClient = useQueryClient()
+  const invalidateTimeoutRef = useRef<number | null>(null)
+  const socketsRef = useRef<{ notification: Socket | null; messaging: Socket | null }>({
+    notification: null,
+    messaging: null,
+  })
 
   const [notificationSocket, setNotificationSocket] = useState<Socket | null>(null)
   const [messagingSocket, setMessagingSocket] = useState<Socket | null>(null)
-
   const [isConnected, setIsConnected] = useState({
     notifications: false,
     messaging: false,
   })
 
   useEffect(() => {
-    // Only connect if the user is fully authenticated
-    if (!isAuthenticated) {
-      if (notificationSocket) {
-        notificationSocket.disconnect()
-        setNotificationSocket(null)
+    const invalidateQueriesSafely = (keys: Array<readonly unknown[]>) => {
+      if (invalidateTimeoutRef.current) {
+        window.clearTimeout(invalidateTimeoutRef.current)
       }
-      if (messagingSocket) {
-        messagingSocket.disconnect()
-        setMessagingSocket(null)
+
+      invalidateTimeoutRef.current = window.setTimeout(() => {
+        keys.forEach(queryKey => {
+          queryClient.invalidateQueries({ queryKey })
+        })
+      }, 150)
+    }
+
+    const disconnectSockets = () => {
+      if (socketsRef.current.notification) {
+        socketsRef.current.notification.disconnect()
+        socketsRef.current.notification = null
       }
+      if (socketsRef.current.messaging) {
+        socketsRef.current.messaging.disconnect()
+        socketsRef.current.messaging = null
+      }
+      setNotificationSocket(null)
+      setMessagingSocket(null)
       setIsConnected({ notifications: false, messaging: false })
+    }
+
+    if (!isAuthenticated) {
+      disconnectSockets()
+      return
+    }
+
+    if (socketsRef.current.notification && socketsRef.current.messaging) {
       return
     }
 
     const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
-
-    // Configure base options: send cookies automatically with bounded backoff
     const socketOptions = {
       withCredentials: true,
       transports: ['websocket', 'polling'],
@@ -63,20 +86,20 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       randomizationFactor: 0.5,
     }
 
-    // Connect to Notifications namespace (default `/`)
     const notifSocket = io(apiUrl, socketOptions)
-
-    // Connect to Messaging namespace (`/messages`)
     const msgSocket = io(`${apiUrl}/messages`, socketOptions)
+
+    socketsRef.current.notification = notifSocket
+    socketsRef.current.messaging = msgSocket
+    setNotificationSocket(notifSocket)
+    setMessagingSocket(msgSocket)
 
     notifSocket.on('connect', () => {
       setIsConnected(prev => ({ ...prev, notifications: true }))
     })
 
     notifSocket.io.on('reconnect', () => {
-      // Trigger REST resynchronization
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-      queryClient.invalidateQueries({ queryKey: ['unreadCounts'] })
+      invalidateQueriesSafely([['notifications'], ['unreadCounts']])
     })
 
     notifSocket.on('disconnect', () => {
@@ -88,26 +111,20 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     })
 
     msgSocket.io.on('reconnect', () => {
-      // Trigger REST resynchronization
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      queryClient.invalidateQueries({ queryKey: ['messages'] })
-      queryClient.invalidateQueries({ queryKey: ['unreadCounts'] })
+      invalidateQueriesSafely([['conversations'], ['messages'], ['unreadCounts']])
     })
 
     msgSocket.on('disconnect', () => {
       setIsConnected(prev => ({ ...prev, messaging: false }))
     })
 
-    setNotificationSocket(notifSocket)
-    setMessagingSocket(msgSocket)
-
     return () => {
-      notifSocket.disconnect()
-      msgSocket.disconnect()
+      disconnectSockets()
+      if (invalidateTimeoutRef.current) {
+        window.clearTimeout(invalidateTimeoutRef.current)
+      }
     }
-  }, [isAuthenticated])
-
-  const isDisconnected = isAuthenticated && (!isConnected.notifications || !isConnected.messaging)
+  }, [isAuthenticated, queryClient])
 
   return (
     <SocketContext.Provider value={{ notificationSocket, messagingSocket, isConnected }}>

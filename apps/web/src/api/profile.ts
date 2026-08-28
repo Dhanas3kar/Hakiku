@@ -1,5 +1,7 @@
 import { client } from './client'
 
+export type UserRole = 'STUDENT' | 'MODERATOR' | 'ADMIN'
+
 export interface UserProfile {
   id: string;
   userId: string;
@@ -14,6 +16,7 @@ export interface UserProfile {
   avatarUrl: string | null;
   coverUrl: string | null;
   socialLinks: Record<string, string> | null;
+  role?: UserRole;
   isVerifiedIdentity?: boolean;
   skillIds?: string[];
   interestIds?: string[];

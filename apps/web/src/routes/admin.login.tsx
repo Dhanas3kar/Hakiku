@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { AlertCircle, ShieldAlert } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
 
 export const Route = createFileRoute('/admin/login')({
   component: AdminLogin,

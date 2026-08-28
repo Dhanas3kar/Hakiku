@@ -8,6 +8,7 @@ import {
   Min,
   Max,
   Length,
+  IsObject,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -68,6 +69,10 @@ export class CreateProfileDto {
   @IsArray()
   @IsUUID('4', { each: true })
   interestIds?: string[];
+
+  @IsOptional()
+  @IsObject()
+  socialLinks?: Record<string, string>;
 }
 
 export class UpdateProfileDto {
@@ -128,6 +133,10 @@ export class UpdateProfileDto {
   @IsArray()
   @IsUUID('4', { each: true })
   interestIds?: string[];
+
+  @IsOptional()
+  @IsObject()
+  socialLinks?: Record<string, string>;
 }
 
 export class SearchProfilesQueryDto {

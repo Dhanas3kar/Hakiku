@@ -4,11 +4,13 @@ import type { UserProfile } from '../api/profile'
 import { authApi } from '../api/auth'
 import { ApiError } from '../api/client'
 import { useNavigate } from '@tanstack/react-router'
+import { useRef } from 'react'
 
 export const AUTH_QUERY_KEY = ['auth', 'me']
 
 export function useAuth() {
   const queryClient = useQueryClient()
+  const logoutGuardRef = useRef(false)
 
   const {
     data: profile,
@@ -25,8 +27,8 @@ export function useAuth() {
       if (err.status === 401 || err.status === 403 || err.status === 404) return false
       return failureCount < 3
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes (user profile rarely changes itself without mutations)
-    gcTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
@@ -36,19 +38,22 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: () => authApi.logout(),
+    onMutate: async () => {
+      logoutGuardRef.current = true
+      await queryClient.cancelQueries({ queryKey: AUTH_QUERY_KEY })
+    },
     onSettled: async () => {
-      // 1. Cancel pending queries to prevent stale responses
-      await queryClient.cancelQueries()
-      // 2. Clear query cache
+      queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY, exact: false })
       queryClient.clear()
-      // 3. Disconnect sockets (handled by isAuthenticated state change)
-      // 4. Navigate to login safely without hard reload
+      logoutGuardRef.current = false
       navigate({ to: '/login', replace: true })
     },
   })
 
   let status: 'loading' | 'authenticated' | 'unauthenticated' | 'needs_onboarding' | 'error' = 'loading'
-  if (isPending) {
+  if (logoutGuardRef.current) {
+    status = 'unauthenticated'
+  } else if (isPending) {
     status = 'loading'
   } else if (isError) {
     if (error?.status === 401) {
@@ -63,7 +68,6 @@ export function useAuth() {
   } else if (profile) {
     status = 'authenticated'
   }
-  
 
   return {
     status,

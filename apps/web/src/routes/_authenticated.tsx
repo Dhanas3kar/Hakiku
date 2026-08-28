@@ -18,21 +18,32 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     const handleAuthExpired = () => {
-      queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY })
+      queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY, exact: false })
       queryClient.clear()
-      router.navigate({ to: '/login', replace: true })
+
+      if (location.pathname !== '/login') {
+        router.navigate({ to: '/login', replace: true })
+      }
     }
 
     window.addEventListener('auth:expired', handleAuthExpired)
     return () => window.removeEventListener('auth:expired', handleAuthExpired)
-  }, [queryClient, router])
+  }, [location.pathname, queryClient, router])
 
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.navigate({ to: '/login', search: { redirect: location.pathname }, replace: true })
-    } else if (needsOnboarding && !location.pathname.startsWith('/onboarding')) {
+      if (location.pathname !== '/login') {
+        router.navigate({ to: '/login', search: { redirect: location.pathname }, replace: true })
+      }
+      return
+    }
+
+    if (needsOnboarding && !location.pathname.startsWith('/onboarding')) {
       router.navigate({ to: '/onboarding', replace: true })
-    } else if (!needsOnboarding && location.pathname.startsWith('/onboarding') && status === 'authenticated') {
+      return
+    }
+
+    if (!needsOnboarding && location.pathname.startsWith('/onboarding') && status === 'authenticated') {
       router.navigate({ to: '/', replace: true })
     }
   }, [status, isAuthenticated, needsOnboarding, location.pathname, router])
@@ -49,7 +60,7 @@ function AuthenticatedLayout() {
     return (
       <div className="flex flex-col min-h-[100dvh] items-center justify-center bg-background text-foreground gap-4">
         <p className="text-danger font-medium">{auth.error?.message || 'Failed to connect to the server'}</p>
-        <button 
+        <button
           onClick={() => auth.refetchSession()}
           className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
         >
@@ -63,7 +74,6 @@ function AuthenticatedLayout() {
     return null
   }
 
-  // Prevent flashing protected content before redirect completes
   if (needsOnboarding && !location.pathname.startsWith('/onboarding')) {
     return null
   }

@@ -42,7 +42,7 @@ function LoginPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const normalizedEmail = email.trim().toLowerCase()
-    if (!normalizedEmail.endsWith('@srmist.edu.in') && normalizedEmail !== 'connectx@gmail.com') {
+    if (!normalizedEmail.endsWith('@srmist.edu.in') && normalizedEmail !== 'connectxsrm@gmail.com') {
       // In a real app, we might want to set a local error state here
       return
     }
@@ -98,7 +98,7 @@ function LoginPage() {
 
               <button
                 type="submit"
-                disabled={sendOtpMutation.isPending || (!email.includes('@srmist.edu.in') && email !== 'connectx@gmail.com')}
+                disabled={sendOtpMutation.isPending || (!email.includes('@srmist.edu.in') && email !== 'connectxsrm@gmail.com')}
                 className="flex w-full justify-center rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition-all hover:bg-primary-hover active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
               >
                 {sendOtpMutation.isPending ? 'Sending...' : 'Send Magic Link / OTP'}

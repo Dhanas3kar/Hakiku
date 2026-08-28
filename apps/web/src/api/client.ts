@@ -1,22 +1,46 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+const DEFAULT_TIMEOUT_MS = 30000
+
+type ErrorCode = 'NETWORK' | 'TIMEOUT' | 'OFFLINE' | 'AUTH' | 'HTTP' | 'UNKNOWN'
 
 interface FetchOptions extends RequestInit {
   data?: any
   params?: Record<string, string | number | boolean | undefined | null>
+  timeoutMs?: number
+  skipAuthRefresh?: boolean
 }
 
 export class ApiError extends Error {
   status: number
   data: any
-  constructor(status: number, message: string, data?: any) {
+  code: ErrorCode
+  cause?: unknown
+
+  constructor(status: number, message: string, data?: any, code: ErrorCode = 'HTTP', cause?: unknown) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.data = data
+    this.code = code
+    this.cause = cause
   }
 }
 
 let refreshPromise: Promise<boolean> | null = null
+let authFailureEventLocked = false
+
+function emitAuthExpired(reason: string = 'session-expired') {
+  if (typeof window === 'undefined') return
+
+  if (authFailureEventLocked) return
+  authFailureEventLocked = true
+
+  window.dispatchEvent(new CustomEvent('auth:expired', { detail: { reason } }))
+
+  window.setTimeout(() => {
+    authFailureEventLocked = false
+  }, 250)
+}
 
 async function performRefresh(): Promise<boolean> {
   if (refreshPromise) {
@@ -41,7 +65,7 @@ async function performRefresh(): Promise<boolean> {
 }
 
 async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}): Promise<any> {
-  const { data, params, headers: customHeaders, ...customConfig } = options
+  const { data, params, headers: customHeaders, timeoutMs, skipAuthRefresh, signal: callerSignal, ...customConfig } = options
 
   let url = `${API_BASE_URL}${endpoint}`
   if (params) {
@@ -57,19 +81,31 @@ async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}
     }
   }
 
+  const requestTimeoutMs = typeof timeoutMs === 'number' ? timeoutMs : DEFAULT_TIMEOUT_MS
+  const controller = typeof AbortController !== 'undefined' && !callerSignal ? new AbortController() : null
+  const requestSignal = callerSignal ?? controller?.signal
+
+  if (controller && requestTimeoutMs > 0) {
+    const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs)
+    if (timeoutId) {
+      // allow Node/modern browser timer cleanup after fetch completes
+      ;(controller as any).__timeoutId = timeoutId
+    }
+  }
+
   const config: RequestInit = {
     method: data ? 'POST' : 'GET',
     ...customConfig,
     headers: {
       ...customHeaders,
     },
-    credentials: 'include', // Ensure cookies are sent
+    credentials: 'include',
+    signal: requestSignal,
   }
 
   if (data) {
     if (data instanceof FormData) {
       config.body = data
-      // fetch handles multipart boundary automatically when passing FormData
     } else if (data instanceof Blob || data instanceof ArrayBuffer || (typeof Buffer !== 'undefined' && Buffer.isBuffer(data))) {
       config.body = data as any
     } else {
@@ -85,20 +121,18 @@ async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}
     const response = await fetch(url, config)
 
     if (response.status === 401) {
-      if (endpoint.startsWith('/auth/')) {
+      if (endpoint.startsWith('/auth/') || skipAuthRefresh) {
         return handleResponse(response)
       }
 
       const refreshed = await performRefresh()
       if (refreshed) {
-        const retryResponse = await fetch(url, config)
+        const retryResponse = await fetch(url, { ...config, signal: requestSignal })
         return handleResponse(retryResponse)
-      } else {
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:expired'))
-        }
-        throw new ApiError(401, 'Session expired')
       }
+
+      emitAuthExpired('session-expired')
+      throw new ApiError(401, 'Session expired', null, 'AUTH')
     }
 
     return handleResponse(response)
@@ -106,8 +140,24 @@ async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}
     if (error instanceof ApiError) {
       throw error
     }
-    // Handle Network errors, connection refused, CORS, offline
-    throw new ApiError(0, 'Unable to connect to the server. Please check your internet connection and try again.')
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError(0, 'Request timed out. Please try again.', null, 'TIMEOUT', error)
+    }
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      throw new ApiError(0, 'You appear to be offline. Please check your connection and try again.', null, 'OFFLINE', error)
+    }
+
+    if (error instanceof TypeError) {
+      throw new ApiError(0, 'Unable to connect to the server. Please check your internet connection and try again.', null, 'NETWORK', error)
+    }
+
+    throw new ApiError(0, 'An unexpected error occurred. Please try again.', null, 'UNKNOWN', error)
+  } finally {
+    if (controller && (controller as any).__timeoutId) {
+      clearTimeout((controller as any).__timeoutId)
+    }
   }
 }
 
@@ -121,7 +171,9 @@ async function handleResponse(response: Response) {
       data = await response.text()
     }
   } catch (err) {
-    // Prevent syntax errors from leaking raw stack traces to the UI if backend returns malformed payload
+    if (import.meta.env.DEV) {
+      console.warn('Malformed API response payload', err)
+    }
     data = null
   }
 
@@ -129,16 +181,14 @@ async function handleResponse(response: Response) {
     return data
   }
 
-  // Handle specific status codes safely without exposing internal backend trace
   let errorMessage = data?.message || data?.error || 'An error occurred'
-  
-  // Handle Array of messages from NestJS ValidationPipe (400 Bad Request)
+
   if (Array.isArray(data?.message)) {
     errorMessage = data.message.join(', ')
   }
 
   if (response.status === 400 || response.status === 422) {
-    // Validation errors preserved as-is
+    // Validation errors preserved as-is.
   } else if (response.status === 401) {
     errorMessage = 'Authentication required'
   } else if (response.status === 403) {
@@ -151,15 +201,12 @@ async function handleResponse(response: Response) {
     errorMessage = 'Too many requests. Please try again later.'
   } else if (response.status >= 500) {
     errorMessage = 'A server error occurred. Please try again later.'
-    // Strip raw internal traces
-    if (data?.stack) delete data.stack
+    if (data?.stack && import.meta.env.PROD) {
+      delete data.stack
+    }
   }
 
-  throw new ApiError(
-    response.status,
-    errorMessage,
-    data
-  )
+  throw new ApiError(response.status, errorMessage, data, response.status === 401 ? 'AUTH' : 'HTTP')
 }
 
 export const client = {

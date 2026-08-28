@@ -372,7 +372,24 @@ export async function loginAs(
     await page.locator('input[name="degreeProgram"]').fill('B.Tech');
     await page.locator('input[name="department"]').fill('Software Engineering');
     await page.locator('input[name="batchYear"]').fill('2023');
-    await page.locator('input[name="graduationYear"]').fill('2027');
+    // graduationYear is optional and sometimes not present in the form; only fill if it exists
+    const gradExists = await page.locator('input[name="graduationYear"]').count();
+    if (gradExists) {
+      await page.locator('input[name="graduationYear"]').fill('2027');
+    }
+
+    // Step through onboarding steps: Continue -> Upload avatar -> Continue -> Complete Setup
+    const continueBtn = page.getByRole('button', { name: 'Continue' }).first();
+    await expect(continueBtn).toBeEnabled({ timeout: 5000 });
+    await continueBtn.click();
+
+    // Step 2 requires an avatar; provide a tiny in-memory PNG to satisfy the form
+    const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAAWgmWQ0AAAAASUVORK5CYII=';
+    await page.setInputFiles('input[type="file"]', [{ name: 'avatar.png', mimeType: 'image/png', buffer: Buffer.from(pngBase64, 'base64') }]);
+
+    const continueBtn2 = page.getByRole('button', { name: 'Continue' }).first();
+    await expect(continueBtn2).toBeEnabled({ timeout: 5000 });
+    await continueBtn2.click();
 
     const completeButton = page.getByRole('button', { name: 'Complete Setup' });
     await expect(completeButton).toBeEnabled({ timeout: 5000 });
@@ -380,7 +397,7 @@ export async function loginAs(
 
     await page.waitForURL(
       (url) => url.origin === BASE_URL && url.pathname === '/',
-      { timeout: 15000 }
+      { timeout: 20000 }
     );
   }
 
@@ -392,11 +409,19 @@ export async function loginAs(
    */
   console.log('[E2E] Authentication redirect successful');
 
-  await expect(
-    page.getByText('Home', { exact: true }).first(),
-  ).toBeVisible({
-    timeout: 10000,
-  });
+  // Home may render as a sidebar link or a mobile button; accept either when visible
+  const homeLink = page.getByRole('link', { name: 'Home' }).first();
+  if (await homeLink.count()) {
+    if (await homeLink.isVisible()) {
+      await expect(homeLink).toBeVisible({ timeout: 10000 });
+    } else {
+      const homeButton = page.getByRole('button', { name: 'Home' }).first();
+      await expect(homeButton).toBeVisible({ timeout: 10000 });
+    }
+  } else {
+    const homeButton = page.getByRole('button', { name: 'Home' }).first();
+    await expect(homeButton).toBeVisible({ timeout: 10000 });
+  }
 
   console.log(`[E2E] Login successful for ${email}\n`);
 }

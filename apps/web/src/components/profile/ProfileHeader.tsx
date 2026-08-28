@@ -2,7 +2,7 @@ import type { UserProfile } from '../../api/profile'
 import { profileApi } from '../../api/profile'
 import { networkingApi } from '../../api/networking'
 import type { RelationshipStatus } from '../../api/networking'
-import { User, Edit2, Upload, UserPlus, UserCheck, UserX, Clock, Ban, MoreHorizontal, MessageSquare, BadgeCheck } from 'lucide-react'
+import { User, Edit2, Upload, UserPlus, UserCheck, UserX, Clock, Ban, MoreHorizontal, MessageSquare, Globe, Briefcase, ExternalLink } from 'lucide-react'
 import { useState, useRef, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
@@ -241,17 +241,20 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
         break
       case 'NONE':
       default:
-        buttons.push(
-          <button
-            key="connect"
-            onClick={() => sendConnectionMutation.mutate()}
-            disabled={isActionPending}
-            className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-1.5 sm:px-6 sm:py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-          >
-            <UserPlus className="h-4 w-4" />
-            Connect
-          </button>
-        )
+        // Do not allow sending connection requests to verified official accounts
+        if (!profile.isVerifiedIdentity) {
+          buttons.push(
+            <button
+              key="connect"
+              onClick={() => sendConnectionMutation.mutate()}
+              disabled={isActionPending}
+              className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-1.5 sm:px-6 sm:py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            >
+              <UserPlus className="h-4 w-4" />
+              Connect
+            </button>
+          )
+        }
         break
     }
 
@@ -455,6 +458,30 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
             <p className="mt-4 text-base text-foreground leading-relaxed whitespace-pre-wrap break-words">
               {profile.bio}
             </p>
+          )}
+
+          {/* Social Links */}
+          {profile.socialLinks && Object.values(profile.socialLinks).some(val => val && val.trim() !== '') && (
+            <div className="mt-4 flex flex-wrap gap-3">
+              {profile.socialLinks.website && (
+                <a href={profile.socialLinks.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-primary transition-colors">
+                  <ExternalLink className="h-4 w-4" />
+                  Website
+                </a>
+              )}
+              {profile.socialLinks.github && (
+                <a href={profile.socialLinks.github} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-primary transition-colors">
+                  <Globe className="h-4 w-4" />
+                  GitHub
+                </a>
+              )}
+              {profile.socialLinks.linkedin && (
+                <a href={profile.socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-primary transition-colors">
+                  <Briefcase className="h-4 w-4" />
+                  LinkedIn
+                </a>
+              )}
+            </div>
           )}
           
           {/* Academic Metadata */}

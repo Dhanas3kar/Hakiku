@@ -32,6 +32,7 @@ async function runMigration() {
       CREATE INDEX IF NOT EXISTS idx_hot_takes_author_created ON hot_takes(author_id, created_at);
       CREATE INDEX IF NOT EXISTS idx_hot_takes_created_at ON hot_takes(created_at);
       CREATE INDEX IF NOT EXISTS idx_polls_post_id ON polls(post_id);
+      ALTER TABLE profiles ADD COLUMN IF NOT EXISTS social_links JSONB DEFAULT '{}'::jsonb;
     `);
     console.log('Migration successful.');
   } catch (err) {
@@ -43,7 +44,7 @@ async function bootstrap() {
   await runMigration();
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter(),
+    new FastifyAdapter({ bodyLimit: 10 * 1024 * 1024 }),
   );
 
   await app.register(fastifyCookie as any, {

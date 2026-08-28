@@ -1,12 +1,14 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
-// Load .env.test if it exists, otherwise it will just use process.env
+// Load .env.test if it exists, otherwise it will just use process.env.
 dotenv.config({ path: path.resolve(__dirname, '../../.env.test') });
 
-// Hardcode a fallback test DB if not provided, to ensure we NEVER hit dev DB
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'postgres://srm_admin:srm_password@localhost:5432/srm_connect_test';
+const testDatabaseUrl = 'postgres://postgres:postgres@127.0.0.1:5433/srm_connect_test';
+
+// Force the repo's isolated test database even when a local dev .env is present.
+if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.includes('_test')) {
+  process.env.DATABASE_URL = testDatabaseUrl;
 }
 
 // Force test environment

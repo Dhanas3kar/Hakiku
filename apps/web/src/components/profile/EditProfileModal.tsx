@@ -20,6 +20,11 @@ export function EditProfileModal({ profile, onClose }: Props) {
     bio: profile.bio || '',
     skillIds: profile.skills?.map((s) => s.id) || [],
     interestIds: profile.interests?.map((i) => i.id) || [],
+    socialLinks: {
+      website: profile.socialLinks?.website || '',
+      github: profile.socialLinks?.github || '',
+      linkedin: profile.socialLinks?.linkedin || '',
+    },
   })
 
   const handleTagsChange = (field: 'skillIds' | 'interestIds', ids: string[]) => {
@@ -82,6 +87,14 @@ export function EditProfileModal({ profile, onClose }: Props) {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.type === 'number' ? (e.target.value ? Number(e.target.value) : '') : e.target.value
     setFormData((prev) => ({ ...prev, [e.target.name]: value }))
+  }
+
+  const handleSocialLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({
+      ...prev,
+      socialLinks: { ...prev.socialLinks, [name]: value },
+    }))
   }
 
   return (
@@ -163,6 +176,55 @@ export function EditProfileModal({ profile, onClose }: Props) {
                 className="mt-1 block w-full resize-none rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50"
                 disabled={updateMutation.isPending}
               />
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">Social Links</h3>
+              <div>
+                <label htmlFor="website" className="block text-xs font-medium text-foreground-muted mb-1">
+                  Website
+                </label>
+                <input
+                  id="website"
+                  name="website"
+                  type="url"
+                  placeholder="https://yourwebsite.com"
+                  value={formData.socialLinks.website}
+                  onChange={handleSocialLinkChange}
+                  className="block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50"
+                  disabled={updateMutation.isPending}
+                />
+              </div>
+              <div>
+                <label htmlFor="github" className="block text-xs font-medium text-foreground-muted mb-1">
+                  GitHub
+                </label>
+                <input
+                  id="github"
+                  name="github"
+                  type="url"
+                  placeholder="https://github.com/username"
+                  value={formData.socialLinks.github}
+                  onChange={handleSocialLinkChange}
+                  className="block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50"
+                  disabled={updateMutation.isPending}
+                />
+              </div>
+              <div>
+                <label htmlFor="linkedin" className="block text-xs font-medium text-foreground-muted mb-1">
+                  LinkedIn
+                </label>
+                <input
+                  id="linkedin"
+                  name="linkedin"
+                  type="url"
+                  placeholder="https://linkedin.com/in/username"
+                  value={formData.socialLinks.linkedin}
+                  onChange={handleSocialLinkChange}
+                  className="block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50"
+                  disabled={updateMutation.isPending}
+                />
+              </div>
             </div>
             
             <TagSelect
