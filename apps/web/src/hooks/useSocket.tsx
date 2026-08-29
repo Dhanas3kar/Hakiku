@@ -40,14 +40,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   })
 
   useEffect(() => {
-    const invalidateQueriesSafely = (keys: Array<readonly unknown[]>) => {
+    const invalidateQueriesSafely = (keys: Array<readonly unknown[]>, options?: Record<string, any>) => {
       if (invalidateTimeoutRef.current) {
         window.clearTimeout(invalidateTimeoutRef.current)
       }
 
       invalidateTimeoutRef.current = window.setTimeout(() => {
         keys.forEach(queryKey => {
-          queryClient.invalidateQueries({ queryKey })
+          queryClient.invalidateQueries({ queryKey, ...options })
         })
       }, 150)
     }
@@ -99,7 +99,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     })
 
     notifSocket.io.on('reconnect', () => {
-      invalidateQueriesSafely([['notifications'], ['unreadCounts']])
+      invalidateQueriesSafely(
+        [['notifications'], ['unreadCounts'], ['feed'], ['discover'], ['user-posts'], ['connections']],
+        { refetchPage: (page: any, index: number) => index === 0 }
+      )
     })
 
     notifSocket.on('disconnect', () => {
@@ -110,8 +113,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setIsConnected(prev => ({ ...prev, messaging: true }))
     })
 
+
+
     msgSocket.io.on('reconnect', () => {
-      invalidateQueriesSafely([['conversations'], ['messages'], ['unreadCounts']])
+      invalidateQueriesSafely(
+        [['conversations'], ['messages'], ['unreadCounts']],
+        { refetchPage: (page: any, index: number) => index === 0 }
+      )
     })
 
     msgSocket.on('disconnect', () => {

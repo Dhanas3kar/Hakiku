@@ -47,6 +47,9 @@ export class MessagingGateway
   ) {
     this.subscriberClient = new Redis(
       process.env.REDIS_URL || 'redis://localhost:6379',
+      {
+        keyPrefix: process.env.REDIS_PREFIX || (process.env.NODE_ENV === 'test' ? 'test:' : 'dev:'),
+      }
     );
   }
 

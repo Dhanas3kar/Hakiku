@@ -87,7 +87,7 @@ function NotificationsPage() {
 
         // Deduplication check
         const alreadyExists = oldData.pages.some((page: any) => 
-          page.items.some((notif: any) => notif.id === payload.id)
+          (page.items || []).some((notif: any) => notif.id === payload.id)
         )
         if (alreadyExists) return oldData
 
@@ -95,7 +95,7 @@ function NotificationsPage() {
         const newPages = [...oldData.pages]
         newPages[0] = {
           ...newPages[0],
-          items: [payload, ...newPages[0].items],
+          items: [payload, ...(newPages[0].items || [])],
         }
         return { ...oldData, pages: newPages }
       })
@@ -270,7 +270,9 @@ function NotificationItemRow({ notification }: { notification: NotificationItem 
           {(notification.content || '').replace(notification.actor?.displayName || '', '').trim()}
         </p>
         <p className="mt-1 text-xs text-foreground-muted">
-          {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+          {notification.createdAt && !isNaN(new Date(notification.createdAt).getTime()) 
+            ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true }) 
+            : 'Just now'}
         </p>
       </div>
 

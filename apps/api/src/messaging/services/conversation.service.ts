@@ -9,6 +9,7 @@ import {
   conversationParticipants,
   users,
   profiles,
+  messages,
 } from '../../db/schema';
 import { eq, and, sql, desc, or, inArray } from 'drizzle-orm';
 import { MessageAccessService } from './message-access.service';
@@ -141,12 +142,21 @@ export class ConversationService {
 
     const targetMap = new Map(targets.map((t) => [t.id, t]));
 
+    // Fetch latest messages
+    const lastMessageIds = items.map((i) => i.lastMessageId).filter(Boolean) as string[];
+    let latestMessagesMap = new Map<string, any>();
+    if (lastMessageIds.length > 0) {
+      const msgs = await db.select().from(messages).where(inArray(messages.id, lastMessageIds));
+      latestMessagesMap = new Map(msgs.map(m => [m.id, m]));
+    }
+
     const data = items.map((item) => ({
       id: item.conversationId,
       lastMessageAt: item.lastMessageAt,
       lastMessageId: item.lastMessageId,
       updatedAt: item.updatedAt,
       unreadCount: item.unreadCount,
+      latestMessage: item.lastMessageId ? latestMessagesMap.get(item.lastMessageId) || null : null,
       targetUser: targetMap.has(item.targetUserId)
         ? {
             ...targetMap.get(item.targetUserId),

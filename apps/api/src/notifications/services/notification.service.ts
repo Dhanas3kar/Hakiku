@@ -15,9 +15,6 @@ export class NotificationService {
     private readonly privacyService: NotificationPrivacyService,
     private readonly preferenceService: NotificationPreferenceService,
   ) {
-    const connectionString =
-      process.env.DATABASE_URL ||
-      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 

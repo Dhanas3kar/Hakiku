@@ -9,6 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { Logger } from '@nestjs/common';
 import { verifyWsClient } from '../auth/utils/ws-auth.util';
+import { Redis } from 'ioredis';
 
 @WebSocketGateway({
   cors: {
@@ -29,10 +30,39 @@ export class NotificationGateway
 
   // userId -> socket.id map
   private userSockets: Map<string, Set<string>> = new Map();
+  private subscriberClient: Redis;
 
   constructor(private readonly jwtService: JwtService) {}
 
   afterInit() {
+    this.subscriberClient = new Redis(
+      process.env.REDIS_URL || 'redis://localhost:6379',
+      {
+        keyPrefix:
+          process.env.REDIS_PREFIX ||
+          (process.env.NODE_ENV === 'test' ? 'test:' : 'dev:'),
+      }
+    );
+
+    this.subscriberClient.subscribe('notification_events', (err, count) => {
+      if (err) {
+        this.logger.error('Failed to subscribe to notification_events', err);
+      } else {
+        this.logger.log(`Subscribed to notification_events (count: ${count})`);
+      }
+    });
+
+    this.subscriberClient.on('message', (channel, message) => {
+      if (channel === 'notification_events') {
+        try {
+          const event = JSON.parse(message);
+          this.sendToUserLocally(event.recipientId, event.type, event.payload);
+        } catch (err) {
+          this.logger.error(`Error parsing notification event: ${err.message}`);
+        }
+      }
+    });
+
     this.logger.log('NotificationGateway initialized');
   }
 
@@ -75,12 +105,23 @@ export class NotificationGateway
     }
   }
 
-  sendToUser(userId: string, event: string, data: any) {
+  /**
+   * Broadcasts the event to sockets connected to *this* instance only.
+   */
+  private sendToUserLocally(userId: string, event: string, data: any) {
     const sockets = this.userSockets.get(userId);
     if (sockets && sockets.size > 0) {
       sockets.forEach((socketId) => {
         this.server.to(socketId).emit(event, data);
       });
     }
+  }
+
+  /**
+   * (Deprecated) Do not call this directly in multi-node setups.
+   * Notifications should be published via Redis instead.
+   */
+  sendToUser(userId: string, event: string, data: any) {
+    this.sendToUserLocally(userId, event, data);
   }
 }

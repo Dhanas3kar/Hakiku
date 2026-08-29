@@ -4,6 +4,7 @@ import {
   OnModuleInit,
   OnModuleDestroy,
   Logger,
+  Inject,
 } from '@nestjs/common';
 import { eq, sql, and, lte, or, inArray } from 'drizzle-orm';
 import {
@@ -15,6 +16,7 @@ import * as schema from '../../db/schema';
 import { NotificationPrivacyService } from './notification-privacy.service';
 import { NotificationPreferenceService } from './notification-preference.service';
 import { NotificationGateway } from '../notification.gateway';
+import { Redis } from 'ioredis';
 
 @Injectable()
 export class NotificationWorkerService
@@ -29,10 +31,8 @@ export class NotificationWorkerService
     private readonly privacyService: NotificationPrivacyService,
     private readonly preferenceService: NotificationPreferenceService,
     private readonly gateway: NotificationGateway,
+    @Inject('REDIS_CLIENT') private readonly redis: Redis,
   ) {
-    const connectionString =
-      process.env.DATABASE_URL ||
-      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -224,8 +224,19 @@ export class NotificationWorkerService
         } : null,
       };
 
-      // Dispatch to WebSocket Gateway
-      this.gateway.sendToUser(recipientId, 'new_notification', hydratedNotification);
+      // Dispatch to WebSocket Gateway via Redis for multi-node support
+      try {
+        await this.redis.publish(
+          'notification_events',
+          JSON.stringify({
+            recipientId,
+            type: 'notification:new',
+            payload: hydratedNotification,
+          })
+        );
+      } catch (err) {
+        this.logger.error(`Failed to publish notification to Redis: ${err.message}`);
+      }
     }
   }
 }

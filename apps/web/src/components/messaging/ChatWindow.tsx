@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { messagingApi } from '../../api/messaging'
 import type { MessageItem } from '../../api/messaging'
@@ -8,6 +8,69 @@ import { format } from 'date-fns'
 import { Loader2, Send, Image as ImageIcon, ArrowLeft } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useIntersectionObserver } from 'usehooks-ts'
+
+// --- Zero-Crash Utilities ---
+class ErrorBoundary extends React.Component<{ children: React.ReactNode, fallback?: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  render() {
+    if (this.state.hasError) return this.props.fallback || null
+    return this.props.children
+  }
+}
+
+function safeFormatTime(dateStr: string | Date | null | undefined): string {
+  try {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return ''
+    return format(d, 'h:mm a')
+  } catch (err) {
+    return ''
+  }
+}
+
+function MessageBubble({ message, isMine, showTime }: { message: any, isMine: boolean, showTime: boolean }) {
+  const hasMedia = Array.isArray(message.media) && message.media.length > 0;
+  
+  return (
+    <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-full`}>
+      <div 
+        className={`max-w-[75%] px-4 py-2 rounded-2xl ${
+          isMine 
+            ? 'bg-primary text-primary-foreground rounded-br-sm' 
+            : 'bg-surface-muted text-foreground rounded-bl-sm'
+        } break-words`}
+      >
+        {message.isDeleted ? (
+          <span className="italic opacity-70">This message was deleted</span>
+        ) : (
+          <>
+            {hasMedia && (
+              <div className="flex gap-2 flex-wrap mb-2">
+                {message.media.map((m: any, i: number) => (
+                  <img key={i} src={m?.url || ''} alt="Attached media" loading="lazy" decoding="async" className="max-w-full rounded-lg object-cover max-h-64" />
+                ))}
+              </div>
+            )}
+            <p className="whitespace-pre-wrap">{String(message.content || '')}</p>
+          </>
+        )}
+      </div>
+      {showTime && (
+        <span className="text-[10px] text-foreground-muted mt-1 px-1">
+          {safeFormatTime(message.createdAt)}
+        </span>
+      )}
+    </div>
+  )
+}
+// ----------------------------
 
 export function ChatWindow({ conversationId }: { conversationId: string }) {
   const { profile } = useAuth()
@@ -20,8 +83,14 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
   // Handle reconnect logic: refetch when connection is restored
   useEffect(() => {
     if (isConnected.messaging) {
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ 
+        queryKey: ['messages', conversationId],
+        refetchPage: (page: any, index: number) => index === 0 
+      })
+      queryClient.invalidateQueries({ 
+        queryKey: ['conversations'],
+        refetchPage: (page: any, index: number) => index === 0
+      })
     }
   }, [isConnected.messaging, conversationId, queryClient])
   
@@ -54,8 +123,8 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
   })
 
   const rawMessages = data?.pages.flatMap((page) => page.items || []) ?? []
-  // Deduplicate messages to prevent UI crashes during overlapping socket/query data
-  const messages = Array.from(new Map(rawMessages.map(m => [m.id, m])).values())
+  // Deduplicate messages and filter out undefined/null items to prevent UI crashes
+  const messages = Array.from(new Map(rawMessages.filter(Boolean).map(m => [m.id, m])).values())
 
   const { isIntersecting: isTopIntersecting, ref: topRef } = useIntersectionObserver({
     threshold: 0.1,
@@ -120,12 +189,30 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
 
     const handleMessageDeleted = (payload: any) => {
       if (payload.conversationId !== conversationId) return
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+      queryClient.setQueryData(['messages', conversationId], (oldData: any) => {
+        if (!oldData) return oldData
+        const newPages = oldData.pages.map((page: any) => ({
+          ...page,
+          items: (page.items || []).filter((msg: any) => msg.id !== payload.messageId && msg.id !== payload.id)
+        }))
+        return { ...oldData, pages: newPages }
+      })
     }
 
     const handleMessageUpdated = (payload: any) => {
       if (payload.conversationId !== conversationId) return
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
+      queryClient.setQueryData(['messages', conversationId], (oldData: any) => {
+        if (!oldData) return oldData
+        const newPages = oldData.pages.map((page: any) => ({
+          ...page,
+          items: (page.items || []).map((msg: any) => 
+            (msg.id === payload.id || msg.id === payload.messageId) 
+              ? { ...msg, ...payload, isEdited: true } 
+              : msg
+          )
+        }))
+        return { ...oldData, pages: newPages }
+      })
     }
 
     messagingSocket.on('message:new', handleNewMessage)
@@ -188,8 +275,14 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
       queryClient.setQueryData(['messages', conversationId], context?.previousMessages)
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ 
+        queryKey: ['messages', conversationId],
+        refetchPage: (page: any, index: number) => index === 0 
+      })
+      queryClient.invalidateQueries({ 
+        queryKey: ['conversations'],
+        refetchPage: (page: any, index: number) => index === 0
+      })
     }
   })
 
@@ -250,39 +343,27 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
           <>
             {messages.map((message, index) => {
               const isMine = message.senderId === currentUserId
-              const showTime = index === messages.length - 1 || 
-                new Date(messages[index + 1].createdAt).getTime() - new Date(message.createdAt).getTime() > 10 * 60 * 1000 // 10 min gap
+              
+              let showTime = index === messages.length - 1
+              try {
+                if (!showTime && messages[index + 1]?.createdAt && message?.createdAt) {
+                  const nextTime = new Date(messages[index + 1].createdAt).getTime()
+                  const currTime = new Date(message.createdAt).getTime()
+                  if (!isNaN(nextTime) && !isNaN(currTime)) {
+                     showTime = nextTime - currTime > 10 * 60 * 1000 // 10 min gap
+                  }
+                }
+              } catch (err) {
+                // Ignore date math errors
+              }
 
               return (
-                <div key={message.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-full`}>
-                  <div 
-                    className={`max-w-[75%] px-4 py-2 rounded-2xl ${
-                      isMine 
-                        ? 'bg-primary text-primary-foreground rounded-br-sm' 
-                        : 'bg-surface-muted text-foreground rounded-bl-sm'
-                    } break-words`}
-                  >
-                    {message.isDeleted ? (
-                      <span className="italic opacity-70">This message was deleted</span>
-                    ) : (
-                      <>
-                        {message.media && message.media.length > 0 && (
-                          <div className="flex gap-2 flex-wrap mb-2">
-                            {message.media.map((m, i) => (
-                              <img key={i} src={m.url} alt="Attached media" loading="lazy" decoding="async" className="max-w-full rounded-lg object-cover max-h-64" />
-                            ))}
-                          </div>
-                        )}
-                        <p className="whitespace-pre-wrap">{message.content}</p>
-                      </>
-                    )}
-                  </div>
-                  {showTime && (
-                    <span className="text-[10px] text-foreground-muted mt-1 px-1">
-                      {format(new Date(message.createdAt), 'h:mm a')}
-                    </span>
-                  )}
-                </div>
+                <ErrorBoundary 
+                  key={message.id || index} 
+                  fallback={<div className="text-xs text-danger my-2">Failed to render message</div>}
+                >
+                  <MessageBubble message={message} isMine={isMine} showTime={showTime} />
+                </ErrorBoundary>
               )
             })}
             

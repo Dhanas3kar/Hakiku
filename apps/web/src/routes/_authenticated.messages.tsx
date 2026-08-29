@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, useMatchRoute } from '@tanstack/react-router'
 import { ConversationList } from '../components/messaging/ConversationList'
+import { ErrorBoundary } from '../components/common/ErrorBoundary'
 
 export const Route = createFileRoute('/_authenticated/messages')({
   component: MessagesLayout,
@@ -22,7 +23,9 @@ function MessagesLayout() {
           isConversationSelected ? 'hidden md:flex' : 'flex'
         }`}
       >
-        <ConversationList />
+        <ErrorBoundary>
+          <ConversationList />
+        </ErrorBoundary>
       </div>
 
       {/* Main Chat Area */}
@@ -31,7 +34,9 @@ function MessagesLayout() {
           !isConversationSelected ? 'hidden md:flex' : 'flex'
         }`}
       >
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </div>
     </div>
   )

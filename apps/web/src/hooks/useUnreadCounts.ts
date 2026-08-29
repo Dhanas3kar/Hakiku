@@ -3,10 +3,13 @@ import { useEffect } from 'react'
 import { notificationsApi } from '../api/notifications'
 import { messagingApi } from '../api/messaging'
 import { useSocket } from './useSocket'
+import { useAuth } from './useAuth'
 
 export function useUnreadCounts() {
   const queryClient = useQueryClient()
   const { notificationSocket, messagingSocket, isConnected } = useSocket()
+  const { session } = useAuth()
+  const currentUserId = session?.user?.id
 
   const { data: notificationsData } = useQuery({
     queryKey: ['unread-count', 'notifications'],
@@ -36,13 +39,23 @@ export function useUnreadCounts() {
   useEffect(() => {
     if (!notificationSocket) return
 
-    const handleNewNotification = () => {
+    const handleNewNotification = (payload: any) => {
       // Optimistically increment the notification count or invalidate
       queryClient.setQueryData(['unread-count', 'notifications'], (old: any) => {
         if (!old) return { unreadCount: 1 }
         return { unreadCount: old.unreadCount + 1 }
       })
-      // Also invalidate the main list
+      // Only invalidate specific caches based on the notification type to avoid hammering the API
+      if (payload?.type) {
+        if (['POST_LIKE', 'COMMENT', 'COMMENT_LIKE'].includes(payload.type)) {
+          queryClient.invalidateQueries({ queryKey: ['feed'] })
+          queryClient.invalidateQueries({ queryKey: ['discover'] })
+          queryClient.invalidateQueries({ queryKey: ['user-posts'] })
+        }
+        if (['FOLLOW', 'CONNECTION_REQUEST', 'CONNECTION_ACCEPTED'].includes(payload.type)) {
+          queryClient.invalidateQueries({ queryKey: ['connections'] })
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ['notifications'] })
     }
 
@@ -56,11 +69,14 @@ export function useUnreadCounts() {
   useEffect(() => {
     if (!messagingSocket) return
 
-    const handleNewMessage = () => {
-      // Invalidate message count to get accurate sum, or optimistic increment
-      // For cross-conversation safety, invalidation is easier, but optimistic is faster.
-      queryClient.invalidateQueries({ queryKey: ['unread-count', 'messages'] })
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    const handleNewMessage = (payload: any) => {
+      // Only increment if the message is from someone else
+      if (payload && currentUserId && payload.senderId !== currentUserId) {
+        queryClient.setQueryData(['unread-count', 'messages'], (old: any) => {
+          if (!old) return { unreadCount: 1 }
+          return { unreadCount: old.unreadCount + 1 }
+        })
+      }
     }
 
     messagingSocket.on('message:new', handleNewMessage)

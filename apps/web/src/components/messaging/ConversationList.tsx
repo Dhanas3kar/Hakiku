@@ -14,7 +14,10 @@ export function ConversationList() {
   // Handle reconnect logic: refetch when connection is restored
   useEffect(() => {
     if (isConnected.messaging) {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      queryClient.invalidateQueries({ 
+        queryKey: ['conversations'],
+        refetchPage: (page: any, index: number) => index === 0
+      })
     }
   }, [isConnected.messaging, queryClient])
   
@@ -49,9 +52,58 @@ export function ConversationList() {
   useEffect(() => {
     if (!messagingSocket) return
 
-    const handleNewMessage = () => {
-      // Invalidate to fetch latest previews and sort order
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+    const handleNewMessage = (payload: any) => {
+      queryClient.setQueryData(['conversations'], (oldData: any) => {
+        if (!oldData) return oldData
+        
+        let found = false
+        const newPages = oldData.pages.map((page: any) => {
+          const items = page.items || []
+          const existingIndex = items.findIndex((c: any) => c.id === payload.conversationId)
+          
+          if (existingIndex !== -1) {
+            found = true
+            const updatedItems = [...items]
+            const updatedConv = {
+              ...updatedItems[existingIndex],
+              latestMessage: payload
+            }
+            updatedItems[existingIndex] = updatedConv
+            return { ...page, items: updatedItems, updatedConv }
+          }
+          return page
+        })
+        
+        // If the conversation exists, we just update it.
+        // If not, we still need to invalidate because we lack the targetUser data to synthesize a new conversation block.
+        if (!found) {
+          queryClient.invalidateQueries({ 
+            queryKey: ['conversations'],
+            refetchPage: (page: any, index: number) => index === 0
+          })
+          return oldData
+        }
+
+        // We need to bring the conversation to the top.
+        // We'll flatten, sort, and rebuild the pages.
+        const allItems = newPages.flatMap((page: any) => page.items || [])
+        allItems.sort((a: any, b: any) => {
+          const timeA = new Date(a.latestMessage?.createdAt || 0).getTime()
+          const timeB = new Date(b.latestMessage?.createdAt || 0).getTime()
+          return timeB - timeA
+        })
+
+        // Rebuild pages with the same lengths
+        let currentIdx = 0
+        const sortedPages = newPages.map((page: any) => {
+          const pageLength = (page.items || []).length
+          const items = allItems.slice(currentIdx, currentIdx + pageLength)
+          currentIdx += pageLength
+          return { ...page, items }
+        })
+        
+        return { ...oldData, pages: sortedPages }
+      })
     }
 
     messagingSocket.on('message:new', handleNewMessage)
@@ -61,7 +113,7 @@ export function ConversationList() {
     }
   }, [messagingSocket, queryClient])
 
-  const conversations = data?.pages.flatMap((page) => page.items || []) ?? []
+  const conversations = (data?.pages.flatMap((page) => page.items || []) ?? []).filter(Boolean)
 
   return (
     <div className="flex flex-col h-full">
@@ -143,7 +195,7 @@ export function ConversationList() {
                         <span className="font-semibold text-foreground truncate">
                           {otherUser?.displayName || 'Unknown User'}
                         </span>
-                        {latestMsg && (
+                        {latestMsg && latestMsg.createdAt && !isNaN(new Date(latestMsg.createdAt).getTime()) && (
                           <span className="text-xs text-foreground-muted shrink-0 whitespace-nowrap ml-2">
                             {formatDistanceToNow(new Date(latestMsg.createdAt), { addSuffix: false })}
                           </span>
