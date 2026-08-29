@@ -44,9 +44,13 @@ function runCommand(command, args, env, shell = false) {
   };
 
   if (process.platform === 'win32') {
-    runCommand('cmd', ['/d', '/s', '/c', 'npx drizzle-kit push --config=drizzle.config.ts'], drizzleEnv, false);
+    runCommand('npx', ['drizzle-kit', 'push', '--config=drizzle.config.ts'], drizzleEnv, true);
+    runCommand('npx', ['tsx', 'scripts/qa-reset.ts'], drizzleEnv, true);
+    runCommand('npx', ['tsx', 'scripts/provision-official.ts'], drizzleEnv, true);
   } else {
     runCommand('npx', ['drizzle-kit', 'push', '--config=drizzle.config.ts'], drizzleEnv, false);
+    runCommand('npx', ['tsx', 'scripts/qa-reset.ts'], drizzleEnv, false);
+    runCommand('npx', ['tsx', 'scripts/provision-official.ts'], drizzleEnv, false);
   }
 
   const jestEnv = {

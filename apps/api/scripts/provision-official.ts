@@ -59,8 +59,8 @@ async function provisionOfficial() {
       await db.insert(schema.profiles).values({
         id: uuidv4(),
         userId: user.id,
-        username: 'hakiku',
-        displayName: 'HAKIKU Official',
+        username: 'hakiku_official',
+        displayName: 'HAKIKU',
         bio: 'The official broadcast account for HAKIKU. Stay tuned for updates!',
         campus: 'SYSTEM',
         department: 'ADMINISTRATION',
@@ -75,8 +75,8 @@ async function provisionOfficial() {
     } else {
       console.log(`Profile for ${officialEmail} found. Updating verified identity...`);
       await db.update(schema.profiles).set({
-        username: 'hakiku',
-        displayName: 'HAKIKU Official',
+        username: 'hakiku_official',
+        displayName: 'HAKIKU',
         isVerifiedIdentity: true,
         bio: 'The official broadcast account for HAKIKU. Stay tuned for updates!',
       }).where(eq(schema.profiles.id, profile.id));
@@ -85,7 +85,7 @@ async function provisionOfficial() {
     console.log('--- PROVISIONING COMPLETE ---');
     console.log(`Official Account Identity:`);
     console.log(`- Email: ${officialEmail}`);
-    console.log(`- Username: @hakiku`);
+    console.log(`- Username: @hakiku_official`);
     console.log(`- Role: ADMIN`);
     console.log(`- Verified: YES`);
 

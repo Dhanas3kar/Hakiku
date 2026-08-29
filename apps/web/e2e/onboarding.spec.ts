@@ -3,7 +3,8 @@ import { loginAs } from './test-utils'
 
 test.describe('Onboarding', () => {
   test('Completes onboarding for a new user', async ({ page }) => {
-    const email = `qa_onboard_${Date.now()}@srmist.edu.in`
+    const runId = Math.random().toString(36).substring(2, 8)
+    const email = `qa_onb_${runId}@srmist.edu.in`
 
     await loginAs(page, email)
 

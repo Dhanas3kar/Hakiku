@@ -8,6 +8,7 @@ const BASE_URL = 'http://localhost:3000';
 const redis = new Redis('redis://127.0.0.1:6379', {
   lazyConnect: true,
   maxRetriesPerRequest: 1,
+  keyPrefix: process.env.REDIS_PREFIX || (process.env.NODE_ENV === 'test' ? 'test:' : 'dev:'),
 });
 
 /**
@@ -366,8 +367,8 @@ export async function loginAs(
 
   if (isOnboarding) {
     console.log('[E2E] Filling out onboarding form');
-    const uniqueId = Math.floor(Math.random() * 1000000);
-    await page.locator('input[name="username"]').fill(`qa_user_${uniqueId}`);
+    const username = email.split('@')[0];
+    await page.locator('input[name="username"]').fill(username);
     await page.locator('input[name="displayName"]').fill('QA User');
     await page.locator('input[name="degreeProgram"]').fill('B.Tech');
     await page.locator('input[name="department"]').fill('Software Engineering');
