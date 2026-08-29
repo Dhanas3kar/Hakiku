@@ -5,53 +5,41 @@ import {
   FastifyAdapter,
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
+
 import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
+import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import fastifyStatic from '@fastify/static';
 import { ValidationPipe } from '@nestjs/common';
 import * as path from 'path';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
 
-async function runMigration() {
-  console.log('Running auto-migration...');
-  try {
-    await db.execute(sql`
-      ALTER TABLE polls ADD COLUMN IF NOT EXISTS post_id UUID REFERENCES posts(id) ON DELETE CASCADE;
-      CREATE TABLE IF NOT EXISTS hot_takes (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        content TEXT NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
-      );
-      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "date" TEXT;
-      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "place" TEXT;
-      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "time" TEXT;
-      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "media" TEXT;
-      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "other_details" TEXT;
-      CREATE INDEX IF NOT EXISTS idx_hot_takes_author_created ON hot_takes(author_id, created_at);
-      CREATE INDEX IF NOT EXISTS idx_hot_takes_created_at ON hot_takes(created_at);
-      CREATE INDEX IF NOT EXISTS idx_polls_post_id ON polls(post_id);
-      ALTER TABLE profiles ADD COLUMN IF NOT EXISTS social_links JSONB DEFAULT '{}'::jsonb;
-    `);
-    console.log('Migration successful.');
-  } catch (err) {
-    console.error('Migration failed:', err);
-  }
-}
-
 async function bootstrap() {
-  await runMigration();
+  const requiredEnv = ['COOKIE_SECRET', 'JWT_SECRET', 'DATABASE_URL'];
+  for (const env of requiredEnv) {
+    if (!process.env[env]) {
+      throw new Error(`CRITICAL: Missing required environment variable ${env}. The application will not start with insecure defaults.`);
+    }
+  }
+
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ bodyLimit: 10 * 1024 * 1024 }),
   );
 
   await app.register(fastifyCookie as any, {
-    secret: process.env.COOKIE_SECRET || 'super-secret',
+    secret: process.env.COOKIE_SECRET!,
   });
 
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  );
+
+  app.useGlobalFilters(new GlobalExceptionFilter());
 
   await app.register(fastifyCsrf as any, {
     cookieOpts: { signed: true },
@@ -64,7 +52,10 @@ async function bootstrap() {
 
   const fastifyInstance = app.getHttpAdapter().getInstance();
   fastifyInstance.addHook('onRequest', (req, reply, done) => {
-    if (req.url.includes('/logout') && req.method === 'POST') {
+    const stateChangingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
+    // Fastify-csrf only requires protection on non-GET/HEAD/OPTIONS methods normally.
+    // Our frontend must send the csrf token in the headers for all these requests.
+    if (stateChangingMethods.includes(req.method)) {
       if (typeof (req as any).csrfProtect === 'function') {
         (req as any).csrfProtect(reply, done);
       } else {
@@ -76,7 +67,7 @@ async function bootstrap() {
   });
 
   app.enableCors({
-    origin: true, // reflect request origin
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   });

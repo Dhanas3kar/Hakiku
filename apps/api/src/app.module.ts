@@ -10,7 +10,8 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { CommunityModule } from './community/community.module';
 import { RedisModule } from './redis/redis.module';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
 
@@ -27,7 +28,11 @@ import Redis from 'ioredis';
     CommunityModule,
     ThrottlerModule.forRootAsync({
       useFactory: () => ({
-        throttlers: [
+        throttlers: process.env.NODE_ENV === 'test' ? [
+          { name: 'short', ttl: 1000, limit: 100 },
+          { name: 'medium', ttl: 10000, limit: 1000 },
+          { name: 'long', ttl: 60000, limit: 5000 },
+        ] : [
           {
             name: 'short',
             ttl: 1000,
@@ -45,12 +50,20 @@ import Redis from 'ioredis';
           },
         ],
         storage: new ThrottlerStorageRedisService(
-          new Redis(process.env.REDIS_URL || 'redis://localhost:6379'),
+          new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+            keyPrefix: process.env.REDIS_PREFIX || (process.env.NODE_ENV === 'test' ? 'test:ratelimit:' : 'dev:ratelimit:'),
+          }),
         ),
       }),
     }),
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+  ],
 })
 export class AppModule {}

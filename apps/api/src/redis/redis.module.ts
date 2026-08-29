@@ -7,7 +7,9 @@ import Redis from 'ioredis';
     {
       provide: 'REDIS_CLIENT',
       useFactory: () => {
-        return new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+        return new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+          keyPrefix: process.env.REDIS_PREFIX || (process.env.NODE_ENV === 'test' ? 'test:' : 'dev:'),
+        });
       },
     },
   ],
