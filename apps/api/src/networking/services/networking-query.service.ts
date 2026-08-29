@@ -27,9 +27,6 @@ export class NetworkingQueryService {
   private db;
 
   constructor(private readonly blockService: BlockService) {
-    const connectionString =
-      process.env.DATABASE_URL ||
-      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 

@@ -13,9 +13,6 @@ export class InterestsService {
   private db;
 
   constructor() {
-    const connectionString =
-      process.env.DATABASE_URL ||
-      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 

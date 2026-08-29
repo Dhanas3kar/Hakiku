@@ -14,7 +14,7 @@ import { BlockPrivacyGuard } from './guards/block-privacy.guard';
   imports: [
     EventEmitterModule.forRoot(),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'super-secret',
+      secret: process.env.JWT_SECRET!,
     }),
   ],
   controllers: [NetworkingController],
