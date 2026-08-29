@@ -32,7 +32,7 @@ export async function verifyWsClient(
 
   try {
     const payload = await jwtService.verifyAsync(token, {
-      secret: process.env.JWT_SECRET || 'super-secret',
+      secret: process.env.JWT_SECRET!,
     });
     return payload.sub; // userId
   } catch (err) {

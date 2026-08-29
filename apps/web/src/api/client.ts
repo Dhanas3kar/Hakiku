@@ -26,6 +26,25 @@ export class ApiError extends Error {
   }
 }
 
+let csrfToken: string | null = null
+
+async function getCsrfToken(): Promise<string | null> {
+  if (csrfToken) return csrfToken
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/csrf`, { credentials: 'include' })
+    if (res.ok) {
+      const data = await res.json()
+      csrfToken = data.csrfToken
+      return csrfToken
+    }
+  } catch (e) {
+    if (import.meta.env.DEV) {
+      console.warn('Failed to fetch CSRF token', e)
+    }
+  }
+  return null
+}
+
 let refreshPromise: Promise<boolean> | null = null
 let authFailureEventLocked = false
 
@@ -117,6 +136,16 @@ async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}
     }
   }
 
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(config.method as string)) {
+    const token = await getCsrfToken()
+    if (token) {
+      config.headers = {
+        ...config.headers,
+        'csrf-token': token,
+      }
+    }
+  }
+
   try {
     const response = await fetch(url, config)
 
@@ -138,6 +167,9 @@ async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}
     return handleResponse(response)
   } catch (error) {
     if (error instanceof ApiError) {
+      if (error.status === 403) {
+        csrfToken = null // Clear token on 403 so it gets refetched
+      }
       throw error
     }
 

@@ -12,7 +12,7 @@ import { AdminAuthController } from './admin-auth.controller';
   imports: [
     JwtModule.register({
       global: true,
-      secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
+      secret: process.env.JWT_SECRET!,
       signOptions: { expiresIn: '15m' },
     }),
   ],
