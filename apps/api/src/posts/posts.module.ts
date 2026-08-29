@@ -12,7 +12,7 @@ import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
 @Module({
   imports: [
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'super-secret',
+      secret: process.env.JWT_SECRET!,
     }),
   ],
   controllers: [PostsController],

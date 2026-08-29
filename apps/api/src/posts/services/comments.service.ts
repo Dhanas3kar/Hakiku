@@ -5,7 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, and, sql, desc, inArray } from 'drizzle-orm';
 import * as schema from '../../db/schema';
 import { posts, comments, profiles, users } from '../../db/schema';
 import { PostAccessService } from './post-access.service';
@@ -24,9 +24,6 @@ export class CommentsService {
     private readonly postAccessService: PostAccessService,
     private readonly outboxService: NotificationOutboxService,
   ) {
-    const connectionString =
-      process.env.DATABASE_URL ||
-      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -91,7 +88,7 @@ export class CommentsService {
         ).map((m) => m.slice(1));
 
         if (mentions.length > 0) {
-          const { inArray } = require('drizzle-orm');
+
           const mentionedProfiles = await tx
             .select()
             .from(schema.profiles)

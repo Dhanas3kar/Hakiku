@@ -5,7 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq, and, or, sql, desc, lt } from 'drizzle-orm';
+import { eq, and, or, sql, desc, lt, inArray } from 'drizzle-orm';
 import {
   posts,
   postLikes,
@@ -32,9 +32,6 @@ export class PostsService {
     private readonly postAccessService: PostAccessService,
     private readonly postMediaService: PostMediaService,
   ) {
-    const connectionString =
-      process.env.DATABASE_URL ||
-      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -91,7 +88,7 @@ export class PostsService {
         ).map((m) => m.slice(1));
 
         if (mentions.length > 0) {
-          const { inArray } = require('drizzle-orm');
+
           const mentionedProfiles = await tx
             .select()
             .from(schema.profiles)

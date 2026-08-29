@@ -53,8 +53,8 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
               if (p.id === post.id) {
                 return {
                   ...p,
-                  isLiked: liked,
-                  likeCount: liked ? p.likeCount + 1 : p.likeCount - 1,
+                  isLikedByViewer: liked,
+                  likesCount: liked ? p.likesCount + 1 : p.likesCount - 1,
                 }
               }
               return p
@@ -88,7 +88,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
   })
 
   const handleLikeClick = () => {
-    likeMutation.mutate(!post.isLiked)
+    likeMutation.mutate(!post.isLikedByViewer)
   }
 
   const handleDelete = () => {
@@ -265,14 +265,14 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
           <button
             onClick={handleLikeClick}
             disabled={likeMutation.isPending}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all ${post.isLiked
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all ${post.isLikedByViewer
                 ? 'text-primary'
                 : 'text-foreground-muted hover:text-foreground hover:bg-surface-muted active:scale-95'
               }`}
-            aria-pressed={post.isLiked}
+            aria-pressed={post.isLikedByViewer}
           >
-            <Heart className={`h-4 w-4 ${post.isLiked ? 'fill-current' : ''}`} />
-            <span>{post.likeCount > 0 ? post.likeCount : 'Like'}</span>
+            <Heart className={`h-4 w-4 ${post.isLikedByViewer ? 'fill-current' : ''}`} />
+            <span>{post.likesCount > 0 ? post.likesCount : 'Like'}</span>
           </button>
 
           <button
@@ -281,7 +281,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
             aria-expanded={showComments}
           >
             <MessageCircle className="h-4 w-4" />
-            <span>{post.commentCount > 0 ? post.commentCount : 'Comment'}</span>
+            <span>{post.commentsCount > 0 ? post.commentsCount : 'Comment'}</span>
           </button>
         </div>
 

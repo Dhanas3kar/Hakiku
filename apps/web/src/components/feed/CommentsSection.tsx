@@ -36,7 +36,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
             ...page,
             items: (page.items || []).map((p: any) => {
               if (p.id === postId) {
-                return { ...p, commentCount: p.commentCount + 1 }
+                return { ...p, commentsCount: p.commentsCount + 1 }
               }
               return p
             }),
@@ -62,7 +62,7 @@ export function CommentsSection({ postId }: CommentsSectionProps) {
             ...page,
             items: (page.items || []).map((p: any) => {
               if (p.id === postId) {
-                return { ...p, commentCount: Math.max(0, p.commentCount - 1) }
+                return { ...p, commentsCount: Math.max(0, p.commentsCount - 1) }
               }
               return p
             }),

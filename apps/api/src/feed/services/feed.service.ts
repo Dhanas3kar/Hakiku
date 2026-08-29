@@ -26,9 +26,6 @@ export class FeedService {
     private readonly cursorService: FeedCursorService,
     private readonly queryService: FeedQueryService,
   ) {
-    const connectionString =
-      process.env.DATABASE_URL ||
-      'postgres://srm_admin:srm_password@localhost:5432/srm_connect';
     this.db = db;
   }
 
@@ -120,8 +117,8 @@ export class FeedService {
       authorId: item.post.authorId,
       content: item.post.content,
       visibility: item.post.visibility,
-      likeCount: item.post.likesCount,
-      commentCount: item.post.commentsCount,
+      likesCount: item.post.likesCount,
+      commentsCount: item.post.commentsCount,
       createdAt: item.post.createdAt,
       media: (item.post as any).media || [],
       poll: (item.post as any).poll || null,
@@ -134,7 +131,7 @@ export class FeedService {
         campus: item.author.campus,
         department: item.author.department,
       },
-      isLiked: item.viewerState?.isLiked || false,
+      isLikedByViewer: item.viewerState?.isLiked || false,
     }));
 
     return {
@@ -212,8 +209,8 @@ export class FeedService {
       authorId: item.post.authorId,
       content: item.post.content,
       visibility: item.post.visibility,
-      likeCount: item.post.likesCount,
-      commentCount: item.post.commentsCount,
+      likesCount: item.post.likesCount,
+      commentsCount: item.post.commentsCount,
       createdAt: item.post.createdAt,
       media: (item.post as any).media || [],
       poll: (item.post as any).poll || null,
@@ -226,7 +223,7 @@ export class FeedService {
         campus: item.author.campus,
         department: item.author.department,
       },
-      isLiked: item.viewerState?.isLiked || false,
+      isLikedByViewer: item.viewerState?.isLiked || false,
     }));
 
     return {

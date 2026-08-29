@@ -1,6 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { db } from '../../db/index';
-import { hotTakes, profiles } from '../../db/schema';
+import { hotTakes, profiles, notificationOutbox } from '../../db/schema';
 import { desc, eq, inArray } from 'drizzle-orm';
 
 @Injectable()
@@ -36,7 +36,6 @@ export class HotTakesService {
       ).map((m) => m.slice(1));
 
       if (mentions.length > 0) {
-        const { notificationOutbox } = require('../../db/schema');
         const mentionedProfiles = await this.db
           .select()
           .from(profiles)

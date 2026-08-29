@@ -26,9 +26,9 @@ export interface PostItem {
   authorId: string
   content: string | null
   visibility: PostVisibility
-  likeCount: number
-  commentCount: number
-  isLiked: boolean
+  likesCount: number
+  commentsCount: number
+  isLikedByViewer: boolean
   createdAt: string
   updatedAt: string
   author: PostAuthor
