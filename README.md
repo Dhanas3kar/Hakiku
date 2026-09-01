@@ -2,7 +2,7 @@
 
 <img src="readme_assets/srm-connect-icon.png" width="180" alt="SRM Connect app icon">
 
-# SRM CONNECT
+# HAKIKU V1.0.0
 
 ### The Social Layer of Campus Life
 
