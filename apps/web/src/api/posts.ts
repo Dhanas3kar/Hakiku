@@ -55,6 +55,7 @@ export interface CreatePostPayload {
   visibility?: PostVisibility
   mediaUploadIds?: string[]
   pollId?: string
+  idempotencyKey?: string
 }
 
 export interface UpdatePostPayload {

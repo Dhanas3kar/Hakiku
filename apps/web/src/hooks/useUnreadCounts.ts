@@ -8,8 +8,8 @@ import { useAuth } from './useAuth'
 export function useUnreadCounts() {
   const queryClient = useQueryClient()
   const { notificationSocket, messagingSocket, isConnected } = useSocket()
-  const { session } = useAuth()
-  const currentUserId = session?.user?.id
+  const { user } = useAuth()
+  const currentUserId = user?.id
 
   const { data: notificationsData } = useQuery({
     queryKey: ['unread-count', 'notifications'],
@@ -23,18 +23,8 @@ export function useUnreadCounts() {
     staleTime: Infinity, // Relies on WebSocket for updates
   })
 
-  // Handle reconnects
-  useEffect(() => {
-    if (isConnected.notifications) {
-      queryClient.invalidateQueries({ queryKey: ['unread-count', 'notifications'] })
-    }
-  }, [isConnected.notifications, queryClient])
-
-  useEffect(() => {
-    if (isConnected.messaging) {
-      queryClient.invalidateQueries({ queryKey: ['unread-count', 'messages'] })
-    }
-  }, [isConnected.messaging, queryClient])
+  // Removed redundant isConnected invalidations that caused 429 request amplification.
+  // Reconnect invalidations are already handled globally in useSocket.tsx.
 
   useEffect(() => {
     if (!notificationSocket) return

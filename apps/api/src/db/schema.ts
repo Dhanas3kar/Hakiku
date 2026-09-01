@@ -356,6 +356,7 @@ export const posts = pgTable(
     visibility: postVisibilityEnum('visibility').default('PUBLIC').notNull(),
     likesCount: integer('likes_count').default(0).notNull(),
     commentsCount: integer('comments_count').default(0).notNull(),
+    idempotencyKey: varchar('idempotency_key', { length: 100 }),
     deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -377,6 +378,10 @@ export const posts = pgTable(
     commentsCountCheck: check(
       'check_comments_count_positive',
       sql`${table.commentsCount} >= 0`,
+    ),
+    idempotencyIdx: uniqueIndex('idx_posts_idempotency').on(
+      table.authorId,
+      table.idempotencyKey,
     ),
   }),
 );
@@ -659,6 +664,7 @@ export const messages = pgTable(
     content: text('content'),
     messageType: messageTypeEnum('message_type').default('TEXT').notNull(),
     replyToMessageId: uuid('reply_to_message_id'), // Self-reference skipped here for simplicity to avoid circular dep at runtime setup, or use explicit relation
+    idempotencyKey: varchar('idempotency_key', { length: 100 }),
     deletedAt: timestamp('deleted_at'),
     editedAt: timestamp('edited_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -675,6 +681,10 @@ export const messages = pgTable(
       table.createdAt,
     ),
     replyIdx: index('idx_messages_reply_to').on(table.replyToMessageId),
+    idempotencyIdx: uniqueIndex('idx_messages_idempotency').on(
+      table.senderId,
+      table.idempotencyKey,
+    ),
   }),
 );
 

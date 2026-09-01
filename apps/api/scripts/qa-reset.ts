@@ -8,7 +8,7 @@ const configuredUrl = process.env.DATABASE_URL
 
 if (!configuredUrl || !configuredUrl.includes('_test')) {
   dotenv.config({
-    path: path.resolve(__dirname, '../../.env.test'),
+    path: path.resolve(__dirname, '../.env.test'),
   })
 }
 

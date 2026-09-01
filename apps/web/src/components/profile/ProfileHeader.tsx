@@ -27,7 +27,6 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
     queryKey: ['relationship', profile.userId],
     queryFn: () => networkingApi.getRelationshipStatus(profile.userId),
     enabled: !isOwnProfile && !!profile.userId,
-    retry: 1,
   })
 
   // --- Mutations ---

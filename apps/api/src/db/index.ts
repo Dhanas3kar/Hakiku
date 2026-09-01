@@ -4,7 +4,14 @@ import * as schema from './schema';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
-const connectionString = process.env.DATABASE_URL;
+let connectionString = process.env.DATABASE_URL;
+
+if (process.env.NODE_ENV === 'test') {
+  if (connectionString && !connectionString.includes('_test')) {
+    connectionString = connectionString.replace('/srm_connect', '/srm_connect_test');
+    process.env.DATABASE_URL = connectionString;
+  }
+}
 
 if (!connectionString) {
   throw new Error('DATABASE_URL is strictly required. No fallbacks allowed.');

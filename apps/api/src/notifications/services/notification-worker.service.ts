@@ -56,9 +56,9 @@ export class NotificationWorkerService
     if (!this.isRunning) return;
 
     try {
-      await this.db.transaction(async (tx: any) => {
-        // Fetch up to 50 pending events, locking them
-        const pendingEvents = await tx.execute(
+      // 1. Claim up to 50 pending events and mark them as PROCESSING
+      const pendingEvents = await this.db.transaction(async (tx: any) => {
+        const events = await tx.execute(
           sql`
             SELECT * FROM notification_outbox
             WHERE status IN ('PENDING', 'PROCESSING')
@@ -69,53 +69,59 @@ export class NotificationWorkerService
           `,
         );
 
-        if (pendingEvents.length === 0) return;
+        if (events.length === 0) return [];
 
-        const eventIds = pendingEvents.map((e: any) => e.id);
+        const eventIds = events.map((e: any) => e.id);
 
-        // Mark as PROCESSING
         await tx
           .update(notificationOutbox)
           .set({ status: 'PROCESSING', updatedAt: new Date() })
           .where(inArray(notificationOutbox.id, eventIds));
 
-        for (const outboxEvent of pendingEvents) {
-          try {
-            await this.handleEvent(tx, outboxEvent);
-
-            // Mark as PROCESSED
-            await tx
-              .update(notificationOutbox)
-              .set({ status: 'PROCESSED', updatedAt: new Date() })
-              .where(eq(notificationOutbox.id, outboxEvent.id));
-          } catch (err: any) {
-            this.logger.error(
-              `Failed to process outbox event ${outboxEvent.id}`,
-              err.stack,
-            );
-
-            const attempts = outboxEvent.attempts + 1;
-            const status = attempts >= 5 ? 'FAILED' : 'PENDING';
-            // Exponential backoff: 2^attempts * 30 seconds
-            const nextAvailable = new Date(
-              Date.now() + Math.pow(2, attempts) * 30000,
-            );
-
-            await tx
-              .update(notificationOutbox)
-              .set({
-                status,
-                attempts,
-                lastError: err.message || 'Unknown error',
-                availableAt: nextAvailable,
-                updatedAt: new Date(),
-              })
-              .where(eq(notificationOutbox.id, outboxEvent.id));
-          }
-        }
+        return events;
       });
+
+      if (!pendingEvents || pendingEvents.length === 0) return;
+
+      // 2. Process each event independently so an error in one event does not abort others or fail recording retry state
+      for (const outboxEvent of pendingEvents) {
+        try {
+          await this.db.transaction(async (eventTx: any) => {
+            await this.handleEvent(eventTx, outboxEvent);
+          });
+
+          // Mark as PROCESSED
+          await this.db
+            .update(notificationOutbox)
+            .set({ status: 'PROCESSED', updatedAt: new Date() })
+            .where(eq(notificationOutbox.id, outboxEvent.id));
+        } catch (err: any) {
+          this.logger.error(
+            `Failed to process outbox event ${outboxEvent.id}`,
+            err.stack,
+          );
+
+          const attempts = (outboxEvent.attempts || 0) + 1;
+          const status = attempts >= 5 ? 'FAILED' : 'PENDING';
+          // Exponential backoff: 2^attempts * 30 seconds
+          const nextAvailable = new Date(
+            Date.now() + Math.pow(2, attempts) * 30000,
+          );
+
+          await this.db
+            .update(notificationOutbox)
+            .set({
+              status,
+              attempts,
+              lastError: err.message || 'Unknown error',
+              availableAt: nextAvailable,
+              updatedAt: new Date(),
+            })
+            .where(eq(notificationOutbox.id, outboxEvent.id));
+        }
+      }
     } catch (err) {
-      this.logger.error('Outbox worker transaction failed', err);
+      this.logger.error('Outbox worker process loop failed', err);
     }
   }
 

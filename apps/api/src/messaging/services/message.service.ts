@@ -39,6 +39,7 @@ export class MessageService {
       messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE';
       mediaKeys?: string[];
       replyToMessageId?: string;
+      idempotencyKey?: string;
     },
   ) {
     // 1. Ensure access
@@ -86,21 +87,23 @@ export class MessageService {
     const newMessageId = crypto.randomUUID();
     const now = new Date();
 
-    const createdMessage = await db.transaction(async (tx) => {
-      // 2. Insert message
-      const [msg] = await tx
-        .insert(messages)
-        .values({
-          id: newMessageId,
-          conversationId,
-          senderId: userId,
-          content: dto.content,
-          messageType: dto.messageType,
-          replyToMessageId: dto.replyToMessageId,
-        })
-        .returning();
+    try {
+      const createdMessage = await db.transaction(async (tx) => {
+        // 2. Insert message
+        const [msg] = await tx
+          .insert(messages)
+          .values({
+            id: newMessageId,
+            conversationId,
+            senderId: userId,
+            content: dto.content,
+            messageType: dto.messageType,
+            replyToMessageId: dto.replyToMessageId,
+            idempotencyKey: dto.idempotencyKey,
+          })
+          .returning();
 
-      // 3. Insert media
+        // 3. Insert media
       if (validMedia.length > 0) {
         const mediaValues = validMedia.map((m, index) => ({
           messageId: newMessageId,
@@ -147,28 +150,82 @@ export class MessageService {
       });
 
       return msg;
-    });
+      });
 
-    // Fire real-time event
-    const targetUserId =
-      conversation.userAId === userId
-        ? conversation.userBId
-        : conversation.userAId;
-    await this.deliveryService.publishEvent({
-      type: 'message:new',
-      recipientId: targetUserId,
-      conversationId,
-      payload: createdMessage,
-    });
-    // Send to sender's other devices too
-    await this.deliveryService.publishEvent({
-      type: 'message:new',
-      recipientId: userId,
-      conversationId,
-      payload: createdMessage,
-    });
+      // Fire real-time event
+      const targetUserId =
+        conversation.userAId === userId
+          ? conversation.userBId
+          : conversation.userAId;
+      await this.deliveryService.publishEvent({
+        type: 'message:new',
+        recipientId: targetUserId,
+        conversationId,
+        payload: createdMessage,
+      });
+      // Send to sender's other devices too
+      await this.deliveryService.publishEvent({
+        type: 'message:new',
+        recipientId: userId,
+        conversationId,
+        payload: createdMessage,
+      });
 
-    return createdMessage;
+      return createdMessage;
+    } catch (err: any) {
+      const code =
+        err?.code ||
+        err?.cause?.code ||
+        err?.driverError?.code ||
+        err?.originalError?.code;
+      const constraint =
+        err?.constraint ||
+        err?.constraint_name ||
+        err?.cause?.constraint ||
+        err?.cause?.constraint_name ||
+        err?.driverError?.constraint ||
+        err?.driverError?.constraint_name ||
+        '';
+      const detail =
+        err?.detail ||
+        err?.cause?.detail ||
+        err?.driverError?.detail ||
+        err?.message ||
+        err?.cause?.message ||
+        '';
+
+      const is23505 =
+        code === '23505' ||
+        String(err).includes('23505') ||
+        String(err?.cause).includes('23505');
+      const isIdempotencyConflict =
+        is23505 &&
+        (constraint.includes('idempotency') ||
+          detail.includes('idempotency_key') ||
+          detail.includes('idempotency') ||
+          String(err).includes('idempotency'));
+
+      if (dto.idempotencyKey && isIdempotencyConflict) {
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const [existingMessage] = await db
+            .select()
+            .from(messages)
+            .where(
+              and(
+                eq(messages.senderId, userId),
+                eq(messages.idempotencyKey, dto.idempotencyKey),
+              ),
+            )
+            .limit(1);
+
+          if (existingMessage) {
+            return existingMessage;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+      }
+      throw err;
+    }
   }
 
   /**

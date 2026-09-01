@@ -24,7 +24,7 @@ export function useAuth() {
     queryKey: AUTH_QUERY_KEY,
     queryFn: () => profileApi.getMe(),
     retry: (failureCount, err) => {
-      if (err.status === 401 || err.status === 403 || err.status === 404) return false
+      if (err.status === 401 || err.status === 403 || err.status === 404 || err.status === 429) return false
       return failureCount < 3
     },
     staleTime: 5 * 60 * 1000,
@@ -43,8 +43,10 @@ export function useAuth() {
       await queryClient.cancelQueries({ queryKey: AUTH_QUERY_KEY })
     },
     onSettled: async () => {
-      queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY, exact: false })
-      queryClient.clear()
+      queryClient.setQueryData(AUTH_QUERY_KEY, null)
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] !== 'auth'
+      })
       logoutGuardRef.current = false
       navigate({ to: '/login', replace: true })
     },

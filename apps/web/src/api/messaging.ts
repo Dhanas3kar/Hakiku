@@ -81,7 +81,7 @@ export const messagingApi = {
 
   sendMessage: async (
     conversationId: string,
-    payload: { content?: string; messageType?: MessageType; mediaKeys?: string[]; replyToMessageId?: string }
+    payload: { content?: string; messageType?: MessageType; mediaKeys?: string[]; replyToMessageId?: string; idempotencyKey?: string }
   ): Promise<MessageItem> => {
     const response = await apiClient.post(`/messages/conversations/${conversationId}/messages`, payload)
     return response

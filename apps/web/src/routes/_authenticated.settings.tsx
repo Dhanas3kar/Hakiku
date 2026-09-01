@@ -18,8 +18,7 @@ function SettingsPage() {
   // Notification Preferences — uses the actual backend endpoints at /notifications/preferences
   const { data: preferences, isLoading: prefsLoading, isError: prefsError } = useQuery({
     queryKey: ['settings', 'preferences'],
-    queryFn: () => notificationsApi.getPreferences(),
-    retry: 1
+    queryFn: () => notificationsApi.getPreferences()
   })
 
   const queryClient = useQueryClient()

@@ -26,9 +26,10 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
   const [pollOptions, setPollOptions] = useState<string[]>(['', ''])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const idempotencyKeyRef = useRef<string>(crypto.randomUUID())
 
   const createPostMutation = useMutation({
-    mutationFn: async (payload: { content: string; visibility: PostVisibility; mediaUploadIds?: string[] }) => {
+    mutationFn: async (payload: { content: string; visibility: PostVisibility; mediaUploadIds?: string[]; idempotencyKey: string }) => {
       let pollId: string | undefined = undefined
 
       // If user is creating a poll, create it first
@@ -114,10 +115,14 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
     e.preventDefault()
     if (!content.trim() && mediaList.length === 0) return
 
+    const currentKey = idempotencyKeyRef.current
+    idempotencyKeyRef.current = crypto.randomUUID()
+
     createPostMutation.mutate({
       content: content.trim(),
       visibility,
       mediaUploadIds: mediaList.map((m) => m.id),
+      idempotencyKey: currentKey
     })
   }
 

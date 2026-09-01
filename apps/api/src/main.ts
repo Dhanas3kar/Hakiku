@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { IncomingMessage } from 'http';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import {
@@ -14,6 +15,7 @@ import { ValidationPipe } from '@nestjs/common';
 import * as path from 'path';
 import { db } from './db';
 import { sql } from 'drizzle-orm';
+import * as crypto from 'crypto';
 
 async function bootstrap() {
   const requiredEnv = ['COOKIE_SECRET', 'JWT_SECRET', 'DATABASE_URL'];
@@ -25,7 +27,12 @@ async function bootstrap() {
 
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
-    new FastifyAdapter({ bodyLimit: 10 * 1024 * 1024 }),
+    new FastifyAdapter({
+      bodyLimit: 10 * 1024 * 1024,
+      genReqId: (req: IncomingMessage) => {
+        return (req.headers['x-correlation-id'] as string) || crypto.randomUUID();
+      }
+    }),
   );
 
   await app.register(fastifyCookie as any, {

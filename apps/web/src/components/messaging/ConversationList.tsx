@@ -11,15 +11,7 @@ export function ConversationList() {
   const { isConnected, messagingSocket } = useSocket()
   const queryClient = useQueryClient()
   
-  // Handle reconnect logic: refetch when connection is restored
-  useEffect(() => {
-    if (isConnected.messaging) {
-      queryClient.invalidateQueries({ 
-        queryKey: ['conversations'],
-        refetchPage: (page: any, index: number) => index === 0
-      })
-    }
-  }, [isConnected.messaging, queryClient])
+  // Removed redundant isConnected.messaging invalidation and TDZ diagnostic logging
   
   // To handle the active state highlight
   // We use standard React Router hooks if needed, but <Link activeProps> is easier.
@@ -53,39 +45,40 @@ export function ConversationList() {
     if (!messagingSocket) return
 
     const handleNewMessage = (payload: any) => {
-      queryClient.setQueryData(['conversations'], (oldData: any) => {
-        if (!oldData) return oldData
+      const oldData: any = queryClient.getQueryData(['conversations'])
+      if (!oldData || !Array.isArray(oldData.pages)) {
+        queryClient.invalidateQueries({ queryKey: ['conversations'] })
+        return
+      }
+      
+      let found = false
+      const newPages = oldData.pages.map((page: any) => {
+        const items = page.items || []
+        const existingIndex = items.findIndex((c: any) => c.id === payload.conversationId)
         
-        let found = false
-        const newPages = oldData.pages.map((page: any) => {
-          const items = page.items || []
-          const existingIndex = items.findIndex((c: any) => c.id === payload.conversationId)
-          
-          if (existingIndex !== -1) {
-            found = true
-            const updatedItems = [...items]
-            const updatedConv = {
-              ...updatedItems[existingIndex],
-              latestMessage: payload
-            }
-            updatedItems[existingIndex] = updatedConv
-            return { ...page, items: updatedItems, updatedConv }
+        if (existingIndex !== -1) {
+          found = true
+          const updatedItems = [...items]
+          const updatedConv = {
+            ...updatedItems[existingIndex],
+            latestMessage: payload
           }
-          return page
-        })
-        
-        // If the conversation exists, we just update it.
-        // If not, we still need to invalidate because we lack the targetUser data to synthesize a new conversation block.
-        if (!found) {
-          queryClient.invalidateQueries({ 
-            queryKey: ['conversations'],
-            refetchPage: (page: any, index: number) => index === 0
-          })
-          return oldData
+          updatedItems[existingIndex] = updatedConv
+          return { ...page, items: updatedItems, updatedConv }
         }
+        return page
+      })
+      
+      if (!found) {
+        queryClient.invalidateQueries({ 
+          queryKey: ['conversations']
+        })
+        return
+      }
 
+      queryClient.setQueryData(['conversations'], (old: any) => {
+        if (!old) return old
         // We need to bring the conversation to the top.
-        // We'll flatten, sort, and rebuild the pages.
         const allItems = newPages.flatMap((page: any) => page.items || [])
         allItems.sort((a: any, b: any) => {
           const timeA = new Date(a.latestMessage?.createdAt || 0).getTime()
@@ -93,7 +86,6 @@ export function ConversationList() {
           return timeB - timeA
         })
 
-        // Rebuild pages with the same lengths
         let currentIdx = 0
         const sortedPages = newPages.map((page: any) => {
           const pageLength = (page.items || []).length
@@ -102,7 +94,7 @@ export function ConversationList() {
           return { ...page, items }
         })
         
-        return { ...oldData, pages: sortedPages }
+        return { ...old, pages: sortedPages }
       })
     }
 

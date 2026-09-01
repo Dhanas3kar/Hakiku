@@ -18,8 +18,13 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     const handleAuthExpired = () => {
-      queryClient.removeQueries({ queryKey: AUTH_QUERY_KEY, exact: false })
-      queryClient.clear()
+      // Instead of clearing the cache (which causes /login to refetch and hit 401 again),
+      // we explicitly set the auth query to null so it stays cached as unauthenticated.
+      queryClient.setQueryData(AUTH_QUERY_KEY, null)
+      // We can also clear other queries
+      queryClient.removeQueries({
+        predicate: (query) => query.queryKey[0] !== 'auth'
+      })
 
       if (location.pathname !== '/login') {
         router.navigate({ to: '/login', replace: true })

@@ -39,12 +39,7 @@ function NotificationsPage() {
   const queryClient = useQueryClient()
   const { isConnected, notificationSocket } = useSocket()
   
-  // Handle reconnect logic
-  useEffect(() => {
-    if (isConnected.notifications) {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] })
-    }
-  }, [isConnected.notifications, queryClient])
+  // Removed redundant isConnected.notifications invalidation that caused 429 request amplification.
 
   const {
     data,

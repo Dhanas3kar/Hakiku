@@ -80,20 +80,6 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
   
   const [inputText, setInputText] = useState('')
 
-  // Handle reconnect logic: refetch when connection is restored
-  useEffect(() => {
-    if (isConnected.messaging) {
-      queryClient.invalidateQueries({ 
-        queryKey: ['messages', conversationId],
-        refetchPage: (page: any, index: number) => index === 0 
-      })
-      queryClient.invalidateQueries({ 
-        queryKey: ['conversations'],
-        refetchPage: (page: any, index: number) => index === 0
-      })
-    }
-  }, [isConnected.messaging, conversationId, queryClient])
-  
   // Get conversation details to show header
   const { data: conversationsData } = useQuery({
     queryKey: ['conversations'],
@@ -237,9 +223,17 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
     }
   }, [messages.length, currentUserId, conversationId])
 
+  const idempotencyKeyRef = useRef<string>(crypto.randomUUID())
+
   const sendMessageMutation = useMutation({
-    mutationFn: (content: string) => messagingApi.sendMessage(conversationId, { content, messageType: 'TEXT' }),
-    onMutate: async (content) => {
+    mutationFn: (payload: { content: string; idempotencyKey: string }) => 
+      messagingApi.sendMessage(conversationId, { 
+        content: payload.content, 
+        messageType: 'TEXT',
+        idempotencyKey: payload.idempotencyKey
+      }),
+    onMutate: async (payload) => {
+      const content = payload.content;
       await queryClient.cancelQueries({ queryKey: ['messages', conversationId] })
       
       const previousMessages = queryClient.getQueryData(['messages', conversationId])
@@ -276,12 +270,10 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ 
-        queryKey: ['messages', conversationId],
-        refetchPage: (page: any, index: number) => index === 0 
+        queryKey: ['messages', conversationId]
       })
       queryClient.invalidateQueries({ 
-        queryKey: ['conversations'],
-        refetchPage: (page: any, index: number) => index === 0
+        queryKey: ['conversations']
       })
     }
   })
@@ -289,7 +281,14 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault()
     if (!inputText.trim()) return
-    sendMessageMutation.mutate(inputText.trim())
+    
+    const currentKey = idempotencyKeyRef.current
+    idempotencyKeyRef.current = crypto.randomUUID()
+    
+    sendMessageMutation.mutate({ 
+      content: inputText.trim(), 
+      idempotencyKey: currentKey 
+    })
   }
 
   return (

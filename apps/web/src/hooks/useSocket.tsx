@@ -47,7 +47,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
       invalidateTimeoutRef.current = window.setTimeout(() => {
         keys.forEach(queryKey => {
-          queryClient.invalidateQueries({ queryKey, ...options })
+          queryClient.invalidateQueries({ queryKey, refetchType: 'active', ...options })
         })
       }, 150)
     }
@@ -100,8 +100,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     notifSocket.io.on('reconnect', () => {
       invalidateQueriesSafely(
-        [['notifications'], ['unreadCounts'], ['feed'], ['discover'], ['user-posts'], ['connections']],
-        { refetchPage: (page: any, index: number) => index === 0 }
+        [['notifications'], ['unreadCounts'], ['feed'], ['discover'], ['user-posts'], ['connections']]
       )
     })
 
@@ -117,8 +116,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     msgSocket.io.on('reconnect', () => {
       invalidateQueriesSafely(
-        [['conversations'], ['messages'], ['unreadCounts']],
-        { refetchPage: (page: any, index: number) => index === 0 }
+        [['conversations'], ['messages'], ['unreadCounts']]
       )
     })
 
@@ -126,7 +124,27 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setIsConnected(prev => ({ ...prev, messaging: false }))
     })
 
+    const handleOnline = () => {
+      // The browser just regained network connectivity.
+      // Force reconnect the sockets if they are stale and invalidate queries
+      // to immediately fetch any missed data.
+      if (notifSocket.disconnected) {
+        notifSocket.connect()
+      }
+      if (msgSocket.disconnected) {
+        msgSocket.connect()
+      }
+      
+      invalidateQueriesSafely([
+        ['conversations'], ['messages'], ['unreadCounts'],
+        ['notifications'], ['feed'], ['discover'], ['user-posts'], ['connections']
+      ])
+    }
+
+    window.addEventListener('online', handleOnline)
+
     return () => {
+      window.removeEventListener('online', handleOnline)
       disconnectSockets()
       if (invalidateTimeoutRef.current) {
         window.clearTimeout(invalidateTimeoutRef.current)

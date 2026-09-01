@@ -53,69 +53,136 @@ export class PostsService {
     let createdPost: any;
     let attachedMedia: any[] = [];
 
-    await this.db.transaction(async (tx: any) => {
-      const [inserted] = await tx
-        .insert(posts)
-        .values({
-          authorId,
-          content: trimmedContent || null,
-          visibility: dto.visibility || 'PUBLIC',
-        })
-        .returning();
+    try {
+      await this.db.transaction(async (tx: any) => {
+        const [inserted] = await tx
+          .insert(posts)
+          .values({
+            authorId,
+            content: trimmedContent || null,
+            visibility: dto.visibility || 'PUBLIC',
+            idempotencyKey: dto.idempotencyKey,
+          })
+          .returning();
 
-      createdPost = inserted;
+        createdPost = inserted;
 
-      if (hasMedia) {
-        attachedMedia = await this.postMediaService.attachMediaToPost(
-          authorId,
-          createdPost.id,
-          dto.mediaUploadIds!,
-          tx,
-        );
-      }
+        if (hasMedia) {
+          attachedMedia = await this.postMediaService.attachMediaToPost(
+            authorId,
+            createdPost.id,
+            dto.mediaUploadIds!,
+            tx,
+          );
+        }
 
-      if (dto.pollId) {
-        await tx
-          .update(polls)
-          .set({ postId: createdPost.id })
-          .where(and(eq(polls.id, dto.pollId), eq(polls.authorId, authorId)));
-      }
+        if (dto.pollId) {
+          await tx
+            .update(polls)
+            .set({ postId: createdPost.id })
+            .where(and(eq(polls.id, dto.pollId), eq(polls.authorId, authorId)));
+        }
 
-      // Mentions Extraction
-      if (trimmedContent) {
-        const mentions = Array.from(
-          new Set(trimmedContent.match(/@([\w._-]+)/g) || []),
-        ).map((m) => m.slice(1));
+        // Mentions Extraction
+        if (trimmedContent) {
+          const mentions = Array.from(
+            new Set(trimmedContent.match(/@([\w._-]+)/g) || []),
+          ).map((m) => m.slice(1));
 
-        if (mentions.length > 0) {
+          if (mentions.length > 0) {
+            const mentionedProfiles = await tx
+              .select()
+              .from(schema.profiles)
+              .where(inArray(schema.profiles.username, mentions));
 
-          const mentionedProfiles = await tx
-            .select()
-            .from(schema.profiles)
-            .where(inArray(schema.profiles.username, mentions));
-
-          for (const profile of mentionedProfiles) {
-            if (profile.userId !== authorId) {
-              await tx
-                .insert(schema.notificationOutbox)
-                .values({
-                  eventId: `POST_MENTION_${createdPost.id}_${profile.userId}`,
-                  type: 'MENTION',
-                  payload: {
-                    actorId: authorId,
-                    recipientId: profile.userId,
-                    entityType: 'POST',
-                    entityId: createdPost.id,
-                  },
-                })
-                .onConflictDoNothing({
-                  target: [schema.notificationOutbox.eventId],
-                });
+            for (const profile of mentionedProfiles) {
+              if (profile.userId !== authorId) {
+                await tx
+                  .insert(schema.notificationOutbox)
+                  .values({
+                    eventId: `POST_MENTION_${createdPost.id}_${profile.userId}`,
+                    type: 'MENTION',
+                    payload: {
+                      actorId: authorId,
+                      recipientId: profile.userId,
+                      entityType: 'POST',
+                      entityId: createdPost.id,
+                    },
+                  })
+                  .onConflictDoNothing({
+                    target: [schema.notificationOutbox.eventId],
+                  });
+              }
             }
           }
         }
+      });
+    } catch (err: any) {
+      const code =
+        err?.code ||
+        err?.cause?.code ||
+        err?.driverError?.code ||
+        err?.originalError?.code;
+      const constraint =
+        err?.constraint ||
+        err?.constraint_name ||
+        err?.cause?.constraint ||
+        err?.cause?.constraint_name ||
+        err?.driverError?.constraint ||
+        err?.driverError?.constraint_name ||
+        '';
+      const detail =
+        err?.detail ||
+        err?.cause?.detail ||
+        err?.driverError?.detail ||
+        err?.message ||
+        err?.cause?.message ||
+        '';
+
+      const is23505 =
+        code === '23505' ||
+        String(err).includes('23505') ||
+        String(err?.cause).includes('23505');
+      const isIdempotencyConflict =
+        is23505 &&
+        (constraint.includes('idempotency') ||
+          detail.includes('idempotency_key') ||
+          detail.includes('idempotency') ||
+          String(err).includes('idempotency'));
+
+      if (dto.idempotencyKey && isIdempotencyConflict) {
+        let existingPost: any;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const [found] = await this.db
+            .select()
+            .from(posts)
+            .where(
+              and(
+                eq(posts.authorId, authorId),
+                eq(posts.idempotencyKey, dto.idempotencyKey),
+              ),
+            )
+            .limit(1);
+
+          if (found) {
+            existingPost = found;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+
+        if (existingPost) {
+          createdPost = existingPost;
+          attachedMedia = await this.postMediaService.getPostMedia(
+            existingPost.id,
+          );
+        } else {
+          throw err;
+        }
+      } else {
+        throw err;
       }
-    });
+    }
 
     const [authorProfile] = await this.db
       .select({

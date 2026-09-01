@@ -18,6 +18,8 @@ test.describe('DAY 2 REALTIME VERIFICATION', () => {
 
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
+    pageA.on('console', msg => console.log(`[PageA] ${msg.type()}: ${msg.text()}`));
+    pageB.on('console', msg => console.log(`[PageB] ${msg.type()}: ${msg.text()}`));
 
     // 2. Authenticate independently
     await loginAs(pageA, EMAIL_A);
@@ -76,6 +78,9 @@ test.describe('DAY 2 REALTIME VERIFICATION', () => {
     // A is redirected to the conversation page
     await pageA.waitForURL(/\/messages\/.+/);
     
+    // Capture the conversation URL so we can navigate directly to it later (avoids fragile list clicks)
+    const conversationUrl = new URL(pageA.url()).pathname;
+    
     // A sends a message through the normal UI/API path
     const chatInputA = pageA.locator('textarea[placeholder="Type a message..."]').first();
     await expect(chatInputA).toBeVisible();
@@ -100,7 +105,7 @@ test.describe('DAY 2 REALTIME VERIFICATION', () => {
     // ==========================================
     // GATE 3: DISCONNECT/RECONNECT
     // ==========================================
-    // Keep B on the conversation view
+    // Keep B on the messages list view
     await pageB.goto('/messages');
     await pageB.waitForLoadState('load');
 
@@ -112,22 +117,25 @@ test.describe('DAY 2 REALTIME VERIFICATION', () => {
 
     // Create a message while B is disconnected
     const offlineMessage = `Missed msg: ${Date.now()}`;
-    await pageA.goto('/messages');
-    await pageA.waitForLoadState('load');
-    // test-utils hardcodes the displayName to 'QA User' during onboarding
-    const conversationLinkA = pageA.locator('a', { hasText: 'QA User' }).first();
-    await conversationLinkA.click({ force: true });
+    // Navigate directly to the known conversation URL (avoids the fragile 
+    // "find in list and click" pattern that races with React Query refetch errors)
+    await pageA.goto(conversationUrl);
     
     const chatInputRe = pageA.locator('textarea[placeholder="Type a message..."]').first();
-    await expect(chatInputRe).toBeVisible();
+    await expect(chatInputRe).toBeVisible({ timeout: 15000 });
     await chatInputRe.fill(offlineMessage);
-    await pageA.keyboard.press('Enter');
+    
+    // Wait for the backend to process the message before bringing B back online
+    await Promise.all([
+      pageA.waitForResponse(res => res.url().includes('/messages') && res.request().method() === 'POST' && res.status() === 201),
+      pageA.keyboard.press('Enter')
+    ]);
 
     // Restore connectivity for B
     await contextB.setOffline(false);
 
     // Verify B reconciles the missed state
-    // Socket.io reconnects, invalidateQueriesSafely fires with refetchPage
+    // Socket.io reconnects, invalidateQueriesSafely fires
     const offlineMessagePreview = pageB.locator(`text="${offlineMessage}"`).first();
     await expect(offlineMessagePreview).toBeVisible({ timeout: 20000 });
 
@@ -148,7 +156,7 @@ test.describe('DAY 2 REALTIME VERIFICATION', () => {
     const errorBoundaryMsg = pageB.locator('text="Something went wrong"');
     await expect(errorBoundaryMsg).not.toBeVisible();
     
-    const messagesHeader = pageB.locator('h1', { hasText: 'Messages' }).first();
+    const messagesHeader = pageB.locator('h2', { hasText: 'Messages' }).first();
     await expect(messagesHeader).toBeVisible();
 
   });

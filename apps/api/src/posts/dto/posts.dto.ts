@@ -31,6 +31,11 @@ export class CreatePostDto {
   @IsOptional()
   @IsUUID('4')
   pollId?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  idempotencyKey?: string;
 }
 
 export class UpdatePostDto {

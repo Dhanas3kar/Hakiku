@@ -3,11 +3,11 @@ import * as dotenv from 'dotenv'
 import * as path from 'node:path'
 
 dotenv.config({
-  path: path.resolve(__dirname, '../../.env'),
+  path: path.resolve(__dirname, '../.env'),
 })
 
 const DATABASE_URL = process.env.DATABASE_URL
-const EXPECTED_DEV_DATABASE = 'srm_connect_dev'
+const EXPECTED_DEV_DATABASE = 'srm_connect'
 
 function assertSafeDevDatabase(databaseUrl: string | undefined): string {
   if (!databaseUrl) {
@@ -90,10 +90,13 @@ async function resetDevDatabase(): Promise<void> {
         DELETE FROM users
         WHERE email LIKE 'qa_%'
            OR email LIKE 'test_lockout_%'
-           OR username LIKE 'qa_user_%'
-           OR username LIKE 'qa_onboard_%'
-           OR username LIKE 'qa_resp_%'
-           OR username LIKE 'qa_%'
+           OR id IN (
+             SELECT user_id FROM profiles 
+             WHERE username LIKE 'qa_user_%'
+                OR username LIKE 'qa_onboard_%'
+                OR username LIKE 'qa_resp_%'
+                OR username LIKE 'qa_%'
+           )
       `)
     })
 
