@@ -21,7 +21,7 @@ describe('Resilience & Failure Scenarios (e2e)', () => {
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
     );
-    await app.register(fastifyCookie, {
+    await app.register(fastifyCookie as any, {
       secret: process.env.COOKIE_SECRET || 'test-secret',
     });
     app.useGlobalFilters(new GlobalExceptionFilter());
