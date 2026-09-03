@@ -91,7 +91,6 @@ async function resetDevDatabase(): Promise<void> {
         WHERE email LIKE 'qa_%'
            OR email LIKE 'test_lockout_%'
            OR email LIKE 'bench_%'
-           OR email LIKE 'connectx@gmail.com'
            OR id IN (
              SELECT user_id FROM profiles 
              WHERE username LIKE 'qa_user_%'
@@ -99,7 +98,7 @@ async function resetDevDatabase(): Promise<void> {
                 OR username LIKE 'qa_resp_%'
                 OR username LIKE 'qa_%'
                 OR username LIKE 'bench_%'
-                OR username LIKE 'connectx'
+  
            )
       `)
     })

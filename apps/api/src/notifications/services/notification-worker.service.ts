@@ -44,13 +44,25 @@ export class NotificationWorkerService
 
   async onModuleDestroy() {
     this.isRunning = false;
-    if (this.intervalId) clearInterval(this.intervalId);
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
     if (this.activeProcessingPromise) {
       await this.activeProcessingPromise;
     }
   }
 
   private startWorker() {
+    const isTest = process.env.NODE_ENV === 'test';
+    const isExplicitlyEnabled = process.env.NOTIFICATION_WORKER_ENABLED === 'true';
+    const isExplicitlyDisabled = process.env.NOTIFICATION_WORKER_ENABLED === 'false';
+
+    if (isExplicitlyDisabled || (isTest && !isExplicitlyEnabled)) {
+      this.logger.log('Notification worker auto-polling disabled by environment config.');
+      return;
+    }
+
     this.intervalId = setInterval(() => {
       if (!this.activeProcessingPromise) {
         this.processOutbox();
@@ -92,7 +104,7 @@ export class NotificationWorkerService
             .from(notificationOutbox)
             .where(
               sql`
-                (status = 'PENDING' AND available_at <= NOW())
+                (status = 'PENDING' AND available_at <= NOW() + INTERVAL '5 seconds')
                 OR (status = 'PROCESSING' AND claimed_at <= NOW() - INTERVAL '5 minutes')
               `
             )
@@ -143,7 +155,7 @@ export class NotificationWorkerService
           );
           console.error('Outbox catch block executing for event:', outboxEvent.id, 'Error:', err);
 
-          const attempts = (outboxEvent.attempts || 0) + 1;
+          const attempts = outboxEvent.attempts || 1;
           const status = attempts >= 5 ? 'FAILED' : 'PENDING';
           // Exponential backoff: 2^attempts * 30 seconds
           const nextAvailable = new Date(
