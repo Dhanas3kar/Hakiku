@@ -6,6 +6,13 @@ import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import * as argon2 from 'argon2';
 
+const ARGON2_OPTIONS = {
+  type: argon2.argon2id as 2,
+  memoryCost: 19456,
+  timeCost: 2,
+  parallelism: 1,
+};
+
 // Load .env from apps/api
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -58,7 +65,7 @@ async function provisionAdmin() {
 
     // 2. Provision admin credentials
     console.log(`Provisioning admin credentials for ${adminEmail}...`);
-    const passwordHash = await argon2.hash(adminPassword);
+    const passwordHash = await argon2.hash(adminPassword, ARGON2_OPTIONS);
     
     await db.insert(schema.adminCredentials).values({
       userId: user.id,

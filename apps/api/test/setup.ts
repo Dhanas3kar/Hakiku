@@ -13,3 +13,5 @@ if (!process.env.DATABASE_URL || !process.env.DATABASE_URL.includes('_test')) {
 
 // Force test environment
 process.env.NODE_ENV = 'test';
+process.env.OTP_SECRET = process.env.OTP_SECRET || 'test-otp-secret-key-1234567890';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed';

@@ -81,6 +81,7 @@ describe('Idempotency & Concurrency (e2e)', () => {
     // Sign JWT tokens directly — same pattern as messaging.e2e-spec.ts
     const jwtService = new JwtService({
       secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
+      signOptions: { issuer: 'hakiku.com', audience: 'hakiku.com' },
     });
     tokenA = await jwtService.signAsync({ sub: uA.id, email: uA.email, role: uA.role });
     tokenB = await jwtService.signAsync({ sub: uB.id, email: uB.email, role: uB.role });

@@ -1,8 +1,14 @@
 const { Client } = require('pg');
 const { spawnSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+const dotenv = require('dotenv');
 
 const apiRoot = path.resolve(__dirname, '..');
+if (fs.existsSync(path.join(apiRoot, '.env'))) {
+  dotenv.config({ path: path.join(apiRoot, '.env') });
+}
+
 const dbBaseUrl = 'postgres://postgres:postgres@127.0.0.1:5433/postgres';
 const testDbUrl = 'postgres://postgres:postgres@127.0.0.1:5433/srm_connect_test';
 

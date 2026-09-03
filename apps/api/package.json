@@ -20,11 +20,14 @@
     "test:e2e": "node ./test/run-e2e.js",
     "admin:provision": "ts-node scripts/provision-admin.ts",
     "db:migrate": "ts-node scripts/migrate.ts",
-    "db:reset:dev": "ts-node scripts/dev-reset.ts"
+    "db:push": "drizzle-kit push",
+    "db:reset:dev": "ts-node scripts/dev-reset.ts",
+    "benchmark": "ts-node scripts/benchmark.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
     "@fastify/csrf-protection": "^8.0.1",
+    "@fastify/helmet": "^13.1.1",
     "@fastify/static": "^10.1.3",
     "@nest-lab/throttler-storage-redis": "^1.2.0",
     "@nestjs/common": "^11.0.1",

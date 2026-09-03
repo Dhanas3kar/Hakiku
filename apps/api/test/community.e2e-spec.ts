@@ -52,6 +52,7 @@ describe('CommunityModule (e2e)', () => {
 
     jwtService = new JwtService({
       secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
+      signOptions: { issuer: 'hakiku.com', audience: 'hakiku.com' },
     });
 
     // Pre-cleanup in case of previous test failure

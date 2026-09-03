@@ -60,7 +60,7 @@ describe('Error Contract & Correlation ID (e2e)', () => {
     
     expect(body).toHaveProperty('statusCode', 400);
     expect(body).toHaveProperty('code', 'VALIDATION_ERROR');
-    expect(body).toHaveProperty('message', 'Validation failed');
+    expect(body.message).toContain('email must be an email');
     expect(body).toHaveProperty('correlationId');
     expect(typeof body.correlationId).toBe('string');
   });

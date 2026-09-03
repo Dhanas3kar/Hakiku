@@ -153,7 +153,9 @@ async function resetTestDatabase(): Promise<void> {
           confessions,
           polls,
           community_reports,
-          admin_credentials
+          admin_credentials,
+          notification_outbox,
+          notification_events
         RESTART IDENTITY
         CASCADE
       `)
