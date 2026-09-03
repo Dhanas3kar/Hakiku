@@ -56,18 +56,20 @@ function AuthenticatedLayout() {
   if (status === 'loading') {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-background text-foreground">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-6 w-6 animate-spin text-foreground-muted" />
+        <span className="sr-only">Loading</span>
       </div>
     )
   }
 
   if (status === 'error') {
     return (
-      <div className="flex flex-col min-h-[100dvh] items-center justify-center bg-background text-foreground gap-4">
-        <p className="text-danger font-medium">{auth.error?.message || 'Failed to connect to the server'}</p>
+      <div className="flex flex-col min-h-[100dvh] items-center justify-center bg-background text-foreground gap-4 px-6 text-center">
+        <p className="text-foreground font-medium">We couldn’t reach HAKIKU right now.</p>
+        <p className="text-sm text-foreground-muted">Please check your connection and try again.</p>
         <button
           onClick={() => auth.refetchSession()}
-          className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90"
+          className="h-10 px-4 bg-primary text-primary-foreground rounded-md text-sm font-medium hover:bg-primary-hover"
         >
           Try Again
         </button>

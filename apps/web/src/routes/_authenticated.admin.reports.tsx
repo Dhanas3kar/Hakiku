@@ -15,7 +15,7 @@ function AdminReports() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'reports', filter],
-    queryFn: () => api.get(`/admin/reports?status=${filter}`).then((res) => res.data),
+    queryFn: () => api.get(`/admin/reports?status=${filter}`),
   });
 
   const resolveMutation = useMutation({
@@ -24,6 +24,10 @@ function AdminReports() {
     onSuccess: () => {
       toast.success('Report resolved');
       queryClient.invalidateQueries({ queryKey: ['admin', 'reports'] });
+      queryClient.invalidateQueries({ queryKey: ['feed'] });
+      queryClient.invalidateQueries({ queryKey: ['confessions'] });
+      queryClient.invalidateQueries({ queryKey: ['hot_takes'] });
+      queryClient.invalidateQueries({ queryKey: ['polls'] });
     },
     onError: () => {
       toast.error('Failed to resolve report');

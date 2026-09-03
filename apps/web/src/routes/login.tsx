@@ -4,6 +4,9 @@ import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/auth'
 import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from '../components/ThemeToggle'
+import { BrandLogo } from '../components/ui/BrandLogo'
+import { Input } from '../components/ui/Input'
+import { Button } from '../components/ui/Button'
 
 type LoginSearch = {
   redirect?: string
@@ -52,31 +55,29 @@ function LoginPage() {
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background text-foreground">
       <header className="flex items-center justify-between p-4 md:p-6">
-        <Link to="/" className="flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-sm">
-          <img src="/Dark_theme_logo.png" alt="HAKIKU" className="h-8 w-auto hidden dark:block" />
-          <img src="/light_theme_logo.png" alt="HAKIKU" className="h-8 w-auto block dark:hidden" />
-          <span className="sr-only">HAKIKU</span>
+        <Link to="/" className="flex items-center gap-2 focus-visible:outline-none rounded-md">
+          <BrandLogo />
         </Link>
-        <ThemeToggle />
+        <ThemeToggle compact />
       </header>
 
       <main className="flex flex-1 flex-col justify-center px-0 sm:px-6 lg:px-8 pb-12">
         <div className="mx-auto w-full max-w-md">
-          <div className="rounded-none sm:rounded-2xl border-y sm:border border-border bg-surface sm:bg-surface-elevated px-4 py-8 sm:px-10 shadow-none sm:shadow-sm dark:shadow-none">
-            <div className="mb-8 text-center">
-              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Welcome back</h1>
-              <p className="mt-2 text-sm text-foreground-muted font-medium">
-                Enter your SRM institutional email to sign in
+          <div className="rounded-none sm:rounded-xl border-y sm:border border-border bg-surface px-5 py-10 sm:px-10">
+            <div className="mb-8">
+              <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
+              <p className="mt-2 text-sm text-foreground-muted">
+                Sign in with your SRM institutional email.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="email" className="block text-sm font-semibold text-foreground">
+                <label htmlFor="email" className="block text-sm font-medium text-foreground">
                   Email address
                 </label>
                 <div className="mt-2 relative">
-                  <input
+                  <Input
                     id="email"
                     name="email"
                     type="email"
@@ -85,8 +86,8 @@ function LoginPage() {
                     placeholder="name@srmist.edu.in"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full rounded-xl border border-border bg-surface-muted px-4 py-3 text-foreground placeholder-foreground-subtle focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50 transition-colors"
                     disabled={sendOtpMutation.isPending}
+                    invalid={sendOtpMutation.isError}
                   />
                 </div>
                 {sendOtpMutation.isError && (
@@ -96,13 +97,14 @@ function LoginPage() {
                 )}
               </div>
 
-              <button
+              <Button
                 type="submit"
                 disabled={sendOtpMutation.isPending || (!email.includes('@srmist.edu.in') && email !== 'connectxsrm@gmail.com')}
-                className="flex w-full justify-center rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground transition-all hover:bg-primary-hover active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                loading={sendOtpMutation.isPending}
+                className="w-full"
               >
                 {sendOtpMutation.isPending ? 'Sending...' : 'Send Magic Link / OTP'}
-              </button>
+              </Button>
             </form>
           </div>
 

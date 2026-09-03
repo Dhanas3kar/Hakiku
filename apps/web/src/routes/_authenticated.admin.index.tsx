@@ -11,12 +11,12 @@ export const Route = createFileRoute('/_authenticated/admin/')({
 function AdminDashboard() {
   const { data: reportsData } = useQuery({
     queryKey: ['admin', 'reports', 'PENDING'],
-    queryFn: () => api.get('/admin/reports?status=PENDING').then((res) => res.data),
+    queryFn: () => api.get('/admin/reports?status=PENDING'),
   });
 
   const { data: pulseData, isLoading: pulseLoading } = useQuery({
     queryKey: ['admin', 'campusPulse'],
-    queryFn: () => api.get('/community/campus/pulse').then((res) => res.data),
+    queryFn: () => api.get('/community/campus/pulse'),
   });
 
   const pendingReports = reportsData?.meta?.total || 0;

@@ -16,7 +16,7 @@ function AdminUsers() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'users', search],
-    queryFn: () => api.get(`/admin/users?q=${search}`).then((res) => res.data),
+    queryFn: () => api.get(`/admin/users?q=${search}`),
   });
 
   const statusMutation = useMutation({

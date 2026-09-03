@@ -9,6 +9,8 @@ import { EditPostModal } from '../components/feed/EditPostModal'
 import { MediaViewerModal } from '../components/feed/MediaViewerModal'
 import { PostDetailModal } from '../components/feed/PostDetailModal'
 import { useState, useEffect, useRef } from 'react'
+import { EmptyState } from '../components/ui/EmptyState'
+import { ErrorState } from '../components/ui/ErrorState'
 import type { PostItem } from '../api/posts'
 import { z } from 'zod'
 
@@ -67,7 +69,7 @@ function Home() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full pb-20">
+    <div className="flex flex-col max-w-2xl mx-auto w-full pb-16">
       <PostComposer />
       <ConfessionHero />
 
@@ -75,15 +77,11 @@ function Home() {
         {status === 'pending' ? (
           <FeedSkeleton />
         ) : status === 'error' ? (
-          <div className="text-center p-8 bg-surface-elevated rounded-xl border border-border">
-            <p className="text-danger">Failed to load feed.</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-full text-sm font-medium"
-            >
-              Try Again
-            </button>
-          </div>
+          <ErrorState
+            title="Failed to load feed"
+            description="We couldn’t load campus posts. Check your connection and try again."
+            onRetry={() => window.location.reload()}
+          />
         ) : (
           <>
             {data.pages.map((page: any, i) => (
@@ -101,10 +99,10 @@ function Home() {
             
             {/* Empty State */}
             {(data.pages[0]?.items || []).length === 0 && (
-              <div className="text-center p-12 bg-surface-elevated rounded-xl border border-border">
-                <p className="text-foreground-muted text-lg">No posts yet.</p>
-                <p className="text-foreground-muted text-sm mt-2">Be the first to share something with the campus!</p>
-              </div>
+              <EmptyState
+                title="No posts yet"
+                description="Be the first to share something with campus. Your post will appear here."
+              />
             )}
 
             {/* Load More Trigger */}
@@ -119,7 +117,7 @@ function Home() {
                   Load More
                 </button>
               ) : (data.pages[0]?.items || []).length > 0 ? (
-                <p className="text-sm text-foreground-muted">You've caught up on everything!</p>
+                <p className="text-sm text-foreground-subtle">You’re all caught up.</p>
               ) : null}
             </div>
           </>

@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { AlertCircle, ShieldAlert } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { AUTH_QUERY_KEY } from '../hooks/useAuth';
 
 export const Route = createFileRoute('/admin/login')({
   component: AdminLogin,
@@ -12,6 +14,7 @@ function AdminLogin() {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const queryClient = useQueryClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +41,10 @@ function AdminLogin() {
         throw new Error('Invalid admin credentials');
       }
 
-      // Success, redirect to admin dashboard
+      // Success, invalidate auth cache to trigger a refetch of /profile/me
+      await queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
+
+      // Redirect to admin dashboard
       navigate({ to: '/admin' });
     } catch (err: any) {
       setError(err.message || 'Invalid admin credentials');
