@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useInfiniteQuery, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { messagingApi } from '../../api/messaging'
 import type { MessageItem } from '../../api/messaging'
@@ -8,6 +8,7 @@ import { format } from 'date-fns'
 import { Loader2, Send, Image as ImageIcon, ArrowLeft } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useIntersectionObserver } from 'usehooks-ts'
+import { Avatar } from '../ui/Avatar'
 
 // --- Zero-Crash Utilities ---
 class ErrorBoundary extends React.Component<{ children: React.ReactNode, fallback?: React.ReactNode }, { hasError: boolean }> {
@@ -36,16 +37,17 @@ function safeFormatTime(dateStr: string | Date | null | undefined): string {
 }
 
 function MessageBubble({ message, isMine, showTime }: { message: any, isMine: boolean, showTime: boolean }) {
-  const hasMedia = Array.isArray(message.media) && message.media.length > 0;
+  const hasMedia = Array.isArray(message.media) && message.media.length > 0
+  const isPending = typeof message.id === 'string' && message.id.startsWith('temp-')
   
   return (
     <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} max-w-full`}>
       <div 
-        className={`max-w-[75%] px-4 py-2 rounded-2xl ${
+        className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-[15px] leading-relaxed ${
           isMine 
-            ? 'bg-primary text-primary-foreground rounded-br-sm' 
-            : 'bg-surface-muted text-foreground rounded-bl-sm'
-        } break-words`}
+            ? 'bg-primary text-primary-foreground rounded-br-md' 
+            : 'bg-surface-muted text-foreground rounded-bl-md'
+        } break-words ${isPending ? 'opacity-70' : ''}`}
       >
         {message.isDeleted ? (
           <span className="italic opacity-70">This message was deleted</span>
@@ -54,7 +56,7 @@ function MessageBubble({ message, isMine, showTime }: { message: any, isMine: bo
             {hasMedia && (
               <div className="flex gap-2 flex-wrap mb-2">
                 {message.media.map((m: any, i: number) => (
-                  <img key={i} src={m?.url || ''} alt="Attached media" loading="lazy" decoding="async" className="max-w-full rounded-lg object-cover max-h-64" />
+                  <img key={i} src={m?.url || ''} alt="Attached media" loading="lazy" decoding="async" className="max-w-full rounded-md object-cover max-h-64" />
                 ))}
               </div>
             )}
@@ -63,8 +65,8 @@ function MessageBubble({ message, isMine, showTime }: { message: any, isMine: bo
         )}
       </div>
       {showTime && (
-        <span className="text-[10px] text-foreground-muted mt-1 px-1">
-          {safeFormatTime(message.createdAt)}
+        <span className="text-[11px] text-foreground-subtle mt-1 px-1">
+          {isPending ? 'Sending…' : safeFormatTime(message.createdAt)}
         </span>
       )}
     </div>
@@ -292,29 +294,24 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-surface w-full relative">
+    <div className="flex flex-col h-full bg-background w-full relative">
       {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-border bg-surface/95 backdrop-blur z-10 shrink-0">
+      <div className="flex items-center gap-3 px-3 py-3 border-b border-border-subtle bg-surface z-10 shrink-0">
         <Link 
           to="/messages" 
-          className="md:hidden p-2 -ml-2 rounded-full hover:bg-surface-muted text-foreground-muted"
+          className="md:hidden p-2 -ml-2 rounded-md hover:bg-surface-muted text-foreground-muted min-h-11 min-w-11 inline-flex items-center justify-center"
+          aria-label="Back to conversations"
         >
           <ArrowLeft className="h-5 w-5" />
         </Link>
-        <div className="relative shrink-0">
-          {otherUser?.avatarUrl ? (
-            <img src={otherUser.avatarUrl} alt="" loading="lazy" decoding="async" className="h-10 w-10 rounded-full object-cover" />
-          ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <span className="font-medium">{otherUser?.displayName?.[0] || '?'}</span>
-            </div>
-          )}
-        </div>
+        <Avatar src={otherUser?.avatarUrl} name={otherUser?.displayName || 'User'} />
         <div className="flex flex-col min-w-0">
           <span className="font-semibold text-foreground truncate">
             {otherUser?.displayName || 'Unknown User'}
           </span>
-          {/* Typically we'd show online status here */}
+          <span className="text-[11px] text-foreground-subtle">
+            {isConnected.messaging ? 'Connected' : 'Reconnecting…'}
+          </span>
         </div>
       </div>
 
@@ -325,18 +322,20 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : status === 'error' ? (
-          <div className="flex flex-col items-center justify-center h-full w-full">
-            <p className="text-sm text-danger font-medium mb-2">Failed to load chat</p>
+          <div className="flex flex-col items-center justify-center h-full w-full px-6 text-center">
+            <p className="text-sm font-medium text-foreground mb-1">Couldn’t load this conversation</p>
+            <p className="text-xs text-foreground-muted mb-3">Please try again.</p>
             <button 
               onClick={() => queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })}
-              className="text-xs text-primary hover:underline"
+              className="text-sm font-medium text-primary hover:text-primary-hover"
             >
               Try Again
             </button>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-foreground-muted">
-            <p>Start a conversation with {otherUser?.displayName}</p>
+          <div className="flex flex-col items-center justify-center h-full text-foreground-muted px-6 text-center">
+            <p className="text-sm">No messages yet.</p>
+            <p className="text-xs mt-1 text-foreground-subtle">Say hello to {otherUser?.displayName || 'them'}.</p>
           </div>
         ) : (
           <>
@@ -374,12 +373,13 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
       </div>
 
       {/* Input Area \u2014 pb-safe for iOS home indicator */}
-      <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-border bg-surface shrink-0">
+      <div className="p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))] border-t border-border-subtle bg-surface shrink-0">
         <form onSubmit={handleSend} className="flex items-end gap-2">
           <button 
             type="button" 
-            className="p-3 text-foreground-muted hover:text-foreground hover:bg-surface-muted rounded-full transition-colors shrink-0"
+            className="p-3 text-foreground-muted hover:text-foreground hover:bg-surface-muted rounded-md transition-colors shrink-0 min-h-11 min-w-11"
             title="Attach image"
+            aria-label="Attach image"
           >
             <ImageIcon className="h-5 w-5" />
           </button>
@@ -394,14 +394,15 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
               }
             }}
             placeholder="Type a message..."
-            className="flex-1 max-h-32 min-h-[44px] resize-none bg-surface-muted border-none rounded-2xl px-4 py-3 text-sm text-foreground focus:ring-2 focus:ring-primary/50 placeholder:text-foreground-muted scrollbar-hide"
+            className="flex-1 max-h-32 min-h-[44px] resize-none bg-surface-muted border border-transparent rounded-md px-4 py-3 text-sm text-foreground focus:border-primary focus:ring-0 placeholder:text-foreground-subtle scrollbar-hide"
             rows={1}
           />
           
           <button 
             type="submit" 
             disabled={!inputText.trim() || sendMessageMutation.isPending}
-            className="p-3 bg-primary text-primary-foreground rounded-full hover:bg-primary/90 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-3 bg-primary text-primary-foreground rounded-md hover:bg-primary-hover transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed min-h-11 min-w-11 inline-flex items-center justify-center"
+            aria-label="Send message"
           >
             {sendMessageMutation.isPending ? (
               <Loader2 className="h-5 w-5 animate-spin" />

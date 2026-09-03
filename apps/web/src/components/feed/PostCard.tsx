@@ -9,6 +9,7 @@ import { ReportDialog } from '../community/ReportDialog'
 import { PollCard } from '../community/PollCard'
 import { toast } from 'sonner'
 import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { Avatar } from '../ui/Avatar'
 
 interface PostCardProps {
   post: PostItem
@@ -101,32 +102,17 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
   const authorUsername = post.author?.username || 'unknown'
   const avatarUrl = post.author?.avatarUrl
   const department = post.author?.department
-  const initial = authorName.charAt(0).toUpperCase()
 
   return (
-    <article className="mb-0 sm:mb-4 rounded-none sm:rounded-xl border-b sm:border border-border bg-surface-elevated shadow-none sm:shadow-sm dark:shadow-none overflow-hidden transition-colors">
-      <div className="p-4 sm:p-5">
+    <article className="border-b border-border-subtle bg-surface sm:bg-transparent">
+      <div className="px-4 py-5 sm:px-1 sm:py-6">
         {/* Header – perfectly aligned avatar + meta + menu */}
         <div className="flex items-start gap-3 mb-3">
-          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-surface-muted border border-border">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={authorName}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted">
-                {initial}
-              </div>
-            )}
-          </div>
+          <Avatar src={avatarUrl} alt={authorName} name={authorName} />
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-foreground text-sm sm:text-base leading-tight truncate max-w-[160px] sm:max-w-none">
+              <span className="font-semibold text-foreground text-[15px] leading-tight truncate max-w-[160px] sm:max-w-none">
                 {authorName}
               </span>
               {post.author?.isVerifiedIdentity && <VerifiedBadge />}
@@ -165,7 +151,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
             </button>
 
             {showMenu && (
-              <div className="absolute right-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface shadow-md py-1 z-10">
+              <div className="absolute right-0 top-full mt-1 w-48 max-w-[calc(100vw-2rem)] rounded-md border border-border bg-surface shadow-md py-1 z-10">
                 {isOwner ? (
                   <>
                     <button
@@ -208,7 +194,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
 
         {/* Content */}
         {post.content && (
-          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
+          <p className="mt-3 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground">
             <FormattedContent content={post.content} />
           </p>
         )}
@@ -216,7 +202,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
         {/* Media Grid */}
         {post.media && post.media.length > 0 && (
           <div
-            className={`mt-3 -mx-4 sm:mx-0 grid gap-0.5 sm:gap-1 overflow-hidden sm:rounded-xl border-y sm:border border-border dark:border-transparent bg-surface-muted ${post.media.length === 1
+            className={`mt-4 -mx-4 sm:mx-0 grid gap-px overflow-hidden sm:rounded-lg border-y sm:border border-border-subtle bg-surface-muted ${post.media.length === 1}
                 ? 'grid-cols-1'
                 : post.media.length === 2
                   ? 'grid-cols-2 aspect-video'
@@ -260,7 +246,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
       </div>
 
       {/* Actions – single perfectly aligned row */}
-      <div className="flex items-center justify-between border-t border-border/60 px-4 py-2 bg-surface-muted/30">
+      <div className="flex items-center justify-between px-4 pb-4 sm:px-1 sm:pb-5">
         <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={handleLikeClick}
@@ -295,7 +281,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
 
       {/* Comments */}
       {showComments && (
-        <div className="border-t border-border/60 bg-surface-muted/10 p-4">
+        <div className="px-4 pb-5 sm:px-1">
           <CommentsSection postId={post.id} />
         </div>
       )}

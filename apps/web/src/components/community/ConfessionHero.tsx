@@ -5,7 +5,7 @@ import { AlertCircle } from 'lucide-react'
 export function ConfessionHero() {
   const { data, isLoading } = useQuery({
     queryKey: ['confessions', 'trending'],
-    queryFn: () => api.get('/community/confessions/trending').then((res) => res.data),
+    queryFn: () => api.get('/community/confessions/hero'),
   })
 
   if (isLoading || !data?.length) return null

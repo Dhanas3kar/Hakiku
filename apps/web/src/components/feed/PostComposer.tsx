@@ -4,6 +4,8 @@ import { postsApi, type PostVisibility, type PostMedia, type PostItem } from '..
 import { communityApi } from '../../api/community'
 import { useAuth } from '../../hooks/useAuth'
 import { Image, X, Loader2, Globe, Users, Lock, Send, BarChart2, Plus } from 'lucide-react'
+import { Avatar } from '../ui/Avatar'
+import { Button } from '../ui/Button'
 
 interface PostComposerProps {
   onPostCreated?: (newPost: PostItem) => void
@@ -134,32 +136,22 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
       (isCreatingPoll && pollOptions.filter((o) => o.trim().length > 0).length >= 2))
 
   return (
-    <div className="mb-2 sm:mb-6 rounded-none sm:rounded-xl border-b sm:border border-border bg-surface-elevated p-4 sm:p-5 shadow-none sm:shadow-sm dark:shadow-none transition-colors">
+    <div className="mb-0 sm:mb-2 border-b border-border-subtle bg-surface sm:bg-transparent px-4 py-5 sm:px-1 sm:py-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Avatar + Textarea */}
         <div className="flex items-start gap-3">
-          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-surface-muted border border-border">
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.displayName || user.fullName || 'User'}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted">
-                {(user?.displayName || user?.fullName || 'S').charAt(0)}
-              </div>
-            )}
-          </div>
+          <Avatar
+            src={user?.avatarUrl}
+            alt={user?.displayName || user?.fullName || 'User'}
+            name={user?.displayName || user?.fullName || 'S'}
+          />
           <div className="flex-1 min-w-0">
             <textarea
               rows={3}
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="What's happening on campus?"
-              className="w-full resize-none border-none bg-transparent text-sm sm:text-base text-foreground placeholder-foreground-subtle focus:outline-none focus:ring-0"
+              className="w-full resize-none border-none bg-transparent text-[15px] leading-relaxed text-foreground placeholder-foreground-subtle focus:outline-none focus:ring-0"
             />
           </div>
         </div>
@@ -217,7 +209,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
 
         {/* Poll UI */}
         {isCreatingPoll && (
-          <div className="space-y-3 mt-4 border border-border rounded-xl p-4 bg-surface-muted/50">
+          <div className="space-y-3 mt-2 border border-border rounded-md p-4 bg-surface-muted/50">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-semibold text-foreground">Poll Options</h4>
               <button
@@ -244,7 +236,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
                       setPollOptions(newOpts)
                     }}
                     placeholder={`Option ${i + 1}`}
-                    className="flex-1 bg-surface border border-border rounded-lg p-2 text-sm focus:outline-none focus:border-primary"
+                    className="hk-input h-9 flex-1 text-sm"
                     maxLength={50}
                   />
                   {pollOptions.length > 2 && (
@@ -274,7 +266,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
         )}
 
         {/* Action bar — wraps gracefully on very narrow screens */}
-        <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-3">
+        <div className="flex items-center justify-between gap-2 pt-1">
           <div className="flex items-center gap-0.5 sm:gap-1 min-w-0 flex-wrap">
             <input
               type="file"
@@ -310,7 +302,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
               <select
                 value={visibility}
                 onChange={(e) => setVisibility(e.target.value as PostVisibility)}
-                className="appearance-none rounded-lg border border-border bg-surface-muted pl-2 pr-6 py-1.5 text-xs font-medium text-foreground focus:border-focus focus:outline-none max-w-[90px] sm:max-w-none"
+                className="appearance-none rounded-md border border-border bg-surface pl-2 pr-6 py-1.5 text-xs font-medium text-foreground focus:border-focus focus:outline-none max-w-[90px] sm:max-w-none"
                 aria-label="Post visibility"
               >
                 <option value="PUBLIC">Public</option>
@@ -325,23 +317,16 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
             </div>
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={!canSubmit}
-            className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-foreground hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 shrink-0"
+            loading={createPostMutation.isPending}
+            size="sm"
+            className="shrink-0"
           >
-            {createPostMutation.isPending ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span>Posting...</span>
-              </>
-            ) : (
-              <>
-                <span>Post</span>
-                <Send className="h-3.5 w-3.5" />
-              </>
-            )}
-          </button>
+            {createPostMutation.isPending ? 'Posting...' : 'Post'}
+            {!createPostMutation.isPending && <Send className="h-3.5 w-3.5" />}
+          </Button>
         </div>
       </form>
     </div>

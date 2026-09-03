@@ -14,14 +14,16 @@ const SESSION_KEY = 'hakiku_splash_shown'
  * 3. The SplashScreen component handles minimum display time and safety timeout.
  */
 export function useSplash() {
-  // Check sessionStorage synchronously — never show splash on SPA navigations
-  const [shouldShow] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false
-    if (sessionStorage.getItem(SESSION_KEY)) return false
-    return true
-  })
+  const [shouldShow, setShouldShow] = useState(true)
+  const [ready, setReady] = useState(false)
 
-  const [ready, setReady] = useState(!shouldShow)
+  // On mount, check if we should actually hide it
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem(SESSION_KEY)) {
+      setShouldShow(false)
+      setReady(true)
+    }
+  }, [])
 
   // Track whether the auth query was ever seen in-flight
   const authWasInFlightRef = useRef(false)

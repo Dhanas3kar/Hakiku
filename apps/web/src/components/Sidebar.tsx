@@ -3,15 +3,23 @@ import { Home, Compass, MessageSquare, Bell, User, Settings, LogOut, Shield } fr
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from './ThemeToggle'
+import { BrandLogo } from './ui/BrandLogo'
+import { Avatar } from './ui/Avatar'
+import { cn } from '../lib/cn'
 
 export function Sidebar() {
   const { logout, user } = useAuth()
   const unreadCounts = useUnreadCounts()
-  const navItems = [
+  const navItems: Array<{
+    label: string
+    to: string
+    icon: typeof Home
+    badge?: number
+  }> = [
     { label: 'Home', to: '/', icon: Home },
     { label: 'Discover', to: '/discover', icon: Compass },
-    { label: 'Messages', to: '/messages', icon: MessageSquare },
-    { label: 'Notifications', to: '/notifications', icon: Bell },
+    { label: 'Messages', to: '/messages', icon: MessageSquare, badge: unreadCounts.messages },
+    { label: 'Notifications', to: '/notifications', icon: Bell, badge: unreadCounts.notifications },
     { label: 'Profile', to: `/profile/${user?.username || ''}`, icon: User },
     { label: 'Settings', to: '/settings', icon: Settings },
   ]
@@ -20,41 +28,50 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-border dark:border-transparent bg-surface px-4 py-6 md:flex h-[100dvh] sticky top-0 overflow-y-auto">
-      <Link to="/" className="mb-8 flex items-center gap-2 px-2 text-foreground no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus rounded-sm">
-        <img src="/Dark_theme_logo.png" alt="HAKIKU" className="h-8 w-auto hidden dark:block" />
-        <img src="/light_theme_logo.png" alt="HAKIKU" className="h-8 w-auto block dark:hidden" />
-        <span className="sr-only">HAKIKU</span>
+    <aside className="hidden w-[248px] shrink-0 flex-col border-r border-border-subtle bg-surface px-4 py-6 md:flex h-[100dvh] sticky top-0 overflow-y-auto">
+      <Link
+        to="/"
+        className="mb-10 flex items-center gap-2 px-2 text-foreground no-underline focus-visible:outline-none rounded-md"
+      >
+        <BrandLogo className="h-7" />
       </Link>
 
-      <nav className="flex flex-1 flex-col gap-1">
+      <nav className="flex flex-1 flex-col gap-0.5">
         {navItems.map((item) => (
           <Link
             key={item.to}
             to={item.to}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus relative"
-            activeProps={{ className: 'bg-surface-muted text-primary font-semibold', 'aria-current': 'page' }}
+            className="group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground-muted transition-colors duration-150 hover:bg-surface-muted hover:text-foreground focus-visible:outline-none relative"
+            activeProps={{ className: 'bg-surface-muted text-foreground', 'aria-current': 'page' }}
           >
-            <item.icon className="h-5 w-5" />
+            <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
             <span className="flex-1">{item.label}</span>
-            {item.label === 'Notifications' && unreadCounts.notifications > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                {unreadCounts.notifications > 99 ? '99+' : unreadCounts.notifications}
-              </span>
-            )}
-            {item.label === 'Messages' && unreadCounts.messages > 0 && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                {unreadCounts.messages > 99 ? '99+' : unreadCounts.messages}
+            {!!item.badge && item.badge > 0 && (
+              <span className="flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+                {item.badge > 99 ? '99+' : item.badge}
               </span>
             )}
           </Link>
         ))}
       </nav>
 
-      <div className="mt-auto border-t border-border pt-4 flex flex-col gap-2">
-        <div className="px-3">
-          <ThemeToggle />
+      <div className="mt-auto border-t border-border-subtle pt-4 flex flex-col gap-3">
+        <div className="flex items-center gap-3 px-2">
+          <Avatar
+            src={user?.avatarUrl}
+            name={user?.displayName || user?.fullName || user?.username || 'You'}
+            size="sm"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-foreground">
+              {user?.displayName || user?.fullName || 'You'}
+            </p>
+            {user?.username && (
+              <p className="truncate text-xs text-foreground-muted">@{user.username}</p>
+            )}
+          </div>
         </div>
+        <ThemeToggle />
         <button
           type="button"
           onClick={() => {
@@ -62,9 +79,11 @@ export function Sidebar() {
               logout()
             }
           }}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground-muted transition-colors hover:bg-surface-muted hover:text-danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          className={cn(
+            'flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground-muted transition-colors duration-150 hover:bg-surface-muted hover:text-danger focus-visible:outline-none',
+          )}
         >
-          <LogOut className="h-5 w-5" />
+          <LogOut className="h-[18px] w-[18px]" strokeWidth={1.75} />
           Logout
         </button>
       </div>

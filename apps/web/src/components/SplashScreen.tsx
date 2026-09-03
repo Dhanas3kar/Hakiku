@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 
 /**
  * SplashScreen — shown on initial app load while auth/session is resolving.
@@ -189,9 +188,5 @@ export function SplashScreen({ ready }: SplashScreenProps) {
     </div>
   )
 
-  // Only render via portal if document is defined (browser environment)
-  if (typeof document !== 'undefined') {
-    return createPortal(splashContent, document.body)
-  }
   return splashContent
 }

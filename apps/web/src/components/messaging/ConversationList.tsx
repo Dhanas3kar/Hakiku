@@ -6,6 +6,9 @@ import { useSocket } from '../../hooks/useSocket'
 import { formatDistanceToNow } from 'date-fns'
 import { Loader2, Plus, MessageSquare, Search } from 'lucide-react'
 import { useIntersectionObserver } from 'usehooks-ts'
+import { Avatar } from '../ui/Avatar'
+import { EmptyState } from '../ui/EmptyState'
+import { ErrorState } from '../ui/ErrorState'
 
 export function ConversationList() {
   const { isConnected, messagingSocket } = useSocket()
@@ -110,8 +113,8 @@ export function ConversationList() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
-        <h2 className="font-bold text-xl text-foreground">Messages</h2>
+      <div className="px-4 py-4 border-b border-border-subtle flex items-center justify-between shrink-0">
+        <h2 className="font-semibold text-xl tracking-tight text-foreground">Messages</h2>
         <button 
           className="p-2 rounded-full hover:bg-surface-muted text-foreground transition-colors"
           title="New Conversation"
@@ -122,13 +125,13 @@ export function ConversationList() {
       </div>
 
       {/* Search (Placeholder) */}
-      <div className="p-3 border-b border-border shrink-0">
+      <div className="p-3 border-b border-border-subtle shrink-0">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-muted" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle" />
           <input 
             type="text" 
             placeholder="Search messages..." 
-            className="w-full bg-surface-muted text-sm rounded-full pl-9 pr-4 py-2 border-none focus:ring-2 focus:ring-primary text-foreground placeholder:text-foreground-muted outline-none transition-shadow"
+            className="hk-input h-10 pl-9 text-sm"
           />
         </div>
       </div>
@@ -140,22 +143,19 @@ export function ConversationList() {
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : status === 'error' ? (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-            <p className="text-sm text-danger font-medium mb-2">Failed to load messages</p>
-            <button 
-              onClick={() => queryClient.invalidateQueries({ queryKey: ['conversations'] })}
-              className="text-xs text-primary hover:underline"
-            >
-              Try Again
-            </button>
-          </div>
+          <ErrorState
+            title="Couldn’t load messages"
+            description="Please try again in a moment."
+            onRetry={() => queryClient.invalidateQueries({ queryKey: ['conversations'] })}
+          />
         ) : conversations.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full p-8 text-center text-foreground-muted">
-            <MessageSquare className="h-10 w-10 mb-2 opacity-20" />
-            <p className="text-sm">No messages yet</p>
-          </div>
+          <EmptyState
+            icon={<MessageSquare className="h-5 w-5" />}
+            title="No messages yet"
+            description="When you connect with someone, conversations will appear here."
+          />
         ) : (
-          <ul className="divide-y divide-border/50">
+          <ul>
             {conversations.map((conv) => {
               const otherUser = conv.targetUser
               const latestMsg = conv.latestMessage
@@ -165,21 +165,10 @@ export function ConversationList() {
                   <Link
                     to="/messages/$conversationId"
                     params={{ conversationId: conv.id }}
-                    className="flex items-center gap-3 p-3 hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:bg-surface-muted"
-                    activeProps={{ className: 'bg-surface-muted relative before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-primary' }}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-surface-muted transition-colors duration-150 focus-visible:outline-none focus-visible:bg-surface-muted"
+                    activeProps={{ className: 'bg-surface-muted' }}
                   >
-                    {/* Avatar */}
-                    <div className="relative shrink-0">
-                      {otherUser?.avatarUrl ? (
-                        <img src={otherUser.avatarUrl} alt="" loading="lazy" decoding="async" className="h-12 w-12 rounded-full object-cover" />
-                      ) : (
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-                          <span className="text-lg font-medium">
-                            {otherUser?.displayName?.[0] || '?'}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                    <Avatar src={otherUser?.avatarUrl} name={otherUser?.displayName || 'User'} size="lg" />
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">

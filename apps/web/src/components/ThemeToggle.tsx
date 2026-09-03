@@ -1,4 +1,6 @@
+import { Monitor, Moon, Sun } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { cn } from '../lib/cn'
 
 type ThemeMode = 'light' | 'dark' | 'auto'
 
@@ -31,7 +33,7 @@ function applyThemeMode(mode: ThemeMode) {
   document.documentElement.style.colorScheme = resolved
 }
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ compact = false }: { compact?: boolean }) {
   const [mode, setMode] = useState<ThemeMode>('auto')
 
   useEffect(() => {
@@ -67,15 +69,21 @@ export default function ThemeToggle() {
       ? 'Theme mode: auto (system). Click to switch to light mode.'
       : `Theme mode: ${mode}. Click to switch mode.`
 
+  const Icon = mode === 'auto' ? Monitor : mode === 'dark' ? Moon : Sun
+
   return (
     <button
       type="button"
       onClick={toggleMode}
       aria-label={label}
       title={label}
-      className="rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-semibold text-foreground shadow-sm transition hover:bg-surface-muted"
+      className={cn(
+        'inline-flex items-center gap-2 rounded-md border border-border bg-surface text-sm font-medium text-foreground-muted transition-colors duration-150 hover:bg-surface-muted hover:text-foreground',
+        compact ? 'h-9 w-9 justify-center' : 'h-9 w-full justify-start px-3',
+      )}
     >
-      {mode === 'auto' ? 'System' : mode === 'dark' ? 'Dark' : 'Light'}
+      <Icon className="h-4 w-4" strokeWidth={1.75} />
+      {!compact && <span>{mode === 'auto' ? 'System' : mode === 'dark' ? 'Dark' : 'Light'}</span>}
     </button>
   )
 }
