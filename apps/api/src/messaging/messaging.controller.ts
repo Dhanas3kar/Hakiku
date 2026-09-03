@@ -11,6 +11,7 @@ import {
   Req,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
+import { RequestMediaUploadDto } from './dto/request-media-upload.dto';
 import { ConversationService } from './services/conversation.service';
 import { MessageService } from './services/message.service';
 import { MessageQueryService } from './services/message-query.service';
@@ -114,7 +115,7 @@ export class MessagingController {
   @Post('media/upload')
   async requestMediaUpload(
     @Req() req: any,
-    @Body() dto: { mimeType: string; fileSize: number },
+    @Body() dto: RequestMediaUploadDto,
   ) {
     return this.messageMediaService.requestMediaUpload(
       req.user.sub,

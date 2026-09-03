@@ -4,11 +4,14 @@ import {
   Patch,
   Delete,
   Param,
-  Query,
   Body,
+  Query,
   UseGuards,
   Req,
 } from '@nestjs/common';
+import { ResolveReportDto } from './dto/resolve-report.dto';
+import { UpdateUserStatusDto } from './dto/update-user-status.dto';
+import { ModerateContentDto } from './dto/moderate-content.dto';
 import { AdminService } from './services/admin.service';
 import { MetricsService } from '../metrics/metrics.service';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
@@ -44,7 +47,7 @@ export class AdminController {
   async resolveReport(
     @Req() req: any,
     @Param('id') reportId: string,
-    @Body() body: { action: 'DISMISS' | 'REMOVE_CONTENT'; reason?: string },
+    @Body() body: ResolveReportDto,
   ) {
     return this.adminService.resolveReport(
       req.user.sub,
@@ -63,7 +66,7 @@ export class AdminController {
   async setUserStatus(
     @Req() req: any,
     @Param('id') targetId: string,
-    @Body() body: { status: 'ACTIVE' | 'BANNED'; reason: string },
+    @Body() body: UpdateUserStatusDto,
   ) {
     return this.adminService.setUserStatus(
       req.user.sub,
@@ -77,7 +80,7 @@ export class AdminController {
   async moderatePost(
     @Req() req: any,
     @Param('id') postId: string,
-    @Body() body: { reason: string },
+    @Body() body: ModerateContentDto,
   ) {
     return this.adminService.moderatePost(
       req.user.sub,
@@ -90,7 +93,7 @@ export class AdminController {
   async moderateComment(
     @Req() req: any,
     @Param('id') commentId: string,
-    @Body() body: { reason: string },
+    @Body() body: ModerateContentDto,
   ) {
     return this.adminService.moderateComment(
       req.user.sub,

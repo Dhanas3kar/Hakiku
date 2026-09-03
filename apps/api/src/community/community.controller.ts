@@ -121,11 +121,15 @@ export class CommunityController {
   // ==========================================
 
   @Get('campus/pulse')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   async getGlobalPulse() {
     return this.campusPulseService.getGlobalPulse();
   }
 
   @Get('campus/insights')
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
   async getCampusInsights(@Req() req: AuthenticatedRequest) {
     return this.campusInsightsService.getInsights(req.user.sub);
   }
