@@ -15,7 +15,7 @@ export class JwtAuthGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<FastifyRequest>();
 
     // Extract token from cookie or Authorization header
-    let token = request.cookies?.['access_token'];
+    let token = (request as any).cookies?.['access_token'];
     if (!token) {
       const authHeader = request.headers['authorization'];
       if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -29,8 +29,10 @@ export class JwtAuthGuard implements CanActivate {
 
     try {
       const payload = await this.jwtService.verifyAsync(token, {
-        secret:
-          process.env.JWT_SECRET!,
+        secret: process.env.JWT_SECRET!,
+        issuer: process.env.JWT_ISSUER || 'hakiku.com',
+        audience: process.env.JWT_AUDIENCE || 'hakiku.com',
+        ignoreExpiration: false,
       });
       (request as any).user = payload;
       return true;

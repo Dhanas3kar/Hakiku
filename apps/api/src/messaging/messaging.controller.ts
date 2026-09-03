@@ -16,6 +16,7 @@ import { MessageService } from './services/message.service';
 import { MessageQueryService } from './services/message-query.service';
 import { MessageReadService } from './services/message-read.service';
 import { MessageMediaService } from './services/message-media.service';
+import { CreateMessageDto } from './dto/create-message.dto';
 
 @Controller('messages')
 @UseGuards(JwtAuthGuard)
@@ -56,13 +57,7 @@ export class MessagingController {
   async sendMessage(
     @Req() req: any,
     @Param('conversationId') conversationId: string,
-    @Body()
-    dto: {
-      content?: string;
-      messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE';
-      mediaKeys?: string[];
-      replyToMessageId?: string;
-    },
+    @Body() dto: CreateMessageDto,
   ) {
     return this.messageService.sendMessage(req.user.sub, conversationId, dto);
   }

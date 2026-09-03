@@ -138,7 +138,7 @@ export class MessageService {
         conversation.userAId === userId
           ? conversation.userBId
           : conversation.userAId;
-      await this.outboxService.appendEvent(tx, crypto.randomUUID(), 'MESSAGE', {
+      await this.outboxService.appendEvent(tx, `MSG_${newMessageId}`, 'MESSAGE', {
         actorId: userId,
         recipientId: targetUserId,
         entityType: 'CONVERSATION',

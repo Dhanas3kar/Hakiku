@@ -7,23 +7,20 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleDestroy } from '@nestjs/common';
 import { verifyWsClient } from '../auth/utils/ws-auth.util';
 import { Redis } from 'ioredis';
 
 @WebSocketGateway({
   cors: {
-    origin: process.env.ALLOWED_ORIGIN || [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-      'http://localhost:3003',
-    ],
+    origin: process.env.CORS_ALLOWED_ORIGINS 
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+      : (process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : ['http://localhost:3000']),
     credentials: true,
   },
 })
 export class NotificationGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy
 {
   @WebSocketServer() server: Server;
   private readonly logger = new Logger(NotificationGateway.name);
@@ -34,6 +31,12 @@ export class NotificationGateway
 
   constructor(private readonly jwtService: JwtService) {}
 
+  async onModuleDestroy() {
+    if (this.subscriberClient) {
+      await this.subscriberClient.quit();
+    }
+  }
+
   afterInit() {
     this.subscriberClient = new Redis(
       process.env.REDIS_URL || 'redis://localhost:6379',
@@ -41,8 +44,15 @@ export class NotificationGateway
         keyPrefix:
           process.env.REDIS_PREFIX ||
           (process.env.NODE_ENV === 'test' ? 'test:' : 'dev:'),
+        enableOfflineQueue: process.env.NODE_ENV === 'test',
+        maxRetriesPerRequest: 3,
+        retryStrategy: (times) => Math.min(times * 100, 2000),
       }
     );
+
+    this.subscriberClient.on('error', (err) => {
+      console.error('[NotificationGateway] Redis subscription error:', err.message);
+    });
 
     this.subscriberClient.subscribe('notification_events', (err, count) => {
       if (err) {

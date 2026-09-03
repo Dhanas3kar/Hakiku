@@ -1,5 +1,4 @@
 import { Module, Global } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { NotificationsController } from './notifications.controller';
 import { NotificationService } from './services/notification.service';
 import { NotificationOutboxService } from './services/notification-outbox.service';
@@ -12,12 +11,7 @@ import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
 
 @Global()
 @Module({
-  imports: [
-    JwtModule.register({
-      secret: process.env.JWT_SECRET!,
-    }),
-    NetworkingModule,
-  ],
+  imports: [NetworkingModule],
   controllers: [NotificationsController],
   providers: [
     NotificationService,

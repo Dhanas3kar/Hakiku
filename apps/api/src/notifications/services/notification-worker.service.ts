@@ -26,6 +26,7 @@ export class NotificationWorkerService
   private db;
   private isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
+  private activeProcessingPromise: Promise<void> | null = null;
 
   constructor(
     private readonly privacyService: NotificationPrivacyService,
@@ -44,49 +45,89 @@ export class NotificationWorkerService
   async onModuleDestroy() {
     this.isRunning = false;
     if (this.intervalId) clearInterval(this.intervalId);
+    if (this.activeProcessingPromise) {
+      await this.activeProcessingPromise;
+    }
   }
 
   private startWorker() {
-    this.intervalId = setInterval(() => this.processOutbox(), 5000);
+    this.intervalId = setInterval(() => {
+      if (!this.activeProcessingPromise) {
+        this.processOutbox();
+      }
+    }, 5000);
     // Run immediately on start
     this.processOutbox();
   }
 
-  private async processOutbox() {
+  public async processOutbox() {
     if (!this.isRunning) return;
 
+    // If a loop is already running, wait for it to finish, then run again.
+    // This is required for E2E tests which insert items and immediately call processOutbox().
+    if (this.activeProcessingPromise) {
+      await this.activeProcessingPromise;
+    }
+
+    if (!this.isRunning) return;
+
+    const currentPromise = this.runOutboxLoop();
+    this.activeProcessingPromise = currentPromise;
+    
     try {
-      // 1. Claim up to 50 pending events and mark them as PROCESSING
-      const pendingEvents = await this.db.transaction(async (tx: any) => {
-        const events = await tx.execute(
-          sql`
-            SELECT * FROM notification_outbox
-            WHERE status IN ('PENDING', 'PROCESSING')
-              AND available_at <= NOW()
-            ORDER BY created_at ASC
-            LIMIT 50
-            FOR UPDATE SKIP LOCKED
-          `,
-        );
+      await currentPromise;
+    } finally {
+      if (this.activeProcessingPromise === currentPromise) {
+        this.activeProcessingPromise = null;
+      }
+    }
+  }
 
-        if (events.length === 0) return [];
+  private async runOutboxLoop(): Promise<void> {
+    try {
+        // 1. Claim up to 50 pending events, increment attempts, and mark as PROCESSING
+        const pendingEvents = await this.db.transaction(async (tx: any) => {
+          const events = await tx
+            .select()
+            .from(notificationOutbox)
+            .where(
+              sql`
+                (status = 'PENDING' AND available_at <= NOW())
+                OR (status = 'PROCESSING' AND claimed_at <= NOW() - INTERVAL '5 minutes')
+              `
+            )
+            .orderBy(notificationOutbox.createdAt)
+            .limit(50)
+            .for('update', { skipLocked: true });
 
-        const eventIds = events.map((e: any) => e.id);
+          if (events.length === 0) return [];
 
-        await tx
-          .update(notificationOutbox)
-          .set({ status: 'PROCESSING', updatedAt: new Date() })
-          .where(inArray(notificationOutbox.id, eventIds));
+          const eventIds = events.map((e: any) => e.id);
 
-        return events;
-      });
+          await tx
+            .update(notificationOutbox)
+            .set({
+              status: 'PROCESSING',
+              claimedAt: new Date(),
+              attempts: sql`${notificationOutbox.attempts} + 1`,
+              updatedAt: new Date(),
+            })
+            .where(inArray(notificationOutbox.id, eventIds));
 
-      if (!pendingEvents || pendingEvents.length === 0) return;
+          return events.map((e: any) => ({
+            ...e,
+            attempts: (e.attempts || 0) + 1,
+          }));
+        });
 
-      // 2. Process each event independently so an error in one event does not abort others or fail recording retry state
-      for (const outboxEvent of pendingEvents) {
-        try {
-          await this.db.transaction(async (eventTx: any) => {
+        if (!pendingEvents || pendingEvents.length === 0) return;
+
+        // 2. Process each event independently so an error in one event does not abort others or fail recording retry state
+        for (const outboxEvent of pendingEvents) {
+          if (!this.isRunning) break;
+          
+          try {
+            await this.db.transaction(async (eventTx: any) => {
             await this.handleEvent(eventTx, outboxEvent);
           });
 
@@ -100,6 +141,7 @@ export class NotificationWorkerService
             `Failed to process outbox event ${outboxEvent.id}`,
             err.stack,
           );
+          console.error('Outbox catch block executing for event:', outboxEvent.id, 'Error:', err);
 
           const attempts = (outboxEvent.attempts || 0) + 1;
           const status = attempts >= 5 ? 'FAILED' : 'PENDING';
@@ -108,16 +150,22 @@ export class NotificationWorkerService
             Date.now() + Math.pow(2, attempts) * 30000,
           );
 
-          await this.db
-            .update(notificationOutbox)
-            .set({
-              status,
-              attempts,
-              lastError: err.message || 'Unknown error',
-              availableAt: nextAvailable,
-              updatedAt: new Date(),
-            })
-            .where(eq(notificationOutbox.id, outboxEvent.id));
+          try {
+            await this.db
+              .update(notificationOutbox)
+              .set({
+                status,
+                attempts,
+                lastError: err.message || 'Unknown error',
+                availableAt: nextAvailable,
+                claimedAt: null,
+                updatedAt: new Date(),
+              })
+              .where(eq(notificationOutbox.id, outboxEvent.id));
+            console.log('Outbox catch block update successful for event:', outboxEvent.id);
+          } catch (updateErr) {
+            console.error('Outbox catch block update FAILED:', updateErr);
+          }
         }
       }
     } catch (err) {
@@ -126,7 +174,7 @@ export class NotificationWorkerService
   }
 
   private async handleEvent(tx: any, outboxEvent: any) {
-    const { event_id: eventId, type, payload } = outboxEvent;
+    const { eventId, type, payload } = outboxEvent;
 
     // Idempotency check
     const [existingEvent] = await tx
@@ -140,7 +188,10 @@ export class NotificationWorkerService
     }
 
     // Register idempotency
-    await tx.insert(notificationEvents).values({ eventId });
+    await tx
+      .insert(notificationEvents)
+      .values({ eventId })
+      .onConflictDoNothing({ target: [notificationEvents.eventId] });
 
     // Payload includes recipientId, actorId, entityType, entityId
     const { recipientId, actorId, entityType, entityId, data } = payload;
@@ -168,6 +219,7 @@ export class NotificationWorkerService
       const [inserted] = await tx
         .insert(notifications)
         .values({
+          eventId,
           recipientId,
           actorId: actorId || null,
           type,
@@ -175,7 +227,12 @@ export class NotificationWorkerService
           entityId,
           payload: data || {},
         })
+        .onConflictDoNothing({ target: [notifications.eventId] })
         .returning();
+
+      if (!inserted) {
+        return; // Notification already exists
+      }
 
       // Hydrate actor and content for WebSocket
       let actor = null;

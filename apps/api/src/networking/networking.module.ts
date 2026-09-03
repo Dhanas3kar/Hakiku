@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { NetworkingController } from './networking.controller';
 import { FollowService } from './services/follow.service';
@@ -13,9 +12,6 @@ import { BlockPrivacyGuard } from './guards/block-privacy.guard';
 @Module({
   imports: [
     EventEmitterModule.forRoot(),
-    JwtModule.register({
-      secret: process.env.JWT_SECRET!,
-    }),
   ],
   controllers: [NetworkingController],
   providers: [
