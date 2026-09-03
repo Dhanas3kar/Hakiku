@@ -1,19 +1,18 @@
 import { db } from '../../db/index';
 import { Injectable } from '@nestjs/common';
 import { eq, and, or, inArray, sql, desc } from 'drizzle-orm';
-import * as schema from '../../db/schema';
 import {
   posts,
   follows,
   connections,
   profiles,
-  profileSkills,
-  profileInterests,
-  skills,
-  interests,
 } from '../../db/schema';
 import { DiscoverQueryDto } from '../dto/feed.dto';
 
+/**
+ * Phase 4 consolidated candidate generation.
+ * Replaces 9 separate queries with a single UNION ALL query pushed to PostgreSQL.
+ */
 @Injectable()
 export class FeedCandidateService {
   private db;
@@ -23,170 +22,122 @@ export class FeedCandidateService {
   }
 
   /**
-   * Fetch candidate post IDs from multiple bounded candidate buckets for personalized feed.
+   * Fetch candidate post IDs from multiple bounded candidate buckets using a single
+   * UNION ALL query. Each bucket preserves its original bounded LIMIT.
+   *
+   * Buckets:
+   *   1. Own posts (LIMIT 50)
+   *   2. Followed users' posts (LIMIT 100)
+   *   3. Connected users' posts (LIMIT 100)
+   *   4. Academic context peers' PUBLIC posts (LIMIT 100)
+   *   5. General public posts (LIMIT 100)
    */
-  async getPersonalizedCandidates(viewerId: string): Promise<string[]> {
-    const candidatePostIds = new Set<string>();
-
-    // 1. Followed Users' Posts
-    const followList = await this.db
-      .select({ followingId: follows.followingId })
-      .from(follows)
-      .where(eq(follows.followerId, viewerId));
-    const followedIds = followList.map((f: any) => f.followingId);
-
-    if (followedIds.length > 0) {
-      const followedPosts = await this.db
-        .select({ id: posts.id })
-        .from(posts)
-        .where(
-          and(
-            inArray(posts.authorId, followedIds),
-            sql`${posts.deletedAt} IS NULL`,
-          ),
-        )
-        .orderBy(desc(posts.createdAt))
-        .limit(100);
-      followedPosts.forEach((p: any) => candidatePostIds.add(p.id));
+  async getPersonalizedCandidates(
+    viewerId: string,
+    viewerProfile?: { campus?: string; department?: string; batchYear?: number },
+  ): Promise<string[]> {
+    // Build the academic OR conditions dynamically
+    const academicOrParts: ReturnType<typeof sql>[] = [];
+    if (viewerProfile?.campus) {
+      academicOrParts.push(sql`ap.campus = ${viewerProfile.campus}`);
+    }
+    if (viewerProfile?.department) {
+      academicOrParts.push(sql`ap.department = ${viewerProfile.department}`);
+    }
+    if (viewerProfile?.batchYear) {
+      academicOrParts.push(sql`ap.batch_year = ${viewerProfile.batchYear}`);
     }
 
-    // 2. Connected Users' Posts
-    const connList = await this.db
-      .select()
-      .from(connections)
-      .where(
-        or(
-          eq(connections.userAId, viewerId),
-          eq(connections.userBId, viewerId),
-        ),
-      );
-    const connectedIds = connList.map((c: any) =>
-      c.userAId === viewerId ? c.userBId : c.userAId,
-    );
+    // If no academic context, use FALSE to skip that bucket entirely
+    const academicFilter = academicOrParts.length > 0
+      ? sql.join(academicOrParts, sql` OR `)
+      : sql`FALSE`;
 
-    if (connectedIds.length > 0) {
-      const connectedPosts = await this.db
-        .select({ id: posts.id })
-        .from(posts)
-        .where(
-          and(
-            inArray(posts.authorId, connectedIds),
-            sql`${posts.deletedAt} IS NULL`,
-          ),
-        )
-        .orderBy(desc(posts.createdAt))
-        .limit(100);
-      connectedPosts.forEach((p: any) => candidatePostIds.add(p.id));
-    }
+    const result = await this.db.execute(sql`
+      SELECT DISTINCT id FROM (
+        (SELECT p.id FROM posts p
+         WHERE p.author_id = ${viewerId}
+         AND p.deleted_at IS NULL
+         ORDER BY p.created_at DESC LIMIT 50)
 
-    // 3. Own Posts
-    const ownPosts = await this.db
-      .select({ id: posts.id })
-      .from(posts)
-      .where(and(eq(posts.authorId, viewerId), sql`${posts.deletedAt} IS NULL`))
-      .orderBy(desc(posts.createdAt))
-      .limit(50);
-    ownPosts.forEach((p: any) => candidatePostIds.add(p.id));
+        UNION ALL
 
-    // 4. Viewer Academic Context Relevance
-    const [viewerProfile] = await this.db
-      .select()
-      .from(profiles)
-      .where(eq(profiles.userId, viewerId))
-      .limit(1);
+        (SELECT p.id FROM posts p
+         INNER JOIN follows f ON p.author_id = f.following_id
+         WHERE f.follower_id = ${viewerId}
+         AND p.deleted_at IS NULL
+         ORDER BY p.created_at DESC LIMIT 100)
 
-    if (viewerProfile) {
-      const academicProfiles = await this.db
-        .select({ userId: profiles.userId })
-        .from(profiles)
-        .where(
-          and(
-            or(
-              eq(profiles.campus, viewerProfile.campus),
-              eq(profiles.department, viewerProfile.department),
-              eq(profiles.batchYear, viewerProfile.batchYear),
-            ),
-            sql`${profiles.userId} <> ${viewerId}`,
-          ),
-        )
-        .limit(100);
+        UNION ALL
 
-      const academicUserIds = academicProfiles.map((ap: any) => ap.userId);
-      if (academicUserIds.length > 0) {
-        const academicPosts = await this.db
-          .select({ id: posts.id })
-          .from(posts)
-          .where(
-            and(
-              inArray(posts.authorId, academicUserIds),
-              eq(posts.visibility, 'PUBLIC'),
-              sql`${posts.deletedAt} IS NULL`,
-            ),
-          )
-          .orderBy(desc(posts.createdAt))
-          .limit(100);
-        academicPosts.forEach((p: any) => candidatePostIds.add(p.id));
-      }
-    }
+        (SELECT p.id FROM posts p
+         INNER JOIN connections c ON
+           (c.user_a_id = ${viewerId} AND p.author_id = c.user_b_id)
+           OR (c.user_b_id = ${viewerId} AND p.author_id = c.user_a_id)
+         WHERE p.deleted_at IS NULL
+         ORDER BY p.created_at DESC LIMIT 100)
 
-    // 5. General Public Posts Bucket
-    const publicPosts = await this.db
-      .select({ id: posts.id })
-      .from(posts)
-      .where(
-        and(eq(posts.visibility, 'PUBLIC'), sql`${posts.deletedAt} IS NULL`),
-      )
-      .orderBy(desc(posts.createdAt))
-      .limit(100);
-    publicPosts.forEach((p: any) => candidatePostIds.add(p.id));
+        UNION ALL
 
-    return Array.from(candidatePostIds);
+        (SELECT p.id FROM posts p
+         INNER JOIN profiles ap ON p.author_id = ap.user_id
+         WHERE ap.user_id <> ${viewerId}
+         AND (${academicFilter})
+         AND p.visibility = 'PUBLIC'
+         AND p.deleted_at IS NULL
+         ORDER BY p.created_at DESC LIMIT 100)
+
+        UNION ALL
+
+        (SELECT p.id FROM posts p
+         WHERE p.visibility = 'PUBLIC'
+         AND p.deleted_at IS NULL
+         ORDER BY p.created_at DESC LIMIT 100)
+      ) AS candidates
+    `);
+
+    return (result as any[]).map((r: any) => r.id);
   }
 
   /**
    * Fetch candidate post IDs for public discovery feed with optional academic & taxonomy filters.
+   * This is already efficient (1-2 queries), kept with minor consolidation.
    */
   async getDiscoveryCandidates(
     viewerId: string,
     filters: DiscoverQueryDto,
   ): Promise<string[]> {
-    let authorIdFilter: string[] | null = null;
-
     if (filters.campus || filters.department || filters.batch) {
-      const profileConditions = [];
-      if (filters.campus)
-        profileConditions.push(eq(profiles.campus, filters.campus));
-      if (filters.department)
-        profileConditions.push(eq(profiles.department, filters.department));
-      if (filters.batch)
-        profileConditions.push(eq(profiles.batchYear, filters.batch));
+      const profileConditions: ReturnType<typeof sql>[] = [];
+      if (filters.campus) {
+        profileConditions.push(sql`ap.campus = ${filters.campus}`);
+      }
+      if (filters.department) {
+        profileConditions.push(sql`ap.department = ${filters.department}`);
+      }
+      if (filters.batch) {
+        profileConditions.push(sql`ap.batch_year = ${filters.batch}`);
+      }
 
-      const matchedProfiles = await this.db
-        .select({ userId: profiles.userId })
-        .from(profiles)
-        .where(and(...profileConditions))
-        .limit(200);
+      const profileFilter = sql.join(profileConditions, sql` AND `);
 
-      authorIdFilter = matchedProfiles.map((p: any) => p.userId);
-      if (authorIdFilter.length === 0) return [];
+      const result = await this.db.execute(sql`
+        SELECT p.id FROM posts p
+        INNER JOIN profiles ap ON p.author_id = ap.user_id
+        WHERE p.visibility = 'PUBLIC'
+        AND p.deleted_at IS NULL
+        AND (${profileFilter})
+        ORDER BY p.created_at DESC LIMIT 200
+      `);
+      return (result as any[]).map((r: any) => r.id);
     }
 
-    const postConditions = [
-      eq(posts.visibility, 'PUBLIC'),
-      sql`${posts.deletedAt} IS NULL`,
-    ];
-
-    if (authorIdFilter) {
-      postConditions.push(inArray(posts.authorId, authorIdFilter));
-    }
-
-    const candidatePosts = await this.db
-      .select({ id: posts.id })
-      .from(posts)
-      .where(and(...postConditions))
-      .orderBy(desc(posts.createdAt))
-      .limit(200);
-
-    return candidatePosts.map((p: any) => p.id);
+    const result = await this.db.execute(sql`
+      SELECT p.id FROM posts p
+      WHERE p.visibility = 'PUBLIC'
+      AND p.deleted_at IS NULL
+      ORDER BY p.created_at DESC LIMIT 200
+    `);
+    return (result as any[]).map((r: any) => r.id);
   }
 }

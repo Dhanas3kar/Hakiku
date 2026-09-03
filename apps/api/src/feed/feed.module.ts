@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { FeedController } from './feed.controller';
 import { FeedService } from './services/feed.service';
 import { FeedCandidateService } from './services/feed-candidate.service';
@@ -10,11 +9,7 @@ import { FeedQueryService } from './services/feed-query.service';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
 
 @Module({
-  imports: [
-    JwtModule.register({
-      secret: process.env.JWT_SECRET!,
-    }),
-  ],
+  imports: [],
   controllers: [FeedController],
   providers: [
     FeedService,

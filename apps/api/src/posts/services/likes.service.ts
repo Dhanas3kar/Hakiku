@@ -1,4 +1,5 @@
 import { db } from '../../db/index';
+import * as crypto from 'crypto';
 import {
   Injectable,
   ConflictException,
@@ -49,7 +50,7 @@ export class LikesService {
           .limit(1);
 
         if (post && post.authorId !== userId) {
-          const eventId = `LIKE_${userId}_${postId}_${Date.now()}`;
+          const eventId = `LIKE_${userId}_${postId}_${crypto.randomUUID()}`;
           await this.outboxService.appendEvent(tx, eventId, 'POST_LIKE', {
             actorId: userId,
             recipientId: post.authorId,

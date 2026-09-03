@@ -85,6 +85,21 @@ export class HotTakesService {
     return { success: true };
   }
 
+  async adminRemoveHotTake(id: string) {
+    const [take] = await this.db
+      .select()
+      .from(hotTakes)
+      .where(eq(hotTakes.id, id))
+      .limit(1);
+
+    if (!take) {
+      throw new HttpException('Hot Take not found', HttpStatus.NOT_FOUND);
+    }
+
+    await this.db.delete(hotTakes).where(eq(hotTakes.id, id));
+    return { success: true };
+  }
+
   async updateHotTake(userId: string, id: string, updateData: { content: string, date?: string, place?: string, time?: string, media?: string, otherDetails?: string }) {
     const [take] = await this.db
       .select()

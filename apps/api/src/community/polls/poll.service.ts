@@ -50,6 +50,23 @@ export class PollService {
     };
   }
 
+  async adminRemovePoll(pollId: string) {
+    const poll = await db.query.polls.findFirst({
+      where: eq(polls.id, pollId),
+    });
+
+    if (!poll) {
+      throw new HttpException('Poll not found', HttpStatus.NOT_FOUND);
+    }
+
+    await db
+      .update(polls)
+      .set({ status: 'REMOVED' })
+      .where(eq(polls.id, pollId));
+
+    return { message: 'Poll removed successfully' };
+  }
+
   async vote(userId: string, pollId: string, optionId: string) {
     const poll = await db.query.polls.findFirst({
       where: eq(polls.id, pollId),

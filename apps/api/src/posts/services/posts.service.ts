@@ -77,10 +77,17 @@ export class PostsService {
         }
 
         if (dto.pollId) {
-          await tx
+          const [updatedPoll] = await tx
             .update(polls)
             .set({ postId: createdPost.id })
-            .where(and(eq(polls.id, dto.pollId), eq(polls.authorId, authorId)));
+            .where(and(eq(polls.id, dto.pollId), eq(polls.authorId, authorId)))
+            .returning();
+
+          if (!updatedPoll) {
+            throw new NotFoundException(
+              'Poll not found or not owned by author',
+            );
+          }
         }
 
         // Mentions Extraction

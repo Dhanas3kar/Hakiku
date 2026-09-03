@@ -31,6 +31,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
     CommunityModerationService,
     HotTakesService,
   ],
-  exports: [],
+  exports: [ConfessionModerationService, HotTakesService, PollService],
 })
 export class CommunityModule {}

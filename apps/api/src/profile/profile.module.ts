@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { JwtModule } from '@nestjs/jwt';
 import { ProfileController } from './profile.controller';
 import { SkillsController } from './skills.controller';
 import { InterestsController } from './interests.controller';
@@ -11,11 +10,7 @@ import { LocalStorageProvider } from './storage/local-storage.provider';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
 
 @Module({
-  imports: [
-    JwtModule.register({
-      secret: process.env.JWT_SECRET!,
-    }),
-  ],
+  imports: [],
   controllers: [ProfileController, SkillsController, InterestsController],
   providers: [
     ProfileService,

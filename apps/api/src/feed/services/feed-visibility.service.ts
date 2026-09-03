@@ -23,13 +23,45 @@ export class FeedVisibilityService {
     if (activePosts.length === 0) return [];
 
     const authorIds = Array.from(new Set(activePosts.map((p) => p.authorId)));
+    const nonSelfAuthorIds = authorIds.filter((id) => id !== viewerId);
 
-    // 2. Fetch Author Users to check account status (SUSPENDED / BANNED / DEACTIVATED)
-    const authorUsers = await this.db
-      .select({ id: users.id, status: users.status })
-      .from(users)
-      .where(inArray(users.id, authorIds));
+    // 2. Fetch Author Users, Block Records, and Mutual Connections Concurrently
+    const [authorUsers, blockRecords, connRecords] = await Promise.all([
+      // Author Status
+      this.db
+        .select({ id: users.id, status: users.status })
+        .from(users)
+        .where(inArray(users.id, authorIds)),
 
+      // Blocked Users
+      this.db
+        .select()
+        .from(blocks)
+        .where(
+          or(eq(blocks.blockerId, viewerId), eq(blocks.blockedId, viewerId)),
+        ),
+
+      // Mutual Connections restricted to candidate authors
+      nonSelfAuthorIds.length > 0
+        ? this.db
+            .select()
+            .from(connections)
+            .where(
+              or(
+                and(
+                  eq(connections.userAId, viewerId),
+                  inArray(connections.userBId, nonSelfAuthorIds),
+                ),
+                and(
+                  eq(connections.userBId, viewerId),
+                  inArray(connections.userAId, nonSelfAuthorIds),
+                ),
+              ),
+            )
+        : Promise.resolve([]),
+    ]);
+
+    // Active Authors Set
     const activeAuthorIds = new Set(
       authorUsers
         .filter((u: any) => u.status === 'ACTIVE')
@@ -41,14 +73,7 @@ export class FeedVisibilityService {
     );
     if (validStatusPosts.length === 0) return [];
 
-    // 3. Fetch Blocked Author IDs involving viewer
-    const blockRecords = await this.db
-      .select()
-      .from(blocks)
-      .where(
-        or(eq(blocks.blockerId, viewerId), eq(blocks.blockedId, viewerId)),
-      );
-
+    // Blocked Authors Set
     const blockedUserIds = new Set<string>();
     for (const b of blockRecords) {
       if (b.blockerId === viewerId) blockedUserIds.add(b.blockedId);
@@ -60,37 +85,11 @@ export class FeedVisibilityService {
     );
     if (unblockedPosts.length === 0) return [];
 
-    // 4. Fetch Mutual Connections between viewer and non-self authors
-    const nonSelfAuthorIds = Array.from(
-      new Set(
-        unblockedPosts
-          .filter((p) => p.authorId !== viewerId)
-          .map((p) => p.authorId),
-      ),
-    );
-
+    // Connected Authors Set
     const connectedAuthorIds = new Set<string>();
-    if (nonSelfAuthorIds.length > 0) {
-      const connRecords = await this.db
-        .select()
-        .from(connections)
-        .where(
-          or(
-            ...nonSelfAuthorIds.map((aId) => {
-              const uA = viewerId < aId ? viewerId : aId;
-              const uB = viewerId < aId ? aId : viewerId;
-              return and(
-                eq(connections.userAId, uA),
-                eq(connections.userBId, uB),
-              );
-            }),
-          ),
-        );
-
-      for (const c of connRecords) {
-        const otherId = c.userAId === viewerId ? c.userBId : c.userAId;
-        connectedAuthorIds.add(otherId);
-      }
+    for (const c of connRecords) {
+      const otherId = c.userAId === viewerId ? c.userBId : c.userAId;
+      connectedAuthorIds.add(otherId);
     }
 
     // 5. Apply Visibility Rules

@@ -182,16 +182,22 @@ export class ProfileService {
     await this.checkUserAccountStatus(userId);
 
 
-    const [profile] = await this.db
-      .select()
+    const [result] = await this.db
+      .select({
+        profile: profiles,
+        role: users.role,
+      })
       .from(profiles)
+      .innerJoin(users, eq(profiles.userId, users.id))
       .where(eq(profiles.userId, userId))
       .limit(1);
-    if (!profile) {
+
+    if (!result) {
       throw new NotFoundException(
         'Profile not found. Please complete onboarding first.',
       );
     }
+    const profile = result.profile;
 
     const userSkills = await this.db
       .select({ id: skills.id, name: skills.name, category: skills.category })
@@ -218,6 +224,7 @@ export class ProfileService {
       coverUrl: profile.coverKey
         ? `${baseUrl}/uploads/${profile.coverKey}`
         : null,
+      role: result.role,
       skills: userSkills,
       interests: userInterests,
     };
