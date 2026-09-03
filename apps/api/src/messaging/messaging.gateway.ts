@@ -16,6 +16,8 @@ import { Redis } from 'ioredis';
 import { MessageAccessService } from './services/message-access.service';
 import { ConversationService } from './services/conversation.service';
 
+import { MetricsService } from '../metrics/metrics.service';
+
 @WebSocketGateway({
   namespace: '/messages',
   cors: {
@@ -41,6 +43,7 @@ export class MessagingGateway
     private readonly jwtService: JwtService,
     private readonly messageAccessService: MessageAccessService,
     private readonly conversationService: ConversationService,
+    private readonly metricsService: MetricsService,
   ) {
     this.subscriberClient = new Redis(
       process.env.REDIS_URL || 'redis://localhost:6379',
@@ -100,6 +103,7 @@ export class MessagingGateway
         this.userSockets.set(userId, sockets);
       }
       sockets.add(client.id);
+      this.metricsService.incrementWsConnections();
 
       this.logger.debug(
         `Client connected to messaging: ${client.id} (User: ${userId})`,
@@ -120,6 +124,7 @@ export class MessagingGateway
           this.userSockets.delete(userId);
         }
       }
+      this.metricsService.decrementWsConnections();
       this.logger.debug(
         `Client disconnected from messaging: ${client.id} (User: ${userId})`,
       );

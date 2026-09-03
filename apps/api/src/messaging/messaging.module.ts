@@ -10,12 +10,12 @@ import { MessageService } from './services/message.service';
 import { MessagingGateway } from './messaging.gateway';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProfileModule } from '../profile/profile.module';
-
+import { MetricsModule } from '../metrics/metrics.module';
 import { MessageOutboxService } from './services/message-outbox.service';
 import { MessageDeliveryWorkerService } from './services/message-delivery-worker.service';
 
 @Module({
-  imports: [NotificationsModule, ProfileModule],
+  imports: [NotificationsModule, ProfileModule, MetricsModule],
   controllers: [MessagingController],
   providers: [
     MessageAccessService,

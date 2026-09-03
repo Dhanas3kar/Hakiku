@@ -11,6 +11,8 @@ import { messageOutbox } from '../../db/schema';
 import { MessageDeliveryService } from './message-delivery.service';
 import { Redis } from 'ioredis';
 
+import { MetricsService } from '../../metrics/metrics.service';
+
 @Injectable()
 export class MessageDeliveryWorkerService
   implements OnModuleInit, OnModuleDestroy
@@ -24,6 +26,7 @@ export class MessageDeliveryWorkerService
   constructor(
     private readonly deliveryService: MessageDeliveryService,
     @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    private readonly metricsService: MetricsService,
   ) {}
 
   onModuleInit() {
@@ -135,10 +138,12 @@ export class MessageDeliveryWorkerService
               .update(messageOutbox)
               .set({ status: 'PROCESSED', updatedAt: new Date() })
               .where(eq(messageOutbox.id, outboxEvent.id));
+            this.metricsService.recordOutboxProcessed(1);
           } else {
             throw new Error('Redis publish failed');
           }
         } catch (err: any) {
+          this.metricsService.recordOutboxFailed(1);
           this.logger.error(
             `Failed to process message outbox event ${outboxEvent.id}`,
             err.stack,
