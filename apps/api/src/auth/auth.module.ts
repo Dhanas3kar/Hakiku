@@ -15,12 +15,12 @@ import { AdminAuthController } from './admin-auth.controller';
       secret: process.env.JWT_SECRET!,
       signOptions: {
         expiresIn: '15m',
-        issuer: process.env.JWT_ISSUER || 'hakiku.com',
-        audience: process.env.JWT_AUDIENCE || 'hakiku.com',
+        issuer: process.env.JWT_ISSUER as string,
+        audience: process.env.JWT_AUDIENCE as string,
       },
       verifyOptions: {
-        issuer: process.env.JWT_ISSUER || 'hakiku.com',
-        audience: process.env.JWT_AUDIENCE || 'hakiku.com',
+        issuer: process.env.JWT_ISSUER as string,
+        audience: process.env.JWT_AUDIENCE as string,
         ignoreExpiration: false,
       },
     }),

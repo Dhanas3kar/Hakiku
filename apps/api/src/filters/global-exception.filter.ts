@@ -37,7 +37,25 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     // Developer diagnostics for server logs only
     let devDetails: any = null;
 
-    if (exception instanceof HttpException) {
+    const rawError: any = (exception as any)?.cause || (exception as any)?.getResponse?.() || exception;
+    const errCode = rawError?.code || (exception as any)?.code;
+    const errMessage = rawError?.message || (exception as any)?.message || String(exception);
+
+    const isInfraError =
+      errCode === '53300' || // too_many_connections
+      errCode === '57P01' || // admin_shutdown
+      errMessage.includes('too many connections') ||
+      errMessage.includes('too_many_connections') ||
+      errMessage.includes('Redis connection lost') ||
+      errMessage.includes('Connection terminated') ||
+      (exception as any)?.name === 'RedisError';
+
+    if (isInfraError) {
+      status = HttpStatus.SERVICE_UNAVAILABLE;
+      code = 'SERVICE_UNAVAILABLE';
+      message = 'Service is temporarily unavailable';
+      devDetails = { code: errCode, message: errMessage };
+    } else if (exception instanceof HttpException) {
       status = exception.getStatus();
       code = this.mapStatusToCode(status, exception);
       const res = exception.getResponse();
@@ -45,43 +63,29 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       // For 4xx errors, we can safely expose the message
       if (status < 500) {
         message = typeof res === 'string' ? res : (res as any).message || message;
-        // In case of class-validator errors, message is an array. Join it or pick the first one.
-        if (Array.isArray(message)) {
-          devDetails = message;
-          message = message.join(', '); // Return all validation errors to the client
-        }
       } else {
         // For 500 HttpExceptions, mask the actual message to users, but log it
         devDetails = res;
         console.error('Unhandled 500 HttpException:', res);
       }
     } else if (exception instanceof Error) {
-      const pgError = exception as any;
-      console.error('Unhandled Server Error:', pgError);
+      console.error('Unhandled Server Error:', rawError);
       
-      if (pgError.code === '23505') {
+      if (errCode === '23505') {
         status = HttpStatus.CONFLICT;
         code = 'CONFLICT';
         message = 'A resource with this identifier already exists.';
-        devDetails = { code: pgError.code, detail: pgError.detail };
-      } else if (pgError.code === '23503') {
+        devDetails = { code: errCode, detail: rawError.detail };
+      } else if (errCode === '23503') {
         status = HttpStatus.BAD_REQUEST;
         code = 'BAD_REQUEST';
         message = 'Invalid reference. The requested resource or related entity does not exist.';
-        devDetails = { code: pgError.code, detail: pgError.detail };
-      } else if (
-        pgError.code === '53300' || // too_many_connections
-        pgError.code === '57P01' // admin_shutdown
-      ) {
-        status = HttpStatus.SERVICE_UNAVAILABLE;
-        code = 'SERVICE_UNAVAILABLE';
-        message = 'Service is temporarily unavailable';
-        devDetails = { code: pgError.code, message: pgError.message, stack: pgError.stack };
+        devDetails = { code: errCode, detail: rawError.detail };
       } else {
         // 500 Unhandled Error
         status = HttpStatus.INTERNAL_SERVER_ERROR;
         code = 'INTERNAL_ERROR';
-        devDetails = { message: exception.message, stack: exception.stack };
+        devDetails = { message: (exception as Error).message, stack: (exception as Error).stack };
       }
     } else {
       status = HttpStatus.INTERNAL_SERVER_ERROR;

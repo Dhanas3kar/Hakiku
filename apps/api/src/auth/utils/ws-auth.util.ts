@@ -33,8 +33,8 @@ export async function verifyWsClient(
   try {
     const payload = await jwtService.verifyAsync(token, {
       secret: process.env.JWT_SECRET!,
-      issuer: process.env.JWT_ISSUER || 'hakiku.com',
-      audience: process.env.JWT_AUDIENCE || 'hakiku.com',
+      issuer: process.env.JWT_ISSUER as string,
+      audience: process.env.JWT_AUDIENCE as string,
       ignoreExpiration: false,
     });
     return payload.sub; // userId
