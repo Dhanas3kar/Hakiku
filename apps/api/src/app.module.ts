@@ -12,10 +12,13 @@ import { CommunityModule } from './community/community.module';
 import { RedisModule } from './redis/redis.module';
 import { AdminModule } from './admin/admin.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerStorageRedisService } from '@nest-lab/throttler-storage-redis';
 import Redis from 'ioredis';
 import { ExecutionContext, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
+import { MetricsModule } from './metrics/metrics.module';
+import { MetricsInterceptor } from './metrics/metrics.interceptor';
+import { HealthModule } from './health/health.module';
 
 @Injectable()
 export class AppThrottlerGuard extends ThrottlerGuard {
@@ -56,6 +59,8 @@ export class AppThrottlerGuard extends ThrottlerGuard {
 @Module({
   imports: [
     RedisModule,
+    MetricsModule,
+    HealthModule,
     AuthModule,
     NetworkingModule,
     ProfileModule,
@@ -93,6 +98,10 @@ export class AppThrottlerGuard extends ThrottlerGuard {
     {
       provide: APP_GUARD,
       useClass: AppThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: MetricsInterceptor,
     },
   ],
 })

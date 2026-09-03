@@ -15,14 +15,18 @@ export class MetricsInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
     const ctx = context.switchToHttp();
     const response = ctx.getResponse();
+    const startTime = process.hrtime.bigint();
 
     return next.handle().pipe(
       tap(() => {
-        this.metricsService.recordHttpRequest(response.statusCode);
+        const durationMs = Number(process.hrtime.bigint() - startTime) / 1_000_000;
+        const statusCode = response?.statusCode || 200;
+        this.metricsService.recordHttpRequest(statusCode, durationMs);
       }),
       catchError((err) => {
-        const statusCode = err.status || 500;
-        this.metricsService.recordHttpRequest(statusCode);
+        const durationMs = Number(process.hrtime.bigint() - startTime) / 1_000_000;
+        const statusCode = err?.status || err?.statusCode || 500;
+        this.metricsService.recordHttpRequest(statusCode, durationMs);
         throw err;
       }),
     );
