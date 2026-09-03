@@ -136,7 +136,9 @@ async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}
     }
   }
 
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(config.method as string)) {
+  const isMutatingMethod = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(config.method as string)
+
+  if (isMutatingMethod) {
     const token = await getCsrfToken()
     if (token) {
       config.headers = {

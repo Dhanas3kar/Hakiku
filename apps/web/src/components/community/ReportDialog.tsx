@@ -23,6 +23,7 @@ export function ReportDialog({ isOpen, onClose, targetId, targetType }: ReportDi
   const [selectedReason, setSelectedReason] = useState<string>('')
   const [description, setDescription] = useState<string>('')
   const [isSuccess, setIsSuccess] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const reportMutation = useMutation({
     mutationFn: () => communityApi.reportContent({ 
@@ -32,6 +33,7 @@ export function ReportDialog({ isOpen, onClose, targetId, targetType }: ReportDi
     }),
     onSuccess: () => {
       setIsSuccess(true)
+      setErrorMessage(null)
       setTimeout(() => {
         onClose()
         setTimeout(() => {
@@ -40,6 +42,10 @@ export function ReportDialog({ isOpen, onClose, targetId, targetType }: ReportDi
           setDescription('')
         }, 300)
       }, 2000)
+    },
+    onError: (error: any) => {
+      const msg = error?.data?.message || error?.message || 'Failed to submit report. Please try again.'
+      setErrorMessage(typeof msg === 'string' ? msg : Array.isArray(msg) ? msg.join(', ') : 'An error occurred.')
     }
   })
 
@@ -111,6 +117,12 @@ export function ReportDialog({ isOpen, onClose, targetId, targetType }: ReportDi
                     className="w-full h-24 resize-none bg-surface border border-border rounded-xl p-3 text-sm text-foreground focus:ring-2 focus:ring-primary/50 focus:border-primary transition-colors"
                   />
                 </div>
+
+                {errorMessage && (
+                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-red-500">
+                    {errorMessage}
+                  </div>
+                )}
 
                 <div className="flex justify-end gap-2 pt-2">
                   <button 

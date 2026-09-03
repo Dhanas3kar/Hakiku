@@ -189,7 +189,7 @@ export function HotTakesFeed() {
                     <div className="flex justify-between items-start gap-4 mb-2">
                       <p className="text-lg font-medium text-foreground whitespace-pre-wrap">"<FormattedContent content={take.content} />"</p>
                       <div className="flex items-center gap-1 shrink-0">
-                        {user?.id === take.author.id ? (
+                        {user?.userId === take.author.id ? (
                           <>
                             <button
                               onClick={() => {
