@@ -17,6 +17,7 @@ import { MessageDeliveryService } from './message-delivery.service';
 import { ConversationService } from './conversation.service';
 import { NotificationOutboxService } from '../../notifications/services/notification-outbox.service';
 import { LocalStorageProvider } from '../../profile/storage/local-storage.provider';
+import { MessageOutboxService } from './message-outbox.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -25,6 +26,7 @@ export class MessageService {
     private readonly conversationService: ConversationService,
     private readonly deliveryService: MessageDeliveryService,
     private readonly outboxService: NotificationOutboxService,
+    private readonly messageOutboxService: MessageOutboxService,
     private readonly storageProvider: LocalStorageProvider,
   ) {}
 
@@ -149,26 +151,27 @@ export class MessageService {
         },
       });
 
-      return msg;
-      });
+      // 6. Update message delivery outbox for durable realtime delivery
+      await this.messageOutboxService.appendEvent(
+        tx,
+        `MSG_DELIVERY_${newMessageId}_${targetUserId}`,
+        newMessageId,
+        conversationId,
+        targetUserId,
+        'message:new',
+        msg,
+      );
+      await this.messageOutboxService.appendEvent(
+        tx,
+        `MSG_DELIVERY_${newMessageId}_${userId}`,
+        newMessageId,
+        conversationId,
+        userId,
+        'message:new',
+        msg,
+      );
 
-      // Fire real-time event
-      const targetUserId =
-        conversation.userAId === userId
-          ? conversation.userBId
-          : conversation.userAId;
-      await this.deliveryService.publishEvent({
-        type: 'message:new',
-        recipientId: targetUserId,
-        conversationId,
-        payload: createdMessage,
-      });
-      // Send to sender's other devices too
-      await this.deliveryService.publishEvent({
-        type: 'message:new',
-        recipientId: userId,
-        conversationId,
-        payload: createdMessage,
+      return msg;
       });
 
       return createdMessage;
@@ -251,12 +254,6 @@ export class MessageService {
       throw new BadRequestException('Only TEXT messages can be edited');
     }
 
-    const [updatedMessage] = await db
-      .update(messages)
-      .set({ content, editedAt: new Date() })
-      .where(eq(messages.id, messageId))
-      .returning();
-
     const conversation = await db.query.conversations.findFirst({
       where: eq(conversations.id, message.conversationId),
     });
@@ -266,18 +263,40 @@ export class MessageService {
         conversation.userAId === userId
           ? conversation.userBId
           : conversation.userAId;
-      const eventPayload = {
-        type: 'message:updated' as const,
-        recipientId: targetUserId,
-        conversationId: message.conversationId,
-        payload: updatedMessage,
-      };
-      await this.deliveryService.publishEvent(eventPayload);
-      eventPayload.recipientId = userId;
-      await this.deliveryService.publishEvent(eventPayload);
+
+      await db.transaction(async (tx) => {
+        const [updatedMessage] = await tx
+          .update(messages)
+          .set({ content, editedAt: new Date() })
+          .where(eq(messages.id, messageId))
+          .returning();
+
+        await this.messageOutboxService.appendEvent(
+          tx,
+          `MSG_EDIT_${messageId}_${Date.now()}_${targetUserId}`,
+          messageId,
+          message.conversationId,
+          targetUserId,
+          'message:updated',
+          updatedMessage,
+        );
+        await this.messageOutboxService.appendEvent(
+          tx,
+          `MSG_EDIT_${messageId}_${Date.now()}_${userId}`,
+          messageId,
+          message.conversationId,
+          userId,
+          'message:updated',
+          updatedMessage,
+        );
+
+        return updatedMessage;
+      });
     }
 
-    return updatedMessage;
+    return (
+      await db.query.messages.findFirst({ where: eq(messages.id, messageId) })
+    )!;
   }
 
   /**
@@ -292,12 +311,6 @@ export class MessageService {
       throw new ForbiddenException('Cannot delete this message');
     }
 
-    const [deletedMessage] = await db
-      .update(messages)
-      .set({ deletedAt: new Date(), content: null }) // Wipe content on delete
-      .where(eq(messages.id, messageId))
-      .returning();
-
     const conversation = await db.query.conversations.findFirst({
       where: eq(conversations.id, message.conversationId),
     });
@@ -307,17 +320,41 @@ export class MessageService {
         conversation.userAId === userId
           ? conversation.userBId
           : conversation.userAId;
-      const eventPayload = {
-        type: 'message:deleted' as const,
-        recipientId: targetUserId,
-        conversationId: message.conversationId,
-        payload: { messageId, deletedAt: deletedMessage.deletedAt },
-      };
-      await this.deliveryService.publishEvent(eventPayload);
-      eventPayload.recipientId = userId;
-      await this.deliveryService.publishEvent(eventPayload);
+
+      await db.transaction(async (tx) => {
+        const [deletedMessage] = await tx
+          .update(messages)
+          .set({ deletedAt: new Date(), content: null })
+          .where(eq(messages.id, messageId))
+          .returning();
+
+        const payload = { messageId, deletedAt: deletedMessage.deletedAt };
+
+        await this.messageOutboxService.appendEvent(
+          tx,
+          `MSG_DEL_${messageId}_${Date.now()}_${targetUserId}`,
+          messageId,
+          message.conversationId,
+          targetUserId,
+          'message:deleted',
+          payload,
+        );
+        await this.messageOutboxService.appendEvent(
+          tx,
+          `MSG_DEL_${messageId}_${Date.now()}_${userId}`,
+          messageId,
+          message.conversationId,
+          userId,
+          'message:deleted',
+          payload,
+        );
+
+        return deletedMessage;
+      });
     }
 
-    return deletedMessage;
+    return (
+      await db.query.messages.findFirst({ where: eq(messages.id, messageId) })
+    )!;
   }
 }

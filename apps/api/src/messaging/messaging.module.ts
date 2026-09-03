@@ -11,6 +11,9 @@ import { MessagingGateway } from './messaging.gateway';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ProfileModule } from '../profile/profile.module';
 
+import { MessageOutboxService } from './services/message-outbox.service';
+import { MessageDeliveryWorkerService } from './services/message-delivery-worker.service';
+
 @Module({
   imports: [NotificationsModule, ProfileModule],
   controllers: [MessagingController],
@@ -18,11 +21,14 @@ import { ProfileModule } from '../profile/profile.module';
     MessageAccessService,
     ConversationService,
     MessageDeliveryService,
+    MessageOutboxService,
+    MessageDeliveryWorkerService,
     MessageMediaService,
     MessageQueryService,
     MessageReadService,
     MessageService,
     MessagingGateway,
   ],
+  exports: [MessageDeliveryWorkerService],
 })
 export class MessagingModule {}
