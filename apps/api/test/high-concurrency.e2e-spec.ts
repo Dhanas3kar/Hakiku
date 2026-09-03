@@ -363,9 +363,35 @@ describe('High Concurrency & Stress Verification (e2e)', () => {
 
   describe('4. Concurrency: Multi-Worker Outbox Event Processing', () => {
     it('5 concurrent workers processing 10 outbox events -> exactly 10 notifications created, 0 duplicates', async () => {
+      // Ensure target user exists in database
+      const [existingTarget] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.id, targetUserId))
+        .limit(1);
+      if (!existingTarget) {
+        await db
+          .insert(users)
+          .values({ id: targetUserId, email: `target_fix_${Date.now()}@srmist.edu.in`, isVerified: true })
+          .onConflictDoNothing();
+      }
+
       const outboxEventIds: string[] = [];
 
       for (let i = 0; i < 10; i++) {
+        const actorId = userIds[i];
+        const [existingActor] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.id, actorId))
+          .limit(1);
+        if (!existingActor) {
+          await db
+            .insert(users)
+            .values({ id: actorId, email: `actor_fix_${i}_${Date.now()}@srmist.edu.in`, isVerified: true })
+            .onConflictDoNothing();
+        }
+
         const eventId = `EVT_CONC_WORKER_${i}_${crypto.randomUUID()}`;
         outboxEventIds.push(eventId);
 
@@ -374,7 +400,7 @@ describe('High Concurrency & Stress Verification (e2e)', () => {
           type: 'POST_LIKE',
           payload: {
             recipientId: targetUserId,
-            actorId: userIds[i],
+            actorId: actorId,
             entityType: 'POST',
             entityId: targetPostId,
           },
