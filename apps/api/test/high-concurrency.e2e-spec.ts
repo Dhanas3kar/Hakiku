@@ -65,16 +65,17 @@ describe('High Concurrency & Stress Verification (e2e)', () => {
 
 
 
-    // Create target user
+    // Create target user with unique tag
+    const uniqueTag = crypto.randomUUID().slice(-8);
     const [tUser] = await db
       .insert(users)
-      .values({ email: 'target_conc@srmist.edu.in', isVerified: true })
+      .values({ email: `target_conc_${uniqueTag}@srmist.edu.in`, isVerified: true })
       .returning();
     targetUserId = tUser.id;
 
     await db.insert(profiles).values({
       userId: targetUserId,
-      username: 'target_conc',
+      username: `target_conc_${uniqueTag}`,
       displayName: 'Target User',
       campus: 'KTR',
       department: 'CSE',
