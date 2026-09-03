@@ -21,6 +21,7 @@ import { NotificationWorkerService } from '../src/notifications/services/notific
 import { NotificationOutboxService } from '../src/notifications/services/notification-outbox.service';
 import { MessageService } from '../src/messaging/services/message.service';
 import { PostsService } from '../src/posts/services/posts.service';
+import { clearTestDatabase, getE2eJwtSignOptions } from './test-utils';
 
 describe('Transaction Integrity & Outbox Reliability (e2e)', () => {
   let app: NestFastifyApplication;
@@ -71,14 +72,6 @@ describe('Transaction Integrity & Outbox Reliability (e2e)', () => {
     messageService = app.get(MessageService);
     postsService = app.get(PostsService);
 
-    // Disable background worker interval to prevent race conditions in tests
-    // @ts-ignore
-    if (workerService.intervalId) {
-      // @ts-ignore
-      clearInterval(workerService.intervalId);
-    }
-    // @ts-ignore
-    workerService.isRunning = false;
 
     // Create test users A & B
     const [uA] = await db
@@ -123,7 +116,7 @@ describe('Transaction Integrity & Outbox Reliability (e2e)', () => {
 
     jwtService = new JwtService({
       secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
-      signOptions: { issuer: 'hakiku.com', audience: 'hakiku.com' },
+      signOptions: getE2eJwtSignOptions(),
     });
     tokenA = await jwtService.signAsync({
       sub: uA.id,

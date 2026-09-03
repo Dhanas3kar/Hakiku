@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { HttpStatus } from '@nestjs/common';
+import { HttpStatus, ValidationPipe } from '@nestjs/common';
+import { GlobalExceptionFilter } from '../src/filters/global-exception.filter';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import {
@@ -11,7 +12,7 @@ import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
-import { clearTestDatabase } from './test-utils';
+import { clearTestDatabase, getE2eJwtSignOptions } from './test-utils';
 import { eq } from 'drizzle-orm';
 import {
   users,
@@ -65,7 +66,7 @@ describe('Messaging Module (e2e)', () => {
 
     jwtService = new JwtService({
       secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
-      signOptions: { issuer: 'hakiku.com', audience: 'hakiku.com' },
+      signOptions: getE2eJwtSignOptions(),
     });
 
     userA = {
@@ -152,6 +153,15 @@ describe('Messaging Module (e2e)', () => {
     });
     await app.register(fastifyCsrf, { cookieOpts: { signed: true } });
 
+    app.useGlobalPipes(
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
+    );
+    app.useGlobalFilters(new GlobalExceptionFilter());
+
     app.enableCors({ origin: true, credentials: true });
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -232,6 +242,56 @@ describe('Messaging Module (e2e)', () => {
       expect(response.body.items.length).toBeGreaterThan(0);
       expect(response.body.items[0]).toHaveProperty('targetUser');
       expect(response.body.items[0].targetUser.id).toBe(userB.id);
+    });
+  });
+
+  describe('DTO Validation (POST /messages/media/upload)', () => {
+    it('should succeed with valid payload', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/messages/media/upload')
+        .set('Authorization', `Bearer ${userA.token}`)
+        .send({
+          mimeType: 'image/jpeg',
+          fileSize: 1024,
+        });
+      // Depending on S3 setup, this might return 201 or fail downstream, but it shouldn't be 400 Bad Request from ValidationPipe
+      expect(response.status).not.toBe(HttpStatus.BAD_REQUEST);
+    });
+
+    it('should reject invalid payload (missing fields)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/messages/media/upload')
+        .set('Authorization', `Bearer ${userA.token}`)
+        .send({
+          mimeType: 'image/jpeg',
+        });
+      expect(response.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(response.body.message).toEqual(expect.arrayContaining([expect.stringContaining('fileSize')]));
+    });
+
+    it('should reject unknown properties', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/messages/media/upload')
+        .set('Authorization', `Bearer ${userA.token}`)
+        .send({
+          mimeType: 'image/jpeg',
+          fileSize: 1024,
+          maliciousField: 'exploit',
+        });
+      expect(response.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(response.body.message).toEqual(expect.arrayContaining([expect.stringContaining('property maliciousField should not exist')]));
+    });
+
+    it('should enforce fileSize constraints (negative size)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/messages/media/upload')
+        .set('Authorization', `Bearer ${userA.token}`)
+        .send({
+          mimeType: 'image/jpeg',
+          fileSize: -500,
+        });
+      expect(response.status).toBe(HttpStatus.BAD_REQUEST);
+      expect(response.body.message).toEqual(expect.arrayContaining([expect.stringContaining('fileSize must not be less than 1')]));
     });
   });
 });

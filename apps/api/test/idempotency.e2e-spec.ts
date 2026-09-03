@@ -8,6 +8,7 @@ import * as crypto from 'crypto';
 import { db } from '../src/db';
 import { users, profiles, connections, messages, posts } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
+import { getE2eJwtSignOptions, ensureTestDatabase, clearTestDatabase } from './test-utils';
 
 describe('Idempotency & Concurrency (e2e)', () => {
   let app: NestFastifyApplication;
@@ -81,7 +82,7 @@ describe('Idempotency & Concurrency (e2e)', () => {
     // Sign JWT tokens directly — same pattern as messaging.e2e-spec.ts
     const jwtService = new JwtService({
       secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
-      signOptions: { issuer: 'hakiku.com', audience: 'hakiku.com' },
+      signOptions: getE2eJwtSignOptions(),
     });
     tokenA = await jwtService.signAsync({ sub: uA.id, email: uA.email, role: uA.role });
     tokenB = await jwtService.signAsync({ sub: uB.id, email: uB.email, role: uB.role });

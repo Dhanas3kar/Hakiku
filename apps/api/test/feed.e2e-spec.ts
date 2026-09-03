@@ -11,7 +11,7 @@ import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
 import postgres from 'postgres';
 import { drizzle } from 'drizzle-orm/postgres-js';
-import { clearTestDatabase } from './test-utils';
+import { clearTestDatabase, getE2eJwtSignOptions } from './test-utils';
 import {
   users,
   profiles,
@@ -160,7 +160,7 @@ describe('Feed Module (e2e)', () => {
 
     jwtService = new JwtService({
       secret: process.env.JWT_SECRET || 'dev-secret-key-that-should-be-changed',
-      signOptions: { issuer: 'hakiku.com', audience: 'hakiku.com' },
+      signOptions: getE2eJwtSignOptions(),
     });
 
     studentA = {

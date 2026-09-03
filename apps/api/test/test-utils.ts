@@ -95,3 +95,14 @@ export async function clearTestDatabase() {
   await db.delete(profiles);
   await db.delete(users);
 }
+
+export function getE2eJwtSignOptions() {
+  const issuer = process.env.JWT_ISSUER;
+  const audience = process.env.JWT_AUDIENCE;
+
+  if (!issuer || !audience) {
+    throw new Error('JWT_ISSUER and JWT_AUDIENCE are required for E2E tests');
+  }
+
+  return { issuer, audience };
+}

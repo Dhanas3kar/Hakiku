@@ -63,14 +63,6 @@ describe('High Concurrency & Stress Verification (e2e)', () => {
     jwtService = app.get(JwtService);
     workerService = app.get(NotificationWorkerService);
 
-    // Disable background worker interval to prevent race conditions in tests
-    // @ts-ignore
-    if (workerService.intervalId) {
-      // @ts-ignore
-      clearInterval(workerService.intervalId);
-    }
-    // @ts-ignore
-    workerService.isRunning = false;
 
 
     // Create target user

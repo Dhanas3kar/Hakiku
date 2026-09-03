@@ -8,6 +8,7 @@ import { notificationOutbox } from '../src/db/schema';
 import { eq } from 'drizzle-orm';
 import { NotificationWorkerService } from '../src/notifications/services/notification-worker.service';
 import fastifyCookie from '@fastify/cookie';
+import { GlobalExceptionFilter } from '../src/filters/global-exception.filter';
 
 describe('Resilience & Failure Scenarios (e2e)', () => {
   let app: NestFastifyApplication;
@@ -23,19 +24,12 @@ describe('Resilience & Failure Scenarios (e2e)', () => {
     await app.register(fastifyCookie, {
       secret: process.env.COOKIE_SECRET || 'test-secret',
     });
+    app.useGlobalFilters(new GlobalExceptionFilter());
     
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
 
-    // Disable background workers for testing AFTER app.init()
-    const worker = app.get(NotificationWorkerService);
-    // @ts-ignore
-    if (worker.intervalId) {
-      // @ts-ignore
-      clearInterval(worker.intervalId);
-    }
-    // @ts-ignore
-    worker.isRunning = false;
+
   });
 
   afterAll(async () => {
@@ -61,11 +55,7 @@ describe('Resilience & Failure Scenarios (e2e)', () => {
       worker.handleEvent = jest.fn().mockRejectedValue(new Error('Simulated failure'));
 
       // @ts-ignore
-      worker.isRunning = true;
-      // @ts-ignore
       await worker.processOutbox();
-      // @ts-ignore
-      worker.isRunning = false;
       // Verify it was returned to PENDING with attempts = 1
       const [updatedRow] = await db.select().from(notificationOutbox).where(eq(notificationOutbox.id, outboxRow.id));
       
