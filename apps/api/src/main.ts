@@ -36,6 +36,9 @@ async function bootstrap() {
     }),
   );
 
+  // Enable graceful NestJS lifecycle shutdown hooks (SIGTERM/SIGINT)
+  app.enableShutdownHooks();
+
   await app.register(fastifyHelmet as any, {
     contentSecurityPolicy: false, // APIs don't typically need CSP, and we want to avoid breaking static/WebSocket integrations
     hsts: process.env.NODE_ENV === 'production' ? { maxAge: 15552000, includeSubDomains: true } : false,
