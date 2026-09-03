@@ -70,6 +70,8 @@ export class MessagingController {
     @Query('cursorAt') cursorAt?: string,
     @Query('cursorId') cursorId?: string,
     @Query('limit') limit?: string,
+    @Query('afterAt') afterAt?: string,
+    @Query('afterId') afterId?: string,
   ) {
     return this.messageQueryService.listMessages(
       req.user.sub,
@@ -77,6 +79,8 @@ export class MessagingController {
       cursorAt,
       cursorId,
       limit ? parseInt(limit) : 50,
+      afterAt,
+      afterId,
     );
   }
 

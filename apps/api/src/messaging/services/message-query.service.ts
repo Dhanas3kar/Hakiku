@@ -14,6 +14,7 @@ export class MessageQueryService {
 
   /**
    * Retrieves messages for a conversation using deterministic cursor pagination.
+   * Supports backward pagination (cursorAt, cursorId) and forward catch-up (afterAt, afterId).
    */
   async listMessages(
     userId: string,
@@ -21,38 +22,64 @@ export class MessageQueryService {
     cursorAt?: string,
     cursorId?: string,
     limit = 50,
+    afterAt?: string,
+    afterId?: string,
   ) {
     // 1. Ensure access
     await this.conversationService.getConversationById(userId, conversationId);
 
     let whereClause = eq(messages.conversationId, conversationId);
+    const isForward = Boolean(afterAt || afterId);
 
-    if (cursorAt && cursorId) {
-      const parsedCursor = new Date(cursorAt);
-      if (!isNaN(parsedCursor.getTime())) {
-        // Deterministic cursor: (created_at, id) < (cursorAt, cursorId)
-        // using tuple comparison
+    if (isForward) {
+      if (afterId) {
         whereClause = and(
           whereClause,
-          sql`(${messages.createdAt}, ${messages.id}) < (${parsedCursor.toISOString()}, ${cursorId})`,
+          sql`${messages.createdAt} >= (SELECT created_at FROM messages WHERE id = ${afterId})`,
+          sql`${messages.id} != ${afterId}`,
+        ) as any;
+      } else if (afterAt) {
+        const parsed = new Date(afterAt);
+        if (!isNaN(parsed.getTime())) {
+          const isoTime = parsed.toISOString();
+          whereClause = and(
+            whereClause,
+            sql`${messages.createdAt} > ${isoTime}::timestamp`,
+          ) as any;
+        }
+      }
+    } else if (cursorId) {
+      whereClause = and(
+        whereClause,
+        sql`${messages.createdAt} <= (SELECT created_at FROM messages WHERE id = ${cursorId})`,
+        sql`${messages.id} != ${cursorId}`,
+      ) as any;
+    } else if (cursorAt) {
+      const parsed = new Date(cursorAt);
+      if (!isNaN(parsed.getTime())) {
+        const isoTime = parsed.toISOString();
+        whereClause = and(
+          whereClause,
+          sql`${messages.createdAt} < ${isoTime}::timestamp`,
         ) as any;
       }
     }
 
+    const orderByClause = isForward
+      ? [sql`${messages.createdAt} ASC`, sql`${messages.id} ASC`]
+      : [desc(messages.createdAt), desc(messages.id)];
+
     const messageRows = await db.query.messages.findMany({
       where: whereClause,
-      orderBy: [desc(messages.createdAt), desc(messages.id)],
+      orderBy: orderByClause as any,
       limit: limit + 1,
-      with: {
-        // we normally need media as well
-      },
     });
 
     const hasNextPage = messageRows.length > limit;
     const items = hasNextPage ? messageRows.slice(0, limit) : messageRows;
 
-    let nextCursorAt = null;
-    let nextCursorId = null;
+    let nextCursorAt: string | null = null;
+    let nextCursorId: string | null = null;
 
     if (items.length > 0) {
       const lastItem = items[items.length - 1];
@@ -60,8 +87,6 @@ export class MessageQueryService {
       nextCursorId = lastItem.id;
     }
 
-    // Need to manually load media because Drizzle doesn't automatically join reverse relationships
-    // cleanly unless explicitly mapped in schema.ts relations. We'll do a simple IN query.
     if (items.length > 0) {
       const messageIds = items.map((m) => m.id);
       const mediaRows = await db.query.messageMedia.findMany({
@@ -80,7 +105,7 @@ export class MessageQueryService {
     }
 
     return {
-      data: items.reverse(), // Reverse to send oldest first for typical chat UI if needed, but pagination is backward
+      data: isForward ? items : items.reverse(),
       nextCursorAt,
       nextCursorId,
     };
