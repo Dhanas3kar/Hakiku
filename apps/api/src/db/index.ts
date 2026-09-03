@@ -24,7 +24,8 @@ if (process.env.NODE_ENV === 'test' && !connectionString.includes('_test')) {
 // Disable prefetch as it is not supported for "Transaction" pool mode
 const client = postgres(connectionString, {
   prepare: false,
-  max: 2,
+  max: process.env.NODE_ENV === 'test' ? 20 : (process.env.DB_MAX_CONNECTIONS ? parseInt(process.env.DB_MAX_CONNECTIONS) : 20),
   idle_timeout: 5,
+  connect_timeout: 10,
 });
 export const db = drizzle(client, { schema });

@@ -515,6 +515,7 @@ export const notifications = pgTable(
   'notifications',
   {
     id: uuid('id').defaultRandom().primaryKey(),
+    eventId: varchar('event_id', { length: 255 }),
     recipientId: uuid('recipient_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -538,6 +539,7 @@ export const notifications = pgTable(
       table.recipientId,
       table.isRead,
     ),
+    eventIdIdx: uniqueIndex('idx_notifications_event_id').on(table.eventId),
   }),
 );
 
@@ -557,6 +559,7 @@ export const notificationOutbox = pgTable(
     payload: jsonb('payload').notNull(),
     status: outboxStatusEnum('status').default('PENDING').notNull(),
     availableAt: timestamp('available_at').defaultNow().notNull(),
+    claimedAt: timestamp('claimed_at'),
     attempts: integer('attempts').default(0).notNull(),
     lastError: text('last_error'),
     createdAt: timestamp('created_at').defaultNow().notNull(),

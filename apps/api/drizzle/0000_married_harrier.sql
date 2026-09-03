@@ -1,6 +1,10 @@
-CREATE TYPE "public"."session_status" AS ENUM('ACTIVE', 'ROTATED', 'REVOKED');--> statement-breakpoint
-CREATE TYPE "public"."role" AS ENUM('STUDENT', 'MODERATOR', 'ADMIN');--> statement-breakpoint
-CREATE TABLE "audit_logs" (
+DO $$ BEGIN
+ CREATE TYPE "public"."session_status" AS ENUM('ACTIVE', 'ROTATED', 'REVOKED');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN
+ CREATE TYPE "public"."role" AS ENUM('STUDENT', 'MODERATOR', 'ADMIN');
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "audit_logs" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid,
 	"event" "event" NOT NULL,
@@ -9,7 +13,7 @@ CREATE TABLE "audit_logs" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "auth_sessions" (
+CREATE TABLE IF NOT EXISTS "auth_sessions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
 	"token_family_id" uuid NOT NULL,
@@ -22,7 +26,7 @@ CREATE TABLE "auth_sessions" (
 	"rotated_at" timestamp
 );
 --> statement-breakpoint
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"email" varchar(255) NOT NULL,
 	"student_id" varchar(50),
@@ -35,5 +39,9 @@ CREATE TABLE "users" (
 	CONSTRAINT "users_student_id_unique" UNIQUE("student_id")
 );
 --> statement-breakpoint
-ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "auth_sessions" ADD CONSTRAINT "auth_sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+DO $$ BEGIN
+ ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;--> statement-breakpoint
+DO $$ BEGIN
+ ALTER TABLE "auth_sessions" ADD CONSTRAINT "auth_sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
