@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
 import { AuthService } from './auth.service';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 
 class AdminLoginDto {
   @IsEmail()
@@ -26,7 +26,12 @@ class AdminLoginDto {
 export class AdminAuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @UseGuards(ThrottlerGuard)
+
+  @Throttle({
+    short: { limit: 5, ttl: 60000 }, // 5 req per minute
+    medium: { limit: 20, ttl: 300000 }, // 20 req per 5 minutes
+    long: { limit: 50, ttl: 3600000 }, // 50 req per hour
+  })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -48,7 +53,8 @@ export class AdminAuthController {
       this.setCookies(res, accessToken, refreshToken, familyId);
       return { message: 'Admin login successful' };
     } catch (error) {
-      throw new UnauthorizedException('Invalid admin credentials');
+      console.error('Admin login error:', error);
+      throw error;
     }
   }
 

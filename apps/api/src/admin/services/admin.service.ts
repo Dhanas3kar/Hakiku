@@ -8,6 +8,9 @@ import { eq, and, sql, desc, count, ilike, or } from 'drizzle-orm';
 import * as schema from '../../db/schema';
 import { PostsService } from '../../posts/services/posts.service';
 import { CommentsService } from '../../posts/services/comments.service';
+import { ConfessionModerationService } from '../../community/confessions/confession-moderation.service';
+import { HotTakesService } from '../../community/hot-takes/hot-takes.service';
+import { PollService } from '../../community/polls/poll.service';
 
 @Injectable()
 export class AdminService {
@@ -16,6 +19,9 @@ export class AdminService {
   constructor(
     private readonly postsService: PostsService,
     private readonly commentsService: CommentsService,
+    private readonly confessionModerationService: ConfessionModerationService,
+    private readonly hotTakesService: HotTakesService,
+    private readonly pollService: PollService,
   ) {
     this.db = db;
   }
@@ -105,6 +111,18 @@ export class AdminService {
           adminId,
           report.targetId,
           reason || 'Report resolved',
+        );
+      } else if (report.targetType === 'CONFESSION') {
+        await this.confessionModerationService.removeConfession(
+          report.targetId
+        );
+      } else if (report.targetType === 'HOT_TAKE') {
+        await this.hotTakesService.adminRemoveHotTake(
+          report.targetId
+        );
+      } else if (report.targetType === 'POLL') {
+        await this.pollService.adminRemovePoll(
+          report.targetId
         );
       }
     }

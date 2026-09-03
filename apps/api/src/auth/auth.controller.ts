@@ -8,6 +8,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { IsEmail, IsString, IsNotEmpty } from 'class-validator';
 import { AuthService } from './auth.service';
 
@@ -29,6 +30,11 @@ class VerifyOtpDto {
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Throttle({
+    short: { limit: 5, ttl: 60000 }, // 5 req per minute
+    medium: { limit: 20, ttl: 300000 }, // 20 req per 5 minutes
+    long: { limit: 50, ttl: 3600000 }, // 50 req per hour
+  })
   @Post('send-otp')
   @HttpCode(HttpStatus.OK)
   async sendOtp(@Body() body: SendOtpDto, @Req() req: any) {
@@ -36,6 +42,11 @@ export class AuthController {
     return { message: 'If the email is valid, an OTP will be sent.' };
   }
 
+  @Throttle({
+    short: { limit: 10, ttl: 60000 }, // 10 req per minute
+    medium: { limit: 30, ttl: 300000 }, // 30 req per 5 minutes
+    long: { limit: 100, ttl: 3600000 }, // 100 req per hour
+  })
   @Post('verify-otp')
   @HttpCode(HttpStatus.OK)
   async verifyOtp(
@@ -62,6 +73,11 @@ export class AuthController {
     return { csrfToken: token };
   }
 
+  @Throttle({
+    short: { limit: 10, ttl: 60000 }, // 10 req per minute
+    medium: { limit: 30, ttl: 300000 }, // 30 req per 5 minutes
+    long: { limit: 100, ttl: 3600000 }, // 100 req per hour
+  })
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(@Req() req: any, @Res({ passthrough: true }) res: any) {

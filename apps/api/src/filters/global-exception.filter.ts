@@ -48,17 +48,41 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         // In case of class-validator errors, message is an array. Join it or pick the first one.
         if (Array.isArray(message)) {
           devDetails = message;
-          message = 'Validation failed'; 
+          message = message.join(', '); // Return all validation errors to the client
         }
       } else {
         // For 500 HttpExceptions, mask the actual message to users, but log it
         devDetails = res;
+        console.error('Unhandled 500 HttpException:', res);
       }
     } else if (exception instanceof Error) {
-      // 500 Unhandled Error
-      status = HttpStatus.INTERNAL_SERVER_ERROR;
-      code = 'INTERNAL_ERROR';
-      devDetails = { message: exception.message, stack: exception.stack };
+      const pgError = exception as any;
+      console.error('Unhandled Server Error:', pgError);
+      
+      if (pgError.code === '23505') {
+        status = HttpStatus.CONFLICT;
+        code = 'CONFLICT';
+        message = 'A resource with this identifier already exists.';
+        devDetails = { code: pgError.code, detail: pgError.detail };
+      } else if (pgError.code === '23503') {
+        status = HttpStatus.BAD_REQUEST;
+        code = 'BAD_REQUEST';
+        message = 'Invalid reference. The requested resource or related entity does not exist.';
+        devDetails = { code: pgError.code, detail: pgError.detail };
+      } else if (
+        pgError.code === '53300' || // too_many_connections
+        pgError.code === '57P01' // admin_shutdown
+      ) {
+        status = HttpStatus.SERVICE_UNAVAILABLE;
+        code = 'SERVICE_UNAVAILABLE';
+        message = 'Service is temporarily unavailable';
+        devDetails = { code: pgError.code, message: pgError.message, stack: pgError.stack };
+      } else {
+        // 500 Unhandled Error
+        status = HttpStatus.INTERNAL_SERVER_ERROR;
+        code = 'INTERNAL_ERROR';
+        devDetails = { message: exception.message, stack: exception.stack };
+      }
     } else {
       status = HttpStatus.INTERNAL_SERVER_ERROR;
       code = 'INTERNAL_ERROR';

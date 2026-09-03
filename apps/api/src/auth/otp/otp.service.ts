@@ -16,7 +16,7 @@ export class OtpService {
   constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
 
   private hashOtp(otp: string): string {
-    const secret = process.env.OTP_SECRET || 'dev-secret';
+    const secret = process.env.OTP_SECRET!;
     return createHmac('sha256', secret).update(otp).digest('hex');
   }
 
