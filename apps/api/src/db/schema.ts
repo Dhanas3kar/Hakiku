@@ -724,7 +724,40 @@ export const messageMedia = pgTable(
   }),
 );
 
-// 5. Message Read Receipts Table
+// 5. Message Outbox Table (Durable Realtime Message Delivery)
+export const messageOutbox = pgTable(
+  'message_outbox',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    eventId: varchar('event_id', { length: 255 }).notNull().unique(),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversations.id, { onDelete: 'cascade' }),
+    recipientId: uuid('recipient_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    type: varchar('type', { length: 50 }).notNull(),
+    payload: jsonb('payload').notNull(),
+    status: outboxStatusEnum('status').default('PENDING').notNull(),
+    availableAt: timestamp('available_at').defaultNow().notNull(),
+    claimedAt: timestamp('claimed_at'),
+    attempts: integer('attempts').default(0).notNull(),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    pendingProcessingIdx: index('idx_message_outbox_pending')
+      .on(table.status, table.availableAt)
+      .where(sql`${table.status} IN ('PENDING', 'PROCESSING')`),
+    messageIdIdx: index('idx_message_outbox_message_id').on(table.messageId),
+  }),
+);
+
+// 6. Message Read Receipts Table
 export const messageReadReceipts = pgTable(
   'message_read_receipts',
   {
