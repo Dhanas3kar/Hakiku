@@ -5,7 +5,7 @@ import {
   messageMedia,
   conversationParticipants,
 } from '../../db/schema';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, and, sql, desc, asc, inArray, gt, ne, lt } from 'drizzle-orm';
 import { ConversationService } from './conversation.service';
 
 @Injectable()
@@ -25,55 +25,78 @@ export class MessageQueryService {
     afterAt?: string,
     afterId?: string,
   ) {
-    // 1. Ensure access
+    // 1. Ensure access and fetch participant clearedAt status
     await this.conversationService.getConversationById(userId, conversationId);
 
-    let whereClause = eq(messages.conversationId, conversationId);
-    const isForward = Boolean(afterAt || afterId);
+    const [participant] = await db
+      .select({ clearedAt: conversationParticipants.clearedAt })
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.userId, userId),
+        ),
+      )
+      .limit(1);
 
-    if (isForward) {
-      if (afterId) {
-        whereClause = and(
-          whereClause,
-          sql`${messages.createdAt} >= (SELECT created_at FROM messages WHERE id = ${afterId})`,
-          sql`${messages.id} != ${afterId}`,
-        ) as any;
-      } else if (afterAt) {
-        const parsed = new Date(afterAt);
-        if (!isNaN(parsed.getTime())) {
-          const isoTime = parsed.toISOString();
-          whereClause = and(
-            whereClause,
-            sql`${messages.createdAt} > ${isoTime}::timestamp`,
-          ) as any;
-        }
-      }
-    } else if (cursorId) {
-      whereClause = and(
-        whereClause,
-        sql`${messages.createdAt} <= (SELECT created_at FROM messages WHERE id = ${cursorId})`,
-        sql`${messages.id} != ${cursorId}`,
-      ) as any;
-    } else if (cursorAt) {
-      const parsed = new Date(cursorAt);
-      if (!isNaN(parsed.getTime())) {
-        const isoTime = parsed.toISOString();
-        whereClause = and(
-          whereClause,
-          sql`${messages.createdAt} < ${isoTime}::timestamp`,
-        ) as any;
+    let anchorDate: Date | null = null;
+    if (afterId) {
+      const [anchor] = await db
+        .select({ createdAt: messages.createdAt })
+        .from(messages)
+        .where(eq(messages.id, afterId))
+        .limit(1);
+
+      if (anchor) {
+        anchorDate = anchor.createdAt;
       }
     }
 
-    const orderByClause = isForward
-      ? [sql`${messages.createdAt} ASC`, sql`${messages.id} ASC`]
-      : [desc(messages.createdAt), desc(messages.id)];
+    const isForward = Boolean(afterAt || afterId);
+    let whereClause: any = eq(messages.conversationId, conversationId);
 
-    const messageRows = await db.query.messages.findMany({
-      where: whereClause,
-      orderBy: orderByClause as any,
-      limit: limit + 1,
-    });
+    if (participant?.clearedAt) {
+      const clearedTime = new Date(participant.clearedAt).toISOString();
+      whereClause = and(
+        whereClause,
+        sql`${messages.createdAt} > ${clearedTime}::timestamp`,
+      );
+    }
+
+    if (afterId && anchorDate) {
+      whereClause = and(
+        whereClause,
+        gt(messages.createdAt, anchorDate),
+        ne(messages.id, afterId),
+      );
+    } else if (afterAt) {
+      const parsed = new Date(afterAt);
+      if (!isNaN(parsed.getTime())) {
+        whereClause = and(
+          whereClause,
+          gt(messages.createdAt, parsed),
+        );
+      }
+    } else if (cursorAt) {
+      const parsed = new Date(cursorAt);
+      if (!isNaN(parsed.getTime())) {
+        whereClause = and(
+          whereClause,
+          lt(messages.createdAt, parsed),
+        );
+      }
+    }
+
+    const messageRows = await db
+      .select()
+      .from(messages)
+      .where(whereClause)
+      .orderBy(
+        ...(isForward
+          ? [asc(messages.createdAt), asc(messages.id)]
+          : [desc(messages.createdAt), desc(messages.id)])
+      )
+      .limit(limit + 1);
 
     const hasNextPage = messageRows.length > limit;
     const items = hasNextPage ? messageRows.slice(0, limit) : messageRows;
@@ -89,10 +112,12 @@ export class MessageQueryService {
 
     if (items.length > 0) {
       const messageIds = items.map((m) => m.id);
-      const mediaRows = await db.query.messageMedia.findMany({
-        where: sql`${messageMedia.messageId} IN ${messageIds}`,
-        orderBy: messageMedia.displayOrder,
-      });
+      const mediaRows = await db
+        .select()
+        .from(messageMedia)
+        .where(inArray(messageMedia.messageId, messageIds))
+        .orderBy(asc(messageMedia.displayOrder));
+        
       const mediaMap = new Map<string, any[]>();
       for (const m of mediaRows) {
         if (!mediaMap.has(m.messageId)) mediaMap.set(m.messageId, []);
@@ -100,7 +125,7 @@ export class MessageQueryService {
       }
 
       for (const item of items) {
-        (item as any).media = mediaMap.get(item.id) || [];
+        (item as any).media = item.deletedAt ? [] : (mediaMap.get(item.id) || []);
       }
     }
 
@@ -134,6 +159,7 @@ export class MessageQueryService {
         and(
           sql`${messages.senderId} != ${userId}`,
           sql`${messages.createdAt} > COALESCE(${conversationParticipants.lastReadAt}, '1970-01-01')`,
+          sql`(${conversationParticipants.clearedAt} IS NULL OR ${messages.createdAt} > ${conversationParticipants.clearedAt})`,
         ),
       );
 

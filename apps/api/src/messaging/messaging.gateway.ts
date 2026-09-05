@@ -15,7 +15,8 @@ import { verifyWsClient } from '../auth/utils/ws-auth.util';
 import { Redis } from 'ioredis';
 import { MessageAccessService } from './services/message-access.service';
 import { ConversationService } from './services/conversation.service';
-
+import { PresenceService } from './services/presence.service';
+import { MessageQueryService } from './services/message-query.service';
 import { MetricsService } from '../metrics/metrics.service';
 
 @WebSocketGateway({
@@ -35,14 +36,17 @@ export class MessagingGateway
 
   // userId -> set of socket ids
   private userSockets: Map<string, Set<string>> = new Map();
-  // We need a separate redis client for subscribing, otherwise pub/sub blocks other commands on the client.
-  // We can either inject a duplicate or instantiate one. To be safe we instantiate for subscription.
   private subscriberClient: Redis;
+
+  // Typing rate limiter map: `${userId}:${conversationId}` -> lastTimestampMs
+  private typingThrottleMap: Map<string, number> = new Map();
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly messageAccessService: MessageAccessService,
     private readonly conversationService: ConversationService,
+    private readonly presenceService: PresenceService,
+    private readonly messageQueryService: MessageQueryService,
     private readonly metricsService: MetricsService,
   ) {
     this.subscriberClient = new Redis(
@@ -69,19 +73,34 @@ export class MessagingGateway
   afterInit() {
     this.logger.log('MessagingGateway initialized');
 
-    this.subscriberClient.subscribe('messaging_events', (err) => {
-      if (err)
-        this.logger.error('Failed to subscribe to messaging_events', err);
+    this.subscriberClient.on('connect', () => {
+      this.subscriberClient.subscribe('messaging_events', 'community_events', 'team_events', 'collaboration_events', (err) => {
+        if (err) {
+          this.logger.error('Failed to subscribe to Redis events', err);
+        } else {
+          this.logger.log('Subscribed to messaging_events, community_events, team_events, and collaboration_events channels');
+        }
+      });
     });
 
     this.subscriberClient.on('message', (channel, message) => {
-      if (channel === 'messaging_events') {
-        try {
-          const event = JSON.parse(message);
+      try {
+        const event = JSON.parse(message);
+        if (channel === 'messaging_events') {
           this.sendToUser(event.recipientId, event.type, event.payload);
-        } catch (err) {
-          this.logger.error('Failed to parse messaging event', err);
+        } else if (channel === 'community_events') {
+          if (event.channelId) {
+            this.server.to(`channel:${event.channelId}`).emit(event.type, event.payload || event);
+          }
+          this.server.emit(event.type, event.payload || event);
+        } else if (channel === 'team_events' || channel === 'collaboration_events') {
+          if (event.recipientId) {
+            this.sendToUser(event.recipientId, event.type, event.payload || event);
+          }
+          this.server.emit(event.type, event.payload || event);
         }
+      } catch (err) {
+        this.logger.error(`Failed to parse Redis event on ${channel}`, err);
       }
     });
   }
@@ -104,6 +123,7 @@ export class MessagingGateway
       }
       sockets.add(client.id);
       this.metricsService.incrementWsConnections();
+      await this.presenceService.heartbeat(userId);
 
       this.logger.debug(
         `Client connected to messaging: ${client.id} (User: ${userId})`,
@@ -114,7 +134,7 @@ export class MessagingGateway
     }
   }
 
-  handleDisconnect(client: Socket) {
+  async handleDisconnect(client: Socket) {
     const userId = client.data.userId;
     if (userId) {
       const sockets = this.userSockets.get(userId);
@@ -122,12 +142,61 @@ export class MessagingGateway
         sockets.delete(client.id);
         if (sockets.size === 0) {
           this.userSockets.delete(userId);
+          await this.presenceService.setOffline(userId);
         }
       }
       this.metricsService.decrementWsConnections();
       this.logger.debug(
         `Client disconnected from messaging: ${client.id} (User: ${userId})`,
       );
+    }
+  }
+
+  @SubscribeMessage('presence:heartbeat')
+  async handlePresenceHeartbeat(@ConnectedSocket() client: Socket) {
+    const userId = client.data.userId;
+    if (userId) {
+      await this.presenceService.heartbeat(userId);
+    }
+  }
+
+  @SubscribeMessage('message:catchup')
+  async handleMessageCatchup(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      conversationId: string;
+      afterAt?: string;
+      afterId?: string;
+      limit?: number;
+    },
+  ) {
+    const userId = client.data.userId;
+    if (!userId || !data.conversationId) {
+      return { error: 'Unauthorized or missing conversationId' };
+    }
+
+    try {
+      const limit = Math.min(Math.max(data.limit || 50, 1), 100);
+      const res = await this.messageQueryService.listMessages(
+        userId,
+        data.conversationId,
+        undefined,
+        undefined,
+        limit,
+        data.afterAt,
+        data.afterId,
+      );
+
+      return {
+        status: 'ok',
+        data: res.data,
+        nextCursorAt: res.nextCursorAt,
+        nextCursorId: res.nextCursorId,
+      };
+    } catch (err: any) {
+      this.logger.error(`Catchup failed for user ${userId}: ${err.message}`);
+      return { status: 'error', message: err.message || 'Catchup failed' };
     }
   }
 
@@ -155,6 +224,15 @@ export class MessagingGateway
     const userId = client.data.userId;
     if (!userId || !conversationId) return;
 
+    // Rate limiting: maximum 1 typing event / 2 seconds per user per conversation
+    const throttleKey = `${userId}:${conversationId}`;
+    const now = Date.now();
+    const lastTimestamp = this.typingThrottleMap.get(throttleKey) || 0;
+    if (now - lastTimestamp < 2000) {
+      return; // Suppress throttled typing event
+    }
+    this.typingThrottleMap.set(throttleKey, now);
+
     try {
       // Ensure access and retrieve conversation to find recipient
       const conversation = await this.conversationService.getConversationById(
@@ -181,3 +259,4 @@ export class MessagingGateway
     }
   }
 }
+

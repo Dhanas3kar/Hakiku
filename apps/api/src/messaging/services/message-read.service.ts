@@ -27,12 +27,16 @@ export class MessageReadService {
     );
 
     // Verify message exists in conversation
-    const message = await db.query.messages.findFirst({
-      where: and(
-        eq(messages.id, messageId),
-        eq(messages.conversationId, conversationId),
-      ),
-    });
+    const [message] = await db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.id, messageId),
+          eq(messages.conversationId, conversationId),
+        ),
+      )
+      .limit(1);
 
     if (!message) {
       throw new NotFoundException('Message not found');
@@ -80,6 +84,46 @@ export class MessageReadService {
         messageId,
         readBy: userId,
         readAt: new Date(),
+      },
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Updates participant's last read timestamp for an entire conversation.
+   */
+  async markConversationAsRead(userId: string, conversationId: string) {
+    const conversation = await this.conversationService.getConversationById(
+      userId,
+      conversationId,
+    );
+
+    const now = new Date();
+    await db
+      .update(conversationParticipants)
+      .set({
+        lastReadAt: now,
+      })
+      .where(
+        and(
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.userId, userId),
+        ),
+      );
+
+    const targetUserId =
+      conversation.userAId === userId
+        ? conversation.userBId
+        : conversation.userAId;
+
+    await this.deliveryService.publishEvent({
+      type: 'message:read',
+      recipientId: targetUserId,
+      conversationId,
+      payload: {
+        readBy: userId,
+        readAt: now,
       },
     });
 

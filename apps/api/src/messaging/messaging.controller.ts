@@ -54,6 +54,28 @@ export class MessagingController {
     );
   }
 
+  @Get('conversations/:conversationId')
+  async getConversation(
+    @Req() req: any,
+    @Param('conversationId') conversationId: string,
+  ) {
+    return this.conversationService.getConversationDetails(
+      req.user.sub,
+      conversationId,
+    );
+  }
+
+  @Delete('conversations/:conversationId')
+  async deleteConversation(
+    @Req() req: any,
+    @Param('conversationId') conversationId: string,
+  ) {
+    return this.conversationService.deleteConversation(
+      req.user.sub,
+      conversationId,
+    );
+  }
+
   @Post('conversations/:conversationId/messages')
   async sendMessage(
     @Req() req: any,
@@ -102,8 +124,14 @@ export class MessagingController {
   async markAsRead(
     @Req() req: any,
     @Param('conversationId') conversationId: string,
-    @Body('messageId') messageId: string,
+    @Body('messageId') messageId?: string,
   ) {
+    if (!messageId) {
+      return this.messageReadService.markConversationAsRead(
+        req.user.sub,
+        conversationId,
+      );
+    }
     return this.messageReadService.markAsRead(
       req.user.sub,
       conversationId,
@@ -113,7 +141,8 @@ export class MessagingController {
 
   @Get('unread-count')
   async getUnreadCount(@Req() req: any) {
-    return this.messageQueryService.getUnreadCount(req.user.sub);
+    const count = await this.messageQueryService.getUnreadCount(req.user.sub);
+    return { unreadCount: count, count };
   }
 
   @Post('media/upload')

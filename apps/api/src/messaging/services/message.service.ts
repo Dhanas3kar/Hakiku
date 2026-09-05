@@ -11,10 +11,12 @@ import {
   conversations,
   conversationParticipants,
   pendingMediaUploads,
+  profiles,
 } from '../../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { MessageDeliveryService } from './message-delivery.service';
 import { ConversationService } from './conversation.service';
+import { MessageAccessService } from './message-access.service';
 import { NotificationOutboxService } from '../../notifications/services/notification-outbox.service';
 import { LocalStorageProvider } from '../../profile/storage/local-storage.provider';
 import { MessageOutboxService } from './message-outbox.service';
@@ -24,6 +26,7 @@ import * as crypto from 'crypto';
 export class MessageService {
   constructor(
     private readonly conversationService: ConversationService,
+    private readonly accessService: MessageAccessService,
     private readonly deliveryService: MessageDeliveryService,
     private readonly outboxService: NotificationOutboxService,
     private readonly messageOutboxService: MessageOutboxService,
@@ -50,6 +53,13 @@ export class MessageService {
       conversationId,
     );
 
+    const targetUserId =
+      conversation.userAId === userId
+        ? conversation.userBId
+        : conversation.userAId;
+
+    await this.accessService.validateMessagingAccess(userId, targetUserId);
+
     if (
       dto.messageType === 'TEXT' &&
       (!dto.content || dto.content.trim().length === 0)
@@ -69,12 +79,15 @@ export class MessageService {
       }
 
       // Verify pending uploads
-      validMedia = await db.query.pendingMediaUploads.findMany({
-        where: and(
-          eq(pendingMediaUploads.userId, userId),
-          eq(pendingMediaUploads.isAttached, false),
-        ),
-      });
+      validMedia = await db
+        .select()
+        .from(pendingMediaUploads)
+        .where(
+          and(
+            eq(pendingMediaUploads.userId, userId),
+            eq(pendingMediaUploads.isAttached, false),
+          ),
+        );
       validMedia = validMedia.filter((m) =>
         dto.mediaKeys!.includes(m.storageKey),
       );
@@ -151,6 +164,29 @@ export class MessageService {
         },
       });
 
+      const [senderProfile] = await tx
+        .select({
+          displayName: profiles.displayName,
+          username: profiles.username,
+          avatarKey: profiles.avatarKey,
+        })
+        .from(profiles)
+        .where(eq(profiles.userId, userId))
+        .limit(1);
+
+      const baseUrl = process.env.BASE_URL || process.env.VITE_API_URL || 'http://localhost:3001';
+      const msgWithSender = {
+        ...msg,
+        sender: {
+          userId,
+          displayName: senderProfile?.displayName || 'User',
+          username: senderProfile?.username || '',
+          avatarUrl: senderProfile?.avatarKey
+            ? `${baseUrl}/uploads/${senderProfile.avatarKey}`
+            : null,
+        },
+      };
+
       // 6. Update message delivery outbox for durable realtime delivery
       await this.messageOutboxService.appendEvent(
         tx,
@@ -159,7 +195,7 @@ export class MessageService {
         conversationId,
         targetUserId,
         'message:new',
-        msg,
+        msgWithSender,
       );
       await this.messageOutboxService.appendEvent(
         tx,
@@ -168,10 +204,10 @@ export class MessageService {
         conversationId,
         userId,
         'message:new',
-        msg,
+        msgWithSender,
       );
 
-      return msg;
+      return msgWithSender;
       });
 
       return createdMessage;
@@ -222,7 +258,31 @@ export class MessageService {
             .limit(1);
 
           if (existingMessage) {
-            return existingMessage;
+            const [senderProfile] = await db
+              .select({
+                displayName: profiles.displayName,
+                username: profiles.username,
+                avatarKey: profiles.avatarKey,
+              })
+              .from(profiles)
+              .where(eq(profiles.userId, userId))
+              .limit(1);
+
+            const baseUrl =
+              process.env.BASE_URL ||
+              process.env.VITE_API_URL ||
+              'http://localhost:3001';
+            return {
+              ...existingMessage,
+              sender: {
+                userId,
+                displayName: senderProfile?.displayName || 'User',
+                username: senderProfile?.username || '',
+                avatarUrl: senderProfile?.avatarKey
+                  ? `${baseUrl}/uploads/${senderProfile.avatarKey}`
+                  : null,
+              },
+            };
           }
           await new Promise((resolve) => setTimeout(resolve, 25));
         }
@@ -242,9 +302,11 @@ export class MessageService {
       throw new BadRequestException('Message too long');
     }
 
-    const message = await db.query.messages.findFirst({
-      where: eq(messages.id, messageId),
-    });
+    const [message] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, messageId))
+      .limit(1);
 
     if (!message || message.senderId !== userId || message.deletedAt) {
       throw new ForbiddenException('Cannot edit this message');
@@ -254,9 +316,11 @@ export class MessageService {
       throw new BadRequestException('Only TEXT messages can be edited');
     }
 
-    const conversation = await db.query.conversations.findFirst({
-      where: eq(conversations.id, message.conversationId),
-    });
+    const [conversation] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, message.conversationId))
+      .limit(1);
 
     if (conversation) {
       const targetUserId =
@@ -294,26 +358,33 @@ export class MessageService {
       });
     }
 
-    return (
-      await db.query.messages.findFirst({ where: eq(messages.id, messageId) })
-    )!;
+    const [finalMessage] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, messageId))
+      .limit(1);
+    return finalMessage;
   }
 
   /**
    * Soft delete a message
    */
   async deleteMessage(userId: string, messageId: string) {
-    const message = await db.query.messages.findFirst({
-      where: eq(messages.id, messageId),
-    });
+    const [message] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, messageId))
+      .limit(1);
 
     if (!message || message.senderId !== userId || message.deletedAt) {
       throw new ForbiddenException('Cannot delete this message');
     }
 
-    const conversation = await db.query.conversations.findFirst({
-      where: eq(conversations.id, message.conversationId),
-    });
+    const [conversation] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, message.conversationId))
+      .limit(1);
 
     if (conversation) {
       const targetUserId =
@@ -324,11 +395,15 @@ export class MessageService {
       await db.transaction(async (tx) => {
         const [deletedMessage] = await tx
           .update(messages)
-          .set({ deletedAt: new Date(), content: null })
+          .set({ deletedAt: new Date(), deletedBy: userId, content: null })
           .where(eq(messages.id, messageId))
           .returning();
 
-        const payload = { messageId, deletedAt: deletedMessage.deletedAt };
+        const payload = {
+          messageId,
+          conversationId: message.conversationId,
+          deletedAt: deletedMessage.deletedAt,
+        };
 
         await this.messageOutboxService.appendEvent(
           tx,
@@ -353,8 +428,11 @@ export class MessageService {
       });
     }
 
-    return (
-      await db.query.messages.findFirst({ where: eq(messages.id, messageId) })
-    )!;
+    const [finalDeleted] = await db
+      .select()
+      .from(messages)
+      .where(eq(messages.id, messageId))
+      .limit(1);
+    return finalDeleted;
   }
 }

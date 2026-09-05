@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { db } from '../../db/index';
 import { connections, blocks, users } from '../../db/schema';
-import { eq, and, or, sql } from 'drizzle-orm';
+import { eq, and, or } from 'drizzle-orm';
 
 @Injectable()
 export class MessageAccessService {
@@ -15,10 +15,9 @@ export class MessageAccessService {
    * Validates if two users can message each other.
    * Rules:
    * 1. Sender and recipient are ACTIVE.
-   * 2. Both users are mutually CONNECTED.
-   * 3. Neither user has blocked the other.
-   * Throws 403 Forbidden if not connected.
-   * Throws 404 Not Found if blocked (to maintain privacy) or user not active/doesn't exist.
+   * 2. Neither user has blocked the other.
+   * 3. Admin / Moderator handles have special direct messaging access.
+   * 4. Otherwise, both users must be mutually CONNECTED.
    */
   async validateMessagingAccess(
     senderId: string,
@@ -29,38 +28,62 @@ export class MessageAccessService {
     }
 
     // 1. Check if recipient exists and is active
-    const recipient = await db.query.users.findFirst({
-      where: and(eq(users.id, recipientId), eq(users.status, 'ACTIVE')),
-    });
+    const [recipient] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, recipientId), eq(users.status, 'ACTIVE')))
+      .limit(1);
 
     if (!recipient) {
       throw new NotFoundException('User not found');
     }
 
     // 2. Check for blocks
-    const hasBlock = await db.query.blocks.findFirst({
-      where: or(
-        and(eq(blocks.blockerId, senderId), eq(blocks.blockedId, recipientId)),
-        and(eq(blocks.blockerId, recipientId), eq(blocks.blockedId, senderId)),
-      ),
-    });
+    const [hasBlock] = await db
+      .select()
+      .from(blocks)
+      .where(
+        or(
+          and(eq(blocks.blockerId, senderId), eq(blocks.blockedId, recipientId)),
+          and(eq(blocks.blockerId, recipientId), eq(blocks.blockedId, senderId)),
+        ),
+      )
+      .limit(1);
 
     if (hasBlock) {
       throw new NotFoundException('User not found'); // Generic 404 for privacy
     }
 
-    // 3. Check for active connection
+    // 3. Admin & Moderator special messaging access bypass
+    const [sender] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, senderId))
+      .limit(1);
+
+    const isSenderAdmin = ['ADMIN', 'MODERATOR'].includes(sender?.role || '');
+    const isRecipientAdmin = ['ADMIN', 'MODERATOR'].includes(recipient?.role || '');
+
+    if (isSenderAdmin || isRecipientAdmin) {
+      return; // Admins and Moderators can message any user directly!
+    }
+
+    // 4. Check for active connection
     const { userAId, userBId } = this.getCanonicalParticipants(
       senderId,
       recipientId,
     );
 
-    const hasConnection = await db.query.connections.findFirst({
-      where: and(
-        eq(connections.userAId, userAId),
-        eq(connections.userBId, userBId),
-      ),
-    });
+    const [hasConnection] = await db
+      .select()
+      .from(connections)
+      .where(
+        and(
+          eq(connections.userAId, userAId),
+          eq(connections.userBId, userBId),
+        ),
+      )
+      .limit(1);
 
     if (!hasConnection) {
       throw new ForbiddenException('You can only message your connections');

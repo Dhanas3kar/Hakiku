@@ -95,7 +95,7 @@ export class MessageDeliveryWorkerService
           .from(messageOutbox)
           .where(
             sql`
-              (status = 'PENDING' AND available_at <= NOW() + INTERVAL '5 seconds')
+              (status = 'PENDING' AND COALESCE(available_at, created_at) <= NOW() + INTERVAL '5 seconds')
               OR (status = 'PROCESSING' AND claimed_at <= NOW() - INTERVAL '5 minutes')
             `
           )
@@ -151,9 +151,10 @@ export class MessageDeliveryWorkerService
 
           const attempts = outboxEvent.attempts || 1;
           const status = attempts >= 10 ? 'FAILED' : 'PENDING';
+          const jitter = Math.floor(Math.random() * 1000);
           const backoffMs = process.env.NODE_ENV === 'test'
-            ? Math.pow(2, attempts) * 100 // Short backoff for tests
-            : Math.pow(2, attempts) * 5000; // 10s, 20s, 40s... for prod
+            ? Math.pow(2, attempts) * 100 + jitter // Short backoff for tests
+            : Math.pow(2, attempts) * 5000 + jitter; // Exponential + jitter for prod
 
           const nextAvailable = new Date(Date.now() + backoffMs);
 

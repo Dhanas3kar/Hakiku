@@ -19,7 +19,6 @@ export class CreateMessageDto {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @ArrayNotEmpty()
   mediaKeys?: string[];
 
   @IsOptional()

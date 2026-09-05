@@ -1,25 +1,31 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { messagingApi } from '../../api/messaging'
 import { useSocket } from '../../hooks/useSocket'
 import { formatDistanceToNow } from 'date-fns'
-import { Loader2, Plus, MessageSquare, Search } from 'lucide-react'
+import { Loader2, Plus, MessageSquare, Search, Trash2 } from 'lucide-react'
 import { useIntersectionObserver } from 'usehooks-ts'
 import { Avatar } from '../ui/Avatar'
 import { EmptyState } from '../ui/EmptyState'
 import { ErrorState } from '../ui/ErrorState'
+import { NewChatModal } from './NewChatModal'
 
 export function ConversationList() {
   const { isConnected, messagingSocket } = useSocket()
   const queryClient = useQueryClient()
-  
-  // Removed redundant isConnected.messaging invalidation and TDZ diagnostic logging
-  
-  // To handle the active state highlight
-  // We use standard React Router hooks if needed, but <Link activeProps> is easier.
-  // We can just use the Link component directly.
-  
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false)
+  const [filterQuery, setFilterQuery] = useState('')
+
+  const deleteConversationMutation = useMutation({
+    mutationFn: (conversationId: string) => messagingApi.deleteConversation(conversationId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['conversations'] })
+      setDeletingId(null)
+    }
+  })
+
   const {
     data,
     fetchNextPage,
@@ -43,7 +49,6 @@ export function ConversationList() {
     }
   }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage, status])
 
-  // Real-time updates for conversation list
   useEffect(() => {
     if (!messagingSocket) return
 
@@ -81,7 +86,6 @@ export function ConversationList() {
 
       queryClient.setQueryData(['conversations'], (old: any) => {
         if (!old) return old
-        // We need to bring the conversation to the top.
         const allItems = newPages.flatMap((page: any) => page.items || [])
         allItems.sort((a: any, b: any) => {
           const timeA = new Date(a.latestMessage?.createdAt || 0).getTime()
@@ -108,29 +112,34 @@ export function ConversationList() {
     }
   }, [messagingSocket, queryClient])
 
-  const conversations = (data?.pages.flatMap((page) => page.items || []) ?? []).filter(Boolean)
+  const conversations = (data?.pages.flatMap((page) => page.items || []) ?? []).filter(Boolean).filter((conv) => 
+    conv.targetUser?.displayName?.toLowerCase().includes(filterQuery.toLowerCase())
+  )
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full bg-surface border-r border-border-subtle w-full">
       {/* Header */}
       <div className="px-4 py-4 border-b border-border-subtle flex items-center justify-between shrink-0">
         <h2 className="font-semibold text-xl tracking-tight text-foreground">Messages</h2>
         <button 
-          className="p-2 rounded-full hover:bg-surface-muted text-foreground transition-colors"
+          onClick={() => setIsNewChatOpen(true)}
+          className="p-2 rounded-full hover:bg-surface-muted text-foreground transition-colors cursor-pointer"
           title="New Conversation"
-          // TODO: Open modal to search and select user to chat with
+          aria-label="New Conversation"
         >
           <Plus className="h-5 w-5" />
         </button>
       </div>
 
-      {/* Search (Placeholder) */}
+      {/* Search */}
       <div className="p-3 border-b border-border-subtle shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle" />
           <input 
             type="text" 
             placeholder="Search messages..." 
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
             className="hk-input h-10 pl-9 text-sm"
           />
         </div>
@@ -161,16 +170,15 @@ export function ConversationList() {
               const latestMsg = conv.latestMessage
 
               return (
-                <li key={conv.id}>
+                <li key={conv.id} className="group relative">
                   <Link
                     to="/messages/$conversationId"
                     params={{ conversationId: conv.id }}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-surface-muted transition-colors duration-150 focus-visible:outline-none focus-visible:bg-surface-muted"
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-surface-muted transition-colors duration-150 focus-visible:outline-none focus-visible:bg-surface-muted pr-10"
                     activeProps={{ className: 'bg-surface-muted' }}
                   >
                     <Avatar src={otherUser?.avatarUrl} name={otherUser?.displayName || 'User'} size="lg" />
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
                         <span className="font-semibold text-foreground truncate">
@@ -184,7 +192,7 @@ export function ConversationList() {
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <p className={`text-sm truncate ${conv.unreadCount ? 'font-semibold text-foreground' : 'text-foreground-muted'}`}>
-                          {latestMsg?.content || (latestMsg?.messageType !== 'TEXT' ? `Sent a ${latestMsg?.messageType.toLowerCase()}` : 'No messages yet')}
+                          {latestMsg?.content || (latestMsg?.messageType && latestMsg.messageType !== 'TEXT' ? `Sent a ${latestMsg?.messageType.toLowerCase()}` : 'No messages yet')}
                         </p>
                         {!!conv.unreadCount && conv.unreadCount > 0 && (
                           <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
@@ -194,6 +202,21 @@ export function ConversationList() {
                       </div>
                     </div>
                   </Link>
+
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      if (confirm('Delete this conversation?')) {
+                        deleteConversationMutation.mutate(conv.id)
+                      }
+                    }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-foreground-subtle hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                    title="Delete Chat"
+                    aria-label="Delete Chat"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </li>
               )
             })}
@@ -203,6 +226,11 @@ export function ConversationList() {
           </ul>
         )}
       </div>
+      {/* New Conversation Modal */}
+      <NewChatModal
+        isOpen={isNewChatOpen}
+        onClose={() => setIsNewChatOpen(false)}
+      />
     </div>
   )
 }

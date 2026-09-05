@@ -61,6 +61,11 @@ export const messagingApi = {
     return response
   },
 
+  getConversationDetails: async (conversationId: string): Promise<ConversationItem> => {
+    const response = await apiClient.get(`/messages/conversations/${conversationId}`)
+    return response
+  },
+
   createConversation: async (targetUserId: string): Promise<ConversationItem> => {
     const response = await apiClient.post('/messages/conversations', { targetUserId })
     return response
@@ -96,32 +101,50 @@ export const messagingApi = {
     await apiClient.delete(`/messages/${messageId}`)
   },
 
-  markAsRead: async (conversationId: string, messageId: string): Promise<void> => {
+  deleteConversation: async (conversationId: string): Promise<void> => {
+    await apiClient.delete(`/messages/conversations/${conversationId}`)
+  },
+
+  markAsRead: async (conversationId: string, messageId?: string): Promise<void> => {
     await apiClient.post(`/messages/conversations/${conversationId}/read`, { messageId })
   },
 
   getUnreadCount: async (): Promise<{ unreadCount: number }> => {
-    const response = await apiClient.get<number>('/messages/unread-count')
-    return { unreadCount: typeof response === 'number' ? response : 0 }
+    try {
+      const response: any = await apiClient.get('/messages/unread-count', { skipAuthRefresh: true })
+      const count = typeof response === 'number' ? response : (response?.unreadCount ?? response?.count ?? 0)
+      return { unreadCount: Number(count) || 0 }
+    } catch {
+      return { unreadCount: 0 }
+    }
   },
 
   requestMediaUpload: async (mimeType: string, fileSize: number): Promise<{ uploadUrl: string; mediaKey: string; downloadUrl: string }> => {
-    const response = await apiClient.post('/messages/media/upload', { mimeType, fileSize })
-    return response
+    const response: any = await apiClient.post('/messages/media/upload', { mimeType, fileSize })
+    return {
+      uploadUrl: response.uploadUrl,
+      mediaKey: response.storageKey || response.mediaKey,
+      downloadUrl: response.downloadUrl || '',
+    }
   },
 
-  // Helper method to actually upload the file to S3 after getting presigned URL
+  // Helper method to actually upload the file after getting presigned URL
   uploadMedia: async (file: File): Promise<{ mediaKey: string; downloadUrl: string }> => {
     const { uploadUrl, mediaKey, downloadUrl } = await messagingApi.requestMediaUpload(file.type, file.size)
     
-    // Perform PUT request directly to S3/R2 presigned URL
-    await fetch(uploadUrl, {
+    // Perform PUT request directly to presigned URL
+    const res = await fetch(uploadUrl, {
       method: 'PUT',
       body: file,
+      credentials: 'include',
       headers: {
         'Content-Type': file.type,
       },
     })
+
+    if (!res.ok) {
+      throw new Error(`Upload failed with status ${res.status}`)
+    }
     
     return { mediaKey, downloadUrl }
   }

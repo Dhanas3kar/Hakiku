@@ -13,6 +13,7 @@ import { ProfileModule } from '../profile/profile.module';
 import { MetricsModule } from '../metrics/metrics.module';
 import { MessageOutboxService } from './services/message-outbox.service';
 import { MessageDeliveryWorkerService } from './services/message-delivery-worker.service';
+import { PresenceService } from './services/presence.service';
 
 @Module({
   imports: [NotificationsModule, ProfileModule, MetricsModule],
@@ -28,7 +29,9 @@ import { MessageDeliveryWorkerService } from './services/message-delivery-worker
     MessageReadService,
     MessageService,
     MessagingGateway,
+    PresenceService,
   ],
-  exports: [MessageDeliveryWorkerService],
+  exports: [MessageDeliveryWorkerService, PresenceService],
 })
 export class MessagingModule {}
+

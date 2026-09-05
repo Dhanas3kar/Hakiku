@@ -31,55 +31,64 @@ export class ConversationService {
     );
 
     // Try to find existing conversation
-    const conversation = await db.query.conversations.findFirst({
-      where: and(
-        eq(conversations.userAId, userAId),
-        eq(conversations.userBId, userBId),
-      ),
-    });
+    const [existingConversation] = await db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.userAId, userAId),
+          eq(conversations.userBId, userBId),
+        ),
+      )
+      .limit(1);
 
-    if (conversation) {
-      return conversation;
+    if (existingConversation) {
+      return existingConversation;
     }
 
-    // Attempt to create inside a transaction to ensure both participants are added
-    return await db.transaction(async (tx) => {
-      try {
-        const [newConversation] = await tx
-          .insert(conversations)
-          .values({
-            userAId,
-            userBId,
-          })
-          .returning();
+    // Insert with onConflictDoNothing for concurrent safety
+    const [newConversation] = await db
+      .insert(conversations)
+      .values({
+        userAId,
+        userBId,
+      })
+      .onConflictDoNothing()
+      .returning();
 
-        await tx.insert(conversationParticipants).values([
-          { conversationId: newConversation.id, userId: userAId },
-          { conversationId: newConversation.id, userId: userBId },
-        ]);
+    if (!newConversation) {
+      const [existing] = await db
+        .select()
+        .from(conversations)
+        .where(
+          and(
+            eq(conversations.userAId, userAId),
+            eq(conversations.userBId, userBId),
+          ),
+        )
+        .limit(1);
+      return existing;
+    }
 
-        return newConversation;
-      } catch (err: any) {
-        // Handle concurrent creation attempt (unique constraint violation on user_a_id, user_b_id)
-        if (err.code === '23505') {
-          const existing = await tx.query.conversations.findFirst({
-            where: and(
-              eq(conversations.userAId, userAId),
-              eq(conversations.userBId, userBId),
-            ),
-          });
-          if (existing) return existing;
-        }
-        throw err;
-      }
-    });
+    await db
+      .insert(conversationParticipants)
+      .values([
+        { conversationId: newConversation.id, userId: userAId },
+        { conversationId: newConversation.id, userId: userBId },
+      ])
+      .onConflictDoNothing();
+
+    return newConversation;
   }
 
   /**
    * Lists conversations for a user, paginated.
    */
   async listConversations(userId: string, cursorAt?: string, limit = 20) {
-    let whereClause = eq(conversationParticipants.userId, userId);
+    let whereClause = and(
+      eq(conversationParticipants.userId, userId),
+      sql`(${conversationParticipants.clearedAt} IS NULL OR ${conversations.lastMessageAt} > ${conversationParticipants.clearedAt})`,
+    ) as any;
 
     if (cursorAt) {
       const parsedCursor = new Date(cursorAt);
@@ -98,10 +107,12 @@ export class ConversationService {
         lastMessageAt: conversations.lastMessageAt,
         lastMessageId: conversations.lastMessageId,
         updatedAt: conversations.updatedAt,
+        clearedAt: conversationParticipants.clearedAt,
         unreadCount: sql<number>`(
         SELECT COUNT(*)::int FROM messages m 
         WHERE m.conversation_id = conversations.id 
-        AND m.created_at > COALESCE(conversation_participants.last_read_at, '1970-01-01')
+        AND m.created_at > COALESCE(conversation_participants.last_read_at, '1970-01-01'::timestamp)
+        AND (conversation_participants.cleared_at IS NULL OR m.created_at > conversation_participants.cleared_at)
         AND m.sender_id != ${userId}
       )`.as('unread_count'),
         targetUserId: sql<string>`CASE WHEN conversations.user_a_id = ${userId} THEN conversations.user_b_id ELSE conversations.user_a_id END`,
@@ -150,22 +161,27 @@ export class ConversationService {
       latestMessagesMap = new Map(msgs.map(m => [m.id, m]));
     }
 
-    const data = items.map((item) => ({
-      id: item.conversationId,
-      lastMessageAt: item.lastMessageAt,
-      lastMessageId: item.lastMessageId,
-      updatedAt: item.updatedAt,
-      unreadCount: item.unreadCount,
-      latestMessage: item.lastMessageId ? latestMessagesMap.get(item.lastMessageId) || null : null,
-      targetUser: targetMap.has(item.targetUserId)
-        ? {
-            ...targetMap.get(item.targetUserId),
-            avatarUrl: targetMap.get(item.targetUserId)!.avatarKey
-              ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${targetMap.get(item.targetUserId)!.avatarKey}`
-              : null,
-          }
-        : null,
-    }));
+    const data = items.map((item) => {
+      const latestMsg = item.lastMessageId ? latestMessagesMap.get(item.lastMessageId) || null : null;
+      const isCleared = item.clearedAt && latestMsg && new Date(latestMsg.createdAt) <= new Date(item.clearedAt);
+
+      return {
+        id: item.conversationId,
+        lastMessageAt: item.lastMessageAt,
+        lastMessageId: item.lastMessageId,
+        updatedAt: item.updatedAt,
+        unreadCount: item.unreadCount,
+        latestMessage: isCleared ? null : latestMsg,
+        targetUser: targetMap.has(item.targetUserId)
+          ? {
+              ...targetMap.get(item.targetUserId),
+              avatarUrl: targetMap.get(item.targetUserId)!.avatarKey
+                ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${targetMap.get(item.targetUserId)!.avatarKey}`
+                : null,
+            }
+          : null,
+      };
+    });
 
     return {
       items: data,
@@ -197,5 +213,73 @@ export class ConversationService {
     }
 
     return rows[0].conversation;
+  }
+
+  async getConversationDetails(userId: string, conversationId: string) {
+    const conversation = await this.getConversationById(userId, conversationId);
+    const targetUserId =
+      conversation.userAId === userId ? conversation.userBId : conversation.userAId;
+
+    const [targetProfile] = await db
+      .select({
+        id: users.id,
+        username: profiles.username,
+        displayName: profiles.displayName,
+        avatarKey: profiles.avatarKey,
+      })
+      .from(users)
+      .leftJoin(profiles, eq(users.id, profiles.userId))
+      .where(eq(users.id, targetUserId))
+      .limit(1);
+
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+    return {
+      ...conversation,
+      targetUser: targetProfile
+        ? {
+            ...targetProfile,
+            avatarUrl: targetProfile.avatarKey
+              ? `${baseUrl}/uploads/${targetProfile.avatarKey}`
+              : null,
+          }
+        : null,
+    };
+  }
+
+  /**
+   * Clears/deletes a conversation for the requesting participant.
+   */
+  async deleteConversation(userId: string, conversationId: string) {
+    const [participant] = await db
+      .select()
+      .from(conversationParticipants)
+      .where(
+        and(
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!participant) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    const now = new Date();
+    await db
+      .update(conversationParticipants)
+      .set({
+        clearedAt: now,
+        lastReadAt: now,
+        isArchived: true,
+      })
+      .where(
+        and(
+          eq(conversationParticipants.conversationId, conversationId),
+          eq(conversationParticipants.userId, userId),
+        ),
+      );
+
+    return { message: 'Conversation cleared successfully' };
   }
 }
