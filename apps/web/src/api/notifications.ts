@@ -60,8 +60,12 @@ export const notificationsApi = {
   },
 
   getUnreadCount: async (): Promise<{ unreadCount: number }> => {
-    const response = await apiClient.get<any>('/notifications/unread-count')
-    return { unreadCount: response.count || 0 }
+    try {
+      const response = await apiClient.get<any>('/notifications/unread-count', { skipAuthRefresh: true })
+      return { unreadCount: response.count || 0 }
+    } catch {
+      return { unreadCount: 0 }
+    }
   },
 
   markAllAsRead: async (): Promise<void> => {

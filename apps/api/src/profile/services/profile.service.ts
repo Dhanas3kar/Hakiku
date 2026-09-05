@@ -669,4 +669,8 @@ export class ProfileService {
 
     return { data };
   }
+
+  async uploadDirect(fileBuffer: Buffer, storageKey: string, mimeType: string) {
+    return this.storageProvider.uploadFile(fileBuffer, storageKey, mimeType);
+  }
 }

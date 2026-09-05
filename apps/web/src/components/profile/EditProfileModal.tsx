@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { profileApi } from '../../api/profile'
 import type { UserProfile } from '../../api/profile'
 import { X } from 'lucide-react'
-import { TagSelect } from './TagSelect'
 import { toast } from 'sonner'
 
 interface Props {
@@ -18,18 +17,12 @@ export function EditProfileModal({ profile, onClose }: Props) {
     department: profile.department || '',
     batchYear: profile.batchYear || profile.batch || '',
     bio: profile.bio || '',
-    skillIds: profile.skills?.map((s) => s.id) || [],
-    interestIds: profile.interests?.map((i) => i.id) || [],
     socialLinks: {
       website: profile.socialLinks?.website || '',
       github: profile.socialLinks?.github || '',
       linkedin: profile.socialLinks?.linkedin || '',
     },
   })
-
-  const handleTagsChange = (field: 'skillIds' | 'interestIds', ids: string[]) => {
-    setFormData((prev) => ({ ...prev, [field]: ids }))
-  }
 
   const updateMutation = useMutation({
     mutationFn: (data: Partial<UserProfile>) => profileApi.updateMe(data),
@@ -104,7 +97,7 @@ export function EditProfileModal({ profile, onClose }: Props) {
           <h2 className="text-xl font-bold text-foreground">Edit Profile</h2>
           <button
             onClick={onClose}
-            className="rounded-full p-2 text-foreground-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="rounded-full p-2 text-foreground-muted transition-colors hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
             aria-label="Close modal"
           >
             <X className="h-5 w-5" />
@@ -165,7 +158,7 @@ export function EditProfileModal({ profile, onClose }: Props) {
 
             <div>
               <label htmlFor="bio" className="block text-sm font-medium">
-                Bio
+                Bio / About
               </label>
               <textarea
                 id="bio"
@@ -173,6 +166,7 @@ export function EditProfileModal({ profile, onClose }: Props) {
                 rows={4}
                 value={formData.bio}
                 onChange={handleChange}
+                placeholder="Tell others about yourself..."
                 className="mt-1 block w-full resize-none rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus disabled:opacity-50"
                 disabled={updateMutation.isPending}
               />
@@ -227,30 +221,6 @@ export function EditProfileModal({ profile, onClose }: Props) {
               </div>
             </div>
             
-            <TagSelect
-              label="Skills"
-              placeholder="Search skills (e.g. React, TypeScript)..."
-              selectedIds={formData.skillIds}
-              initialTags={profile.skills?.map(s => ({ id: s.id, name: s.name, category: s.category }))}
-              onChange={(ids) => handleTagsChange('skillIds', ids)}
-              fetchFn={async (query) => {
-                const res = await profileApi.searchSkills(query, 5)
-                return res.map((s: any) => ({ id: s.id, name: s.name, category: s.category }))
-              }}
-            />
-
-            <TagSelect
-              label="Interests"
-              placeholder="Search interests (e.g. Web Development, AI)..."
-              selectedIds={formData.interestIds}
-              initialTags={profile.interests?.map(i => ({ id: i.id, name: i.name, category: i.category }))}
-              onChange={(ids) => handleTagsChange('interestIds', ids)}
-              fetchFn={async (query) => {
-                const res = await profileApi.searchInterests(query, 5)
-                return res.map((i: any) => ({ id: i.id, name: i.name, category: i.category }))
-              }}
-            />
-            
             {updateMutation.isError && (
               <p className="text-sm text-danger" role="alert">
                 {updateMutation.error.message || 'Failed to update profile.'}
@@ -263,7 +233,7 @@ export function EditProfileModal({ profile, onClose }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            className="rounded-lg border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus cursor-pointer"
             disabled={updateMutation.isPending}
           >
             Cancel
@@ -272,7 +242,7 @@ export function EditProfileModal({ profile, onClose }: Props) {
             type="submit"
             form="edit-profile-form"
             disabled={updateMutation.isPending || !formData.displayName}
-            className="rounded-lg bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated disabled:opacity-50 disabled:cursor-not-allowed"
+            className="rounded-lg bg-primary px-6 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface-elevated disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
           </button>

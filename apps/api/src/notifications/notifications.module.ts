@@ -7,11 +7,12 @@ import { NotificationPrivacyService } from './services/notification-privacy.serv
 import { NotificationPreferenceService } from './services/notification-preference.service';
 import { NotificationGateway } from './notification.gateway';
 import { NetworkingModule } from '../networking/networking.module';
+import { MetricsModule } from '../metrics/metrics.module';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
 
 @Global()
 @Module({
-  imports: [NetworkingModule],
+  imports: [NetworkingModule, MetricsModule],
   controllers: [NotificationsController],
   providers: [
     NotificationService,

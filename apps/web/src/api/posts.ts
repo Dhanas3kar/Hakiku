@@ -38,8 +38,11 @@ export interface PostItem {
 export interface PostComment {
   id: string
   postId: string
+  parentId?: string | null
   authorId: string
   content: string
+  likesCount?: number
+  isLikedByViewer?: boolean
   createdAt: string
   updatedAt: string
   author: PostAuthor
@@ -74,7 +77,8 @@ export const postsApi = {
   uploadMedia: (file: File): Promise<PostMedia> => {
     return client.post('/posts/media/upload', file, {
       headers: {
-        'Content-Type': file.type,
+        'Content-Type': 'application/octet-stream',
+        'X-File-Type': file.type || 'image/jpeg',
       },
     })
   },
@@ -97,7 +101,16 @@ export const postsApi = {
     }
   },
 
-  createComment: (postId: string, content: string): Promise<PostComment> => client.post(`/posts/${postId}/comments`, { content }),
+  createComment: (postId: string, content: string, parentId?: string): Promise<PostComment> => {
+    const body: { content: string; parentId?: string } = { content }
+    if (parentId && parentId.trim()) {
+      body.parentId = parentId.trim()
+    }
+    return client.post(`/posts/${postId}/comments`, body)
+  },
+
+  toggleCommentLike: (commentId: string): Promise<{ liked: boolean; likesCount: number }> => 
+    client.post(`/posts/comments/${commentId}/like`),
 
   updateComment: (commentId: string, content: string): Promise<PostComment> => client.patch(`/posts/comments/${commentId}`, { content }),
 

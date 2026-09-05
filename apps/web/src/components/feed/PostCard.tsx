@@ -9,6 +9,7 @@ import { ReportDialog } from '../community/ReportDialog'
 import { PollCard } from '../community/PollCard'
 import { toast } from 'sonner'
 import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { isUserVerified } from '@/utils/user'
 import { Avatar } from '../ui/Avatar'
 
 interface PostCardProps {
@@ -25,8 +26,16 @@ const VISIBILITY_ICONS: Record<PostVisibility, React.ElementType> = {
 
 const VISIBILITY_LABELS: Record<PostVisibility, string> = {
   PUBLIC: 'Public',
-  CONNECTIONS_ONLY: 'Connections',
-  PRIVATE: 'Only Me',
+  CONNECTIONS_ONLY: 'Connections only',
+  PRIVATE: 'Only me',
+}
+
+function PostContent({ content }: { content: string }) {
+  return (
+    <div className="mt-3 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground">
+      <FormattedContent content={content} />
+    </div>
+  )
 }
 
 export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
@@ -93,15 +102,29 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
   }
 
   const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this post?')) {
-      deleteMutation.mutate()
-    }
+    toast('Are you sure you want to delete this post?', {
+      description: 'This action cannot be undone.',
+      action: {
+        label: 'Delete',
+        onClick: () => deleteMutation.mutate(),
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {},
+      },
+    })
   }
 
-  const authorName = post.author?.displayName || post.author?.fullName || 'Unknown User'
-  const authorUsername = post.author?.username || 'unknown'
-  const avatarUrl = post.author?.avatarUrl
-  const department = post.author?.department
+  const author = post.author || ((user?.userId || user?.id) === post.authorId ? {
+    displayName: user?.displayName,
+    username: user?.username,
+    avatarUrl: user?.avatarUrl,
+  } : null)
+
+  const authorName = author?.displayName || author?.fullName || 'Unknown User'
+  const authorUsername = author?.username || 'unknown'
+  const avatarUrl = author?.avatarUrl
+  const department = author?.department
 
   return (
     <article className="border-b border-border-subtle bg-surface sm:bg-transparent">
@@ -115,7 +138,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
               <span className="font-semibold text-foreground text-[15px] leading-tight truncate max-w-[160px] sm:max-w-none">
                 {authorName}
               </span>
-              {post.author?.isVerifiedIdentity && <VerifiedBadge />}
+              {isUserVerified(post.author) && <VerifiedBadge />}
               <span className="text-xs text-foreground-muted truncate">@{authorUsername}</span>
             </div>
             <div className="mt-0.5 flex items-center gap-1.5 text-xs text-foreground-muted flex-wrap">
@@ -193,42 +216,56 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
         </div>
 
         {/* Content */}
-        {post.content && (
-          <p className="mt-3 whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground">
-            <FormattedContent content={post.content} />
-          </p>
-        )}
+        {post.content && <PostContent content={post.content} />}
 
         {/* Media Grid */}
         {post.media && post.media.length > 0 && (
           <div
-            className={`mt-4 -mx-4 sm:mx-0 grid gap-px overflow-hidden sm:rounded-lg border-y sm:border border-border-subtle bg-surface-muted ${post.media.length === 1}
-                ? 'grid-cols-1'
+            className={`mt-3.5 -mx-4 sm:mx-0 overflow-hidden sm:rounded-xl border-y sm:border border-border-subtle bg-surface-muted/40 ${
+              post.media.length === 1
+                ? 'flex items-center justify-center bg-black/5 dark:bg-black/40 rounded-xl overflow-hidden'
                 : post.media.length === 2
-                  ? 'grid-cols-2 aspect-video'
-                  : 'grid-cols-2 grid-rows-2 aspect-square'
-              }`}
+                  ? 'grid grid-cols-2 gap-1 rounded-xl overflow-hidden'
+                  : 'grid grid-cols-2 grid-rows-2 gap-1 rounded-xl overflow-hidden'
+            }`}
           >
             {(post.media ?? []).slice(0, 4).map((m, i) => (
               <div
-                key={m.id}
+                key={m.id || i}
                 onClick={() => onMediaClick?.(post.media ?? [], i)}
-                className={`relative cursor-pointer overflow-hidden group ${post.media!.length === 3 && i === 0 ? 'row-span-2' : ''
-                  }`}
+                className={`relative cursor-pointer overflow-hidden group ${
+                  post.media!.length === 1
+                    ? 'w-full flex justify-center items-center'
+                    : post.media!.length === 3 && i === 0
+                      ? 'row-span-2 h-full'
+                      : 'h-full min-h-[160px]'
+                }`}
               >
                 {m.type === 'VIDEO' ? (
-                  <video src={m.url} className="h-full w-full object-cover" />
+                  <video
+                    src={m.url}
+                    controls
+                    className={
+                      post.media!.length === 1
+                        ? 'w-full max-h-[650px] object-contain rounded-xl'
+                        : 'w-full h-full object-cover rounded-md'
+                    }
+                  />
                 ) : (
                   <img
                     src={m.url}
                     alt="Post media"
                     loading="lazy"
                     decoding="async"
-                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className={
+                      post.media!.length === 1
+                        ? 'w-full h-auto max-h-[700px] object-contain rounded-xl transition-transform duration-300 group-hover:scale-[1.01]'
+                        : 'w-full h-full object-cover rounded-md transition-transform duration-300 group-hover:scale-[1.02]'
+                    }
                   />
                 )}
                 {post.media!.length > 4 && i === 3 && (
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center rounded-md">
                     <span className="text-white text-xl font-bold">+{post.media!.length - 4}</span>
                   </div>
                 )}
@@ -240,7 +277,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
         {/* Embedded Poll */}
         {(post as any).poll && (
           <div className="mt-3">
-            <PollCard poll={(post as any).poll} />
+            <PollCard poll={(post as any).poll} hideQuestion={true} />
           </div>
         )}
       </div>

@@ -16,7 +16,8 @@ export class NotificationOutboxService {
    * This ensures that domain events are safely persisted alongside the business state.
    */
   async appendEvent(tx: any, eventId: string, type: any, payload: any) {
-    await tx
+    const dbClient = tx || this.db;
+    await dbClient
       .insert(notificationOutbox)
       .values({
         eventId,

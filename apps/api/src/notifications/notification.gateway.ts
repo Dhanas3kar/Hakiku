@@ -10,6 +10,8 @@ import { JwtService } from '@nestjs/jwt';
 import { Logger, OnModuleDestroy } from '@nestjs/common';
 import { verifyWsClient } from '../auth/utils/ws-auth.util';
 import { Redis } from 'ioredis';
+import { NotificationService } from './services/notification.service';
+import { SubscribeMessage, ConnectedSocket, MessageBody } from '@nestjs/websockets';
 
 @WebSocketGateway({
   cors: {
@@ -29,7 +31,11 @@ export class NotificationGateway
   private userSockets: Map<string, Set<string>> = new Map();
   private subscriberClient: Redis;
 
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly notificationService: NotificationService,
+  ) {}
+
 
   async onModuleDestroy() {
     if (this.subscriberClient) {
@@ -52,6 +58,16 @@ export class NotificationGateway
 
     this.subscriberClient.on('error', (err) => {
       console.error('[NotificationGateway] Redis subscription error:', err.message);
+    });
+
+    this.subscriberClient.on('connect', () => {
+      this.subscriberClient.subscribe('notification_events', (err, count) => {
+        if (err) {
+          this.logger.error('Failed to subscribe to notification_events on reconnect', err);
+        } else {
+          this.logger.log(`Subscribed to notification_events (count: ${count})`);
+        }
+      });
     });
 
     this.subscriberClient.subscribe('notification_events', (err, count) => {
@@ -114,6 +130,28 @@ export class NotificationGateway
       this.logger.debug(`Client disconnected: ${client.id} (User: ${userId})`);
     }
   }
+
+  @SubscribeMessage('notification:catchup')
+  async handleNotificationCatchup(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { cursor?: string; limit?: number },
+  ) {
+    const userId = client.data.userId;
+    if (!userId) {
+      return { status: 'error', message: 'Unauthorized' };
+    }
+    try {
+      const res = await this.notificationService.getNotifications(userId, {
+        cursor: data.cursor,
+        limit: Math.min(Math.max(data.limit || 20, 1), 50),
+      });
+      return { status: 'ok', data: res.data, meta: res.meta };
+    } catch (err: any) {
+      this.logger.error(`Notification catchup error for ${userId}: ${err.message}`);
+      return { status: 'error', message: err.message || 'Catchup failed' };
+    }
+  }
+
 
   /**
    * Broadcasts the event to sockets connected to *this* instance only.

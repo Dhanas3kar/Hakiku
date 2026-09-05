@@ -16,7 +16,6 @@ export type PostVisibility = 'PUBLIC' | 'CONNECTIONS_ONLY' | 'PRIVATE';
 export class CreatePostDto {
   @IsOptional()
   @IsString()
-  @Length(1, 5000)
   content?: string;
 
   @IsOptional()
@@ -34,7 +33,6 @@ export class CreatePostDto {
 
   @IsOptional()
   @IsString()
-  @Length(1, 100)
   idempotencyKey?: string;
 }
 
@@ -53,6 +51,10 @@ export class CreateCommentDto {
   @IsString()
   @Length(1, 1000)
   content: string;
+
+  @IsOptional()
+  @IsUUID('4')
+  parentId?: string;
 }
 
 export class UpdateCommentDto {

@@ -5,7 +5,7 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq, and, or, sql, desc, lt, inArray } from 'drizzle-orm';
+import { eq, and, or, sql, desc, lt, inArray, isNull } from 'drizzle-orm';
 import {
   posts,
   postLikes,
@@ -14,6 +14,8 @@ import {
   blocks,
   connections,
   polls,
+  pollOptions,
+  pollVotes,
 } from '../../db/schema';
 import * as schema from '../../db/schema';
 import { PostAccessService } from './post-access.service';
@@ -44,9 +46,9 @@ export class PostsService {
     const trimmedContent = dto.content ? dto.content.trim() : '';
     const hasMedia = dto.mediaUploadIds && dto.mediaUploadIds.length > 0;
 
-    if (!trimmedContent && !hasMedia) {
+    if (!trimmedContent && !hasMedia && !dto.pollId) {
       throw new BadRequestException(
-        'A post must contain text content or at least one media attachment',
+        'A post must contain text content, media attachment, or a poll',
       );
     }
 
@@ -453,7 +455,7 @@ export class PostsService {
     // Build conditions
     const conditions = [
       eq(posts.authorId, targetUserId),
-      sql`${posts.deletedAt} IS NULL`,
+      isNull(posts.deletedAt),
     ];
 
     if (viewerId !== targetUserId) {
@@ -493,7 +495,33 @@ export class PostsService {
       ).toString('base64');
     }
 
-    // Attach author & media info
+    // Attach author, poll & media info
+    const [authorProfile] = await this.db
+      .select({
+        username: profiles.username,
+        displayName: profiles.displayName,
+        avatarKey: profiles.avatarKey,
+        isVerifiedIdentity: profiles.isVerifiedIdentity,
+        department: profiles.department,
+      })
+      .from(profiles)
+      .where(eq(profiles.userId, targetUserId))
+      .limit(1);
+
+    const baseUrl = process.env.BASE_URL || process.env.VITE_API_URL || 'http://localhost:3001';
+    const author = {
+      userId: targetUserId,
+      id: targetUserId,
+      username: authorProfile?.username || 'user',
+      displayName: authorProfile?.displayName || 'Student',
+      avatarUrl: authorProfile?.avatarKey
+        ? `${baseUrl}/uploads/${authorProfile.avatarKey}`
+        : null,
+      isVerifiedIdentity: authorProfile?.isVerifiedIdentity || false,
+      adminHandle: authorProfile?.username === 'hakiku_official' ? 'hakiku_official' : null,
+      department: authorProfile?.department || null,
+    };
+
     const postsWithMeta = await Promise.all(
       pageData.map(async (p: any) => {
         const media = await this.postMediaService.getPostMedia(p.id);
@@ -505,9 +533,45 @@ export class PostsService {
           )
           .limit(1);
 
+        const [pollRecord] = await this.db
+          .select()
+          .from(polls)
+          .where(eq(polls.postId, p.id))
+          .limit(1);
+
+        let poll = null;
+        if (pollRecord) {
+          const pollOpts = await this.db
+            .select()
+            .from(pollOptions)
+            .where(eq(pollOptions.pollId, pollRecord.id));
+
+          const userVotes = await this.db
+            .select()
+            .from(pollVotes)
+            .where(
+              and(
+                eq(pollVotes.pollId, pollRecord.id),
+                eq(pollVotes.userId, viewerId),
+              ),
+            );
+
+          const isExpired =
+            pollRecord.endsAt && new Date(pollRecord.endsAt) <= new Date();
+
+          poll = {
+            ...pollRecord,
+            isActive: pollRecord.status === 'PUBLISHED' && !isExpired,
+            userVotedOptionIds: userVotes.map((v) => v.optionId),
+            options: pollOpts,
+          };
+        }
+
         return {
           ...p,
+          author,
           media,
+          poll,
           isLikedByViewer: !!likeRecord,
         };
       }),

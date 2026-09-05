@@ -1,6 +1,6 @@
 import { db } from '../../db/index';
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { eq, and, sql, desc } from 'drizzle-orm';
+import { eq, and, ne, sql, desc } from 'drizzle-orm';
 import { notifications, users } from '../../db/schema';
 import * as schema from '../../db/schema';
 import { NotificationsQueryDto } from '../dto/notifications.dto';
@@ -35,7 +35,10 @@ export class NotificationService {
       }
     }
 
-    const conditions = [eq(notifications.recipientId, userId)];
+    const conditions = [
+      eq(notifications.recipientId, userId),
+      ne(notifications.type, 'MESSAGE'),
+    ];
 
     if (cursorCreatedAt && cursorId) {
       conditions.push(
@@ -49,6 +52,9 @@ export class NotificationService {
         actor: {
           id: schema.profiles.userId,
           displayName: schema.profiles.displayName,
+          username: schema.profiles.username,
+          department: schema.profiles.department,
+          batchYear: schema.profiles.batchYear,
           avatarKey: schema.profiles.avatarKey,
         },
       })
@@ -69,7 +75,7 @@ export class NotificationService {
       ).toString('base64');
     }
 
-    const baseUrl = process.env.VITE_API_URL || 'http://localhost:3001';
+    const baseUrl = process.env.BASE_URL || process.env.VITE_API_URL || 'http://localhost:3001';
 
     const mappedData = pageData.map(({ notification, actor }) => {
       let content = '';
@@ -105,6 +111,9 @@ export class NotificationService {
         actor: actor?.id ? {
           id: actor.id,
           displayName: actor.displayName,
+          username: actor.username,
+          department: actor.department,
+          batch: actor.batchYear,
           avatarUrl: actor.avatarKey ? `${baseUrl}/uploads/${actor.avatarKey}` : null,
         } : null,
       };
@@ -128,10 +137,12 @@ export class NotificationService {
         and(
           eq(notifications.recipientId, userId),
           eq(notifications.isRead, false),
+          ne(notifications.type, 'MESSAGE'),
         ),
       );
 
-    return { count: result?.count || 0 };
+    const unreadCount = result?.count || 0;
+    return { unreadCount, count: unreadCount };
   }
 
   async markAsRead(userId: string, notificationId: string) {

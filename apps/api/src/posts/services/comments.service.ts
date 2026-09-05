@@ -5,9 +5,9 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { eq, and, sql, desc, inArray } from 'drizzle-orm';
+import { eq, and, sql, desc, inArray, isNull } from 'drizzle-orm';
 import * as schema from '../../db/schema';
-import { posts, comments, profiles, users } from '../../db/schema';
+import { posts, comments, commentLikes, profiles, users } from '../../db/schema';
 import { PostAccessService } from './post-access.service';
 import {
   CreateCommentDto,
@@ -28,7 +28,7 @@ export class CommentsService {
   }
 
   /**
-   * Create a flat comment on a post. Transactionally increments comments_count.
+   * Create a comment or reply on a post. Transactionally increments comments_count.
    */
   async createComment(authorId: string, postId: string, dto: CreateCommentDto) {
     await this.postAccessService.validatePostInteraction(authorId, postId);
@@ -38,6 +38,18 @@ export class CommentsService {
       throw new BadRequestException('Comment content cannot be empty');
     }
 
+    if (dto.parentId) {
+      const [parent] = await this.db
+        .select()
+        .from(comments)
+        .where(and(eq(comments.id, dto.parentId), eq(comments.postId, postId), isNull(comments.deletedAt)))
+        .limit(1);
+
+      if (!parent) {
+        throw new BadRequestException('Target comment for reply was not found');
+      }
+    }
+
     let createdComment: any;
 
     await this.db.transaction(async (tx: any) => {
@@ -45,6 +57,7 @@ export class CommentsService {
         .insert(comments)
         .values({
           postId,
+          parentId: dto.parentId || null,
           authorId,
           content: trimmedContent,
         })
@@ -81,6 +94,32 @@ export class CommentsService {
         });
       }
 
+      // Notification for comment reply
+      if (dto.parentId) {
+        const [parentComment] = await tx
+          .select({ authorId: comments.authorId })
+          .from(comments)
+          .where(eq(comments.id, dto.parentId))
+          .limit(1);
+
+        if (parentComment && parentComment.authorId !== authorId && parentComment.authorId !== post?.authorId) {
+          const replyEventId = `REPLY_${authorId}_${inserted.id}_${Date.now()}`;
+          await this.outboxService.appendEvent(tx, replyEventId, 'COMMENT_REPLY', {
+            actorId: authorId,
+            recipientId: parentComment.authorId,
+            entityType: 'COMMENT',
+            entityId: inserted.id,
+            data: {
+              commentId: inserted.id,
+              parentId: dto.parentId,
+              postId,
+              actorId: authorId,
+              recipientId: parentComment.authorId,
+            },
+          });
+        }
+      }
+
       // Mentions Extraction
       if (trimmedContent) {
         const mentions = Array.from(
@@ -88,7 +127,6 @@ export class CommentsService {
         ).map((m) => m.slice(1));
 
         if (mentions.length > 0) {
-
           const mentionedProfiles = await tx
             .select()
             .from(schema.profiles)
@@ -126,6 +164,8 @@ export class CommentsService {
 
     return {
       ...createdComment,
+      likesCount: 0,
+      isLikedByViewer: false,
       author: {
         userId: authorId,
         username: authorProfile?.username || 'user',
@@ -139,7 +179,7 @@ export class CommentsService {
   }
 
   /**
-   * Get paginated flat comments for a post using deterministic cursor pagination.
+   * Get paginated comments for a post including likes and reply relations.
    */
   async getPostComments(
     viewerId: string,
@@ -148,7 +188,7 @@ export class CommentsService {
   ) {
     await this.postAccessService.validatePostAccess(viewerId, postId);
 
-    const limit = Math.min(query.limit || 20, 50);
+    const limit = Math.min(query.limit || 50, 100);
 
     let cursorCreatedAt: Date | null = null;
     let cursorId: string | null = null;
@@ -166,7 +206,7 @@ export class CommentsService {
 
     const conditions = [
       eq(comments.postId, postId),
-      sql`${comments.deletedAt} IS NULL`,
+      isNull(comments.deletedAt),
     ];
 
     if (cursorCreatedAt && cursorId) {
@@ -193,6 +233,23 @@ export class CommentsService {
       ).toString('base64');
     }
 
+    // Batch query comment likes for the viewer
+    const commentIds = pageData.map((c: any) => c.id);
+    const viewerLikedCommentIds = new Set<string>();
+
+    if (commentIds.length > 0 && viewerId) {
+      const userLikes = await this.db
+        .select({ commentId: commentLikes.commentId })
+        .from(commentLikes)
+        .where(
+          and(
+            inArray(commentLikes.commentId, commentIds),
+            eq(commentLikes.userId, viewerId),
+          ),
+        );
+      userLikes.forEach((l: any) => viewerLikedCommentIds.add(l.commentId));
+    }
+
     const commentsWithAuthor = await Promise.all(
       pageData.map(async (c: any) => {
         const [authorProfile] = await this.db
@@ -208,6 +265,8 @@ export class CommentsService {
 
         return {
           ...c,
+          likesCount: c.likesCount || 0,
+          isLikedByViewer: viewerLikedCommentIds.has(c.id),
           author: {
             userId: c.authorId,
             username: authorProfile?.username || 'user',
@@ -229,6 +288,76 @@ export class CommentsService {
         limit,
       },
     };
+  }
+
+  /**
+   * Toggle comment like status for the viewer.
+   */
+  async toggleCommentLike(userId: string, commentId: string) {
+    await this.postAccessService.verifyActiveAccount(userId);
+
+    const [comment] = await this.db
+      .select()
+      .from(comments)
+      .where(and(eq(comments.id, commentId), isNull(comments.deletedAt)))
+      .limit(1);
+
+    if (!comment) {
+      throw new NotFoundException('Comment not found');
+    }
+
+    const [existingLike] = await this.db
+      .select()
+      .from(commentLikes)
+      .where(and(eq(commentLikes.commentId, commentId), eq(commentLikes.userId, userId)))
+      .limit(1);
+
+    let liked = false;
+    let newLikesCount = comment.likesCount || 0;
+
+    await this.db.transaction(async (tx: any) => {
+      if (existingLike) {
+        // Unlike
+        await tx
+          .delete(commentLikes)
+          .where(and(eq(commentLikes.commentId, commentId), eq(commentLikes.userId, userId)));
+
+        newLikesCount = Math.max(0, newLikesCount - 1);
+        await tx
+          .update(comments)
+          .set({ likesCount: newLikesCount })
+          .where(eq(comments.id, commentId));
+      } else {
+        // Like
+        await tx
+          .insert(commentLikes)
+          .values({ commentId, userId });
+
+        newLikesCount += 1;
+        await tx
+          .update(comments)
+          .set({ likesCount: newLikesCount })
+          .where(eq(comments.id, commentId));
+
+        liked = true;
+
+        if (comment.authorId !== userId) {
+          await this.outboxService.appendEvent(
+            tx,
+            `COMMENT_LIKE_${userId}_${commentId}`,
+            'POST_LIKE',
+            {
+              actorId: userId,
+              recipientId: comment.authorId,
+              entityType: 'COMMENT',
+              entityId: commentId,
+            },
+          );
+        }
+      }
+    });
+
+    return { liked, likesCount: newLikesCount };
   }
 
   /**
@@ -275,10 +404,10 @@ export class CommentsService {
   }
 
   /**
-   * Soft delete comment (Author only). Transactionally decrements comments_count.
+   * Soft delete comment (Author or Post Owner). Transactionally decrements comments_count.
    */
-  async deleteComment(authorId: string, commentId: string) {
-    await this.postAccessService.verifyActiveAccount(authorId);
+  async deleteComment(userId: string, commentId: string) {
+    await this.postAccessService.verifyActiveAccount(userId);
 
     const [existing] = await this.db
       .select()
@@ -290,9 +419,18 @@ export class CommentsService {
       throw new NotFoundException('Comment not found');
     }
 
-    if (existing.authorId !== authorId) {
+    const [post] = await this.db
+      .select({ authorId: posts.authorId })
+      .from(posts)
+      .where(eq(posts.id, existing.postId))
+      .limit(1);
+
+    const isCommentAuthor = existing.authorId === userId;
+    const isPostAuthor = post?.authorId === userId;
+
+    if (!isCommentAuthor && !isPostAuthor) {
       throw new ForbiddenException(
-        'Only the comment author can delete this comment',
+        'Only the comment author or post creator can delete this comment',
       );
     }
 
@@ -312,6 +450,7 @@ export class CommentsService {
 
     return { message: 'Comment deleted successfully', commentId };
   }
+
   /**
    * Admin soft delete comment (Bypass Author Ownership). Transactionally decrements comments_count.
    */

@@ -8,6 +8,7 @@ import {
   connectionRequests,
   blocks,
   users,
+  profiles,
 } from '../../db/schema';
 import { BlockService } from './block.service';
 import { RelationshipStatusResponse } from '../dto/networking.dto';
@@ -52,27 +53,48 @@ export class NetworkingQueryService {
       );
     }
 
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+
     const rows = await this.db
       .select({
         followerId: follows.followerId,
         createdAt: follows.createdAt,
         followerEmail: users.email,
+        username: profiles.username,
+        displayName: profiles.displayName,
+        avatarKey: profiles.avatarKey,
+        bio: profiles.bio,
+        isVerifiedIdentity: profiles.isVerifiedIdentity,
       })
       .from(follows)
       .innerJoin(users, eq(follows.followerId, users.id))
+      .leftJoin(profiles, eq(users.id, profiles.userId))
       .where(and(...conditions))
       .orderBy(desc(follows.createdAt), desc(follows.followerId))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
-    const data = hasMore ? rows.slice(0, limit) : rows;
+    const rawData = hasMore ? rows.slice(0, limit) : rows;
+
+    const data = rawData.map((row: any) => ({
+      id: row.followerId,
+      userId: row.followerId,
+      followerId: row.followerId,
+      createdAt: row.createdAt,
+      followerEmail: row.followerEmail,
+      username: row.username,
+      displayName: row.displayName || row.username || 'User',
+      bio: row.bio,
+      isVerifiedIdentity: !!row.isVerifiedIdentity,
+      avatarUrl: row.avatarKey ? `${baseUrl}/uploads/${row.avatarKey}` : null,
+    }));
 
     let nextCursor: string | null = null;
     if (hasMore && data.length > 0) {
       const last = data[data.length - 1];
       nextCursor = this.encodeCursor({
         createdAt: last.createdAt.toISOString(),
-        followerId: last.followerId,
+        followerId: last.userId,
       });
     }
 
@@ -89,27 +111,48 @@ export class NetworkingQueryService {
       );
     }
 
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+
     const rows = await this.db
       .select({
         followingId: follows.followingId,
         createdAt: follows.createdAt,
         followingEmail: users.email,
+        username: profiles.username,
+        displayName: profiles.displayName,
+        avatarKey: profiles.avatarKey,
+        bio: profiles.bio,
+        isVerifiedIdentity: profiles.isVerifiedIdentity,
       })
       .from(follows)
       .innerJoin(users, eq(follows.followingId, users.id))
+      .leftJoin(profiles, eq(users.id, profiles.userId))
       .where(and(...conditions))
       .orderBy(desc(follows.createdAt), desc(follows.followingId))
       .limit(limit + 1);
 
     const hasMore = rows.length > limit;
-    const data = hasMore ? rows.slice(0, limit) : rows;
+    const rawData = hasMore ? rows.slice(0, limit) : rows;
+
+    const data = rawData.map((row: any) => ({
+      id: row.followingId,
+      userId: row.followingId,
+      followingId: row.followingId,
+      createdAt: row.createdAt,
+      followingEmail: row.followingEmail,
+      username: row.username,
+      displayName: row.displayName || row.username || 'User',
+      bio: row.bio,
+      isVerifiedIdentity: !!row.isVerifiedIdentity,
+      avatarUrl: row.avatarKey ? `${baseUrl}/uploads/${row.avatarKey}` : null,
+    }));
 
     let nextCursor: string | null = null;
     if (hasMore && data.length > 0) {
       const last = data[data.length - 1];
       nextCursor = this.encodeCursor({
         createdAt: last.createdAt.toISOString(),
-        followingId: last.followingId,
+        followingId: last.userId,
       });
     }
 

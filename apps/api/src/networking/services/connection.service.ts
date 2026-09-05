@@ -48,7 +48,12 @@ export class ConnectionService {
       .where(eq(schema.profiles.userId, receiverId))
       .limit(1);
 
-    if (receiverProfile.length > 0 && receiverProfile[0].isVerifiedIdentity) {
+    const isReceiverAdmin =
+      receiverProfile.length > 0 &&
+      (receiverProfile[0].isVerifiedIdentity ||
+        receiverProfile[0].username?.toLowerCase() === 'hakiku_official');
+
+    if (isReceiverAdmin) {
       throw new BadRequestException(
         'You cannot connect with official verified accounts. You can follow them instead.',
       );

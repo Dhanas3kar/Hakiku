@@ -11,7 +11,6 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  BadRequestException,
 } from '@nestjs/common';
 import { PostsService } from './services/posts.service';
 import { LikesService } from './services/likes.service';
@@ -61,11 +60,47 @@ export class PostsController {
       buffer = Buffer.concat(chunks);
     }
 
-    const mimeType = (req.headers['content-type'] as string) || 'image/jpeg';
+    const mimeType = (req.headers['x-file-type'] as string) || (req.headers['content-type'] as string) || 'image/jpeg';
     const userId = (req as any).user.sub;
 
     return this.postMediaService.uploadMedia(userId, buffer, mimeType);
   }
+
+  // --- Specific Subpath Routes (Must be declared before :id parameter routes) ---
+
+  @Post('comments/:commentId/like')
+  @HttpCode(HttpStatus.OK)
+  async toggleCommentLike(
+    @Req() req: any,
+    @Param('commentId') commentId: string,
+  ) {
+    return this.commentsService.toggleCommentLike(req.user.sub, commentId);
+  }
+
+  @Patch('comments/:commentId')
+  async updateComment(
+    @Req() req: any,
+    @Param('commentId') commentId: string,
+    @Body() dto: UpdateCommentDto,
+  ) {
+    return this.commentsService.updateComment(req.user.sub, commentId, dto);
+  }
+
+  @Delete('comments/:commentId')
+  async deleteComment(@Req() req: any, @Param('commentId') commentId: string) {
+    return this.commentsService.deleteComment(req.user.sub, commentId);
+  }
+
+  @Get('user/:userId')
+  async getUserPosts(
+    @Req() req: any,
+    @Param('userId') userId: string,
+    @Query() query: UserPostsQueryDto,
+  ) {
+    return this.postsService.getUserPosts(req.user.sub, userId, query);
+  }
+
+  // --- Parameter Routes (:id) ---
 
   @Get(':id')
   async getPost(@Req() req: any, @Param('id') id: string) {
@@ -116,27 +151,6 @@ export class PostsController {
   ) {
     return this.commentsService.getPostComments(req.user.sub, id, query);
   }
-
-  @Patch('comments/:commentId')
-  async updateComment(
-    @Req() req: any,
-    @Param('commentId') commentId: string,
-    @Body() dto: UpdateCommentDto,
-  ) {
-    return this.commentsService.updateComment(req.user.sub, commentId, dto);
-  }
-
-  @Delete('comments/:commentId')
-  async deleteComment(@Req() req: any, @Param('commentId') commentId: string) {
-    return this.commentsService.deleteComment(req.user.sub, commentId);
-  }
-
-  @Get('user/:userId')
-  async getUserPosts(
-    @Req() req: any,
-    @Param('userId') userId: string,
-    @Query() query: UserPostsQueryDto,
-  ) {
-    return this.postsService.getUserPosts(req.user.sub, userId, query);
-  }
 }
+// Trigger route map update for media upload parser
+

@@ -2,12 +2,17 @@ import type { UserProfile } from '../../api/profile'
 import { profileApi } from '../../api/profile'
 import { networkingApi } from '../../api/networking'
 import type { RelationshipStatus } from '../../api/networking'
-import { User, Edit2, Upload, UserPlus, UserCheck, UserX, Clock, Ban, MoreHorizontal, MessageSquare, Globe, Briefcase, ExternalLink } from 'lucide-react'
+import { User, Edit2, Upload, UserPlus, UserCheck, UserX, Clock, Ban, MoreHorizontal, MessageSquare, Globe, ExternalLink } from 'lucide-react'
 import { useState, useRef, useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import { EditProfileModal } from './EditProfileModal'
+import { FollowersModal } from './FollowersModal'
 import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { FormattedContent } from '../ui/FormattedContent'
+import { isUserVerified } from '@/utils/user'
+import { toast } from 'sonner'
+import { useAuth } from '../../hooks/useAuth'
 
 interface Props {
   profile: UserProfile
@@ -15,7 +20,15 @@ interface Props {
 }
 
 export function ProfileHeader({ profile, isOwnProfile }: Props) {
+  const { user: currentUser } = useAuth()
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [followersModalState, setFollowersModalState] = useState<{
+    isOpen: boolean
+    tab: 'followers' | 'following'
+  }>({
+    isOpen: false,
+    tab: 'followers',
+  })
   const [showMoreMenu, setShowMoreMenu] = useState(false)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const coverInputRef = useRef<HTMLInputElement>(null)
@@ -28,6 +41,38 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
     queryFn: () => networkingApi.getRelationshipStatus(profile.userId),
     enabled: !isOwnProfile && !!profile.userId,
   })
+
+  const isAdminAccount =
+    profile.isVerifiedIdentity ||
+    profile.role === 'ADMIN' ||
+    profile.username?.toLowerCase() === 'hakiku_official' ||
+    profile.username?.toLowerCase().includes('hakiku')
+
+  const isMessagingAllowed =
+    relationship?.connectionStatus === 'CONNECTED' ||
+    currentUser?.role === 'ADMIN' ||
+    currentUser?.role === 'MODERATOR' ||
+    profile.role === 'ADMIN' ||
+    profile.role === 'MODERATOR' ||
+    isAdminAccount
+
+  // Followers & Following counts
+  const { data: followersData } = useQuery({
+    queryKey: ['followers', profile.userId],
+    queryFn: () => networkingApi.getFollowers(profile.userId, { limit: 1 }),
+    staleTime: 60 * 1000,
+    enabled: !!profile.userId,
+  })
+
+  const { data: followingData } = useQuery({
+    queryKey: ['following', profile.userId],
+    queryFn: () => networkingApi.getFollowing(profile.userId, { limit: 1 }),
+    staleTime: 60 * 1000,
+    enabled: !!profile.userId,
+  })
+
+  const followersCount = profile.followersCount ?? (followersData as any)?.pagination?.total ?? (followersData as any)?.data?.length ?? 0
+  const followingCount = profile.followingCount ?? (followingData as any)?.pagination?.total ?? (followingData as any)?.data?.length ?? 0
 
   // --- Mutations ---
 
@@ -49,89 +94,77 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
 
   const followMutation = useMutation({
     mutationFn: () => networkingApi.followUser(profile.userId),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['relationship', profile.userId] })
-      const previous = queryClient.getQueryData<RelationshipStatus>(['relationship', profile.userId])
-      if (previous) {
-        queryClient.setQueryData<RelationshipStatus>(['relationship', profile.userId], {
-          ...previous,
-          isFollowing: true,
-        })
-      }
-      return { previous }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] })
+      queryClient.invalidateQueries({ queryKey: ['followers', profile.userId] })
     },
-    onError: (_err, _variables, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['relationship', profile.userId], context.previous)
-      }
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
   })
 
   const unfollowMutation = useMutation({
     mutationFn: () => networkingApi.unfollowUser(profile.userId),
-    onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: ['relationship', profile.userId] })
-      const previous = queryClient.getQueryData<RelationshipStatus>(['relationship', profile.userId])
-      if (previous) {
-        queryClient.setQueryData<RelationshipStatus>(['relationship', profile.userId], {
-          ...previous,
-          isFollowing: false,
-        })
-      }
-      return { previous }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] })
+      queryClient.invalidateQueries({ queryKey: ['followers', profile.userId] })
     },
-    onError: (_err, _variables, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['relationship', profile.userId], context.previous)
-      }
-    },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
   })
 
   const sendConnectionMutation = useMutation({
     mutationFn: () => networkingApi.sendConnectionRequest(profile.userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] })
+    },
   })
 
   const cancelConnectionMutation = useMutation({
     mutationFn: (requestId: string) => networkingApi.cancelConnectionRequest(requestId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] })
+    },
   })
 
   const acceptConnectionMutation = useMutation({
     mutationFn: (requestId: string) => networkingApi.acceptConnectionRequest(requestId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] })
+    },
   })
 
   const rejectConnectionMutation = useMutation({
     mutationFn: (requestId: string) => networkingApi.rejectConnectionRequest(requestId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] })
+    },
   })
 
   const removeConnectionMutation = useMutation({
     mutationFn: () => networkingApi.removeConnection(profile.userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] })
+    },
   })
 
   const blockMutation = useMutation({
     mutationFn: () => networkingApi.blockUser(profile.userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] })
+    },
   })
 
   const unblockMutation = useMutation({
     mutationFn: () => networkingApi.unblockUser(profile.userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['relationship', profile.userId] })
+    },
   })
 
-  // --- File upload handlers ---
-
-  const handleCoverUpload = useCallback(() => {
-    coverInputRef.current?.click()
-  }, [])
+  // --- Handlers ---
 
   const handleAvatarUpload = useCallback(() => {
     avatarInputRef.current?.click()
+  }, [])
+
+  const handleCoverUpload = useCallback(() => {
+    coverInputRef.current?.click()
   }, [])
 
   const onCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,7 +172,6 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
     if (file) {
       uploadCoverMutation.mutate(file)
     }
-    // Reset so the same file can be selected again
     e.target.value = ''
   }
 
@@ -151,22 +183,25 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
     e.target.value = ''
   }
 
-  const handleMessageUser = async () => {
-    try {
-      const conversation = await (await import('../../api/messaging')).messagingApi.createConversation(profile.userId)
-      navigate({ to: '/messages/$conversationId', params: { conversationId: conversation.id } })
-    } catch {
-      // Silently fail — user may not be able to message this person
-    }
+  const handleMessageUser = () => {
+    navigate({
+      to: '/messages',
+      search: { targetUserId: profile.userId },
+    })
   }
 
   // --- Determine action buttons ---
 
   const isActionPending =
-    followMutation.isPending || unfollowMutation.isPending ||
-    sendConnectionMutation.isPending || cancelConnectionMutation.isPending ||
-    acceptConnectionMutation.isPending || rejectConnectionMutation.isPending ||
-    removeConnectionMutation.isPending || blockMutation.isPending || unblockMutation.isPending
+    sendConnectionMutation.isPending ||
+    acceptConnectionMutation.isPending ||
+    rejectConnectionMutation.isPending ||
+    cancelConnectionMutation.isPending ||
+    followMutation.isPending ||
+    unfollowMutation.isPending ||
+    blockMutation.isPending || 
+    unblockMutation.isPending ||
+    removeConnectionMutation.isPending
 
   const renderNetworkingActions = () => {
     if (!relationship) return null
@@ -187,78 +222,79 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
 
     const buttons: React.ReactNode[] = []
 
-    // Connection action
-    switch (relationship.connectionStatus) {
-      case 'CONNECTED':
-        buttons.push(
-          <button
-            key="connected"
-            onClick={() => setShowMoreMenu(!showMoreMenu)}
-            className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <UserCheck className="h-4 w-4 text-success" />
-            Connected
-          </button>
-        )
-        break
-      case 'PENDING_SENT':
-        buttons.push(
-          <button
-            key="pending-sent"
-            onClick={() => relationship.pendingRequestId && cancelConnectionMutation.mutate(relationship.pendingRequestId)}
-            disabled={isActionPending}
-            className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted hover:text-danger hover:border-danger/30 transition-colors disabled:opacity-50 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <Clock className="h-4 w-4 group-hover:hidden" />
-            <UserX className="h-4 w-4 hidden group-hover:block" />
-            <span className="group-hover:hidden">Pending</span>
-            <span className="hidden group-hover:block">Cancel</span>
-          </button>
-        )
-        break
-      case 'PENDING_RECEIVED':
-        buttons.push(
-          <button
-            key="accept"
-            onClick={() => relationship.pendingRequestId && acceptConnectionMutation.mutate(relationship.pendingRequestId)}
-            disabled={isActionPending}
-            className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          >
-            <UserCheck className="h-4 w-4" />
-            Accept
-          </button>,
-          <button
-            key="reject"
-            onClick={() => relationship.pendingRequestId && rejectConnectionMutation.mutate(relationship.pendingRequestId)}
-            disabled={isActionPending}
-            className="flex shrink-0 items-center justify-center rounded-full border border-border bg-surface h-8 w-8 sm:h-9 sm:w-9 text-foreground hover:bg-surface-muted hover:text-danger hover:border-danger/30 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-            title="Reject connection"
-          >
-            <UserX className="h-4 w-4" />
-          </button>
-        )
-        break
-      case 'NONE':
-      default:
-        // Do not allow sending connection requests to verified official accounts
-        if (!profile.isVerifiedIdentity) {
+    // Connection button based on status (Suppressed for official admin accounts)
+    if (!isAdminAccount) {
+      switch (relationship.connectionStatus) {
+        case 'CONNECTED':
           buttons.push(
             <button
-              key="connect"
-              onClick={() => sendConnectionMutation.mutate()}
-              disabled={isActionPending}
-              className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-5 py-1.5 sm:px-6 sm:py-2 text-sm font-semibold text-primary-foreground hover:bg-primary-hover transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              key="connection"
+              disabled
+              className="flex shrink-0 items-center gap-2 rounded-full border border-success/30 bg-success/10 px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-success dark:text-success-foreground focus-visible:outline-none"
             >
-              <UserPlus className="h-4 w-4" />
-              Connect
+              <UserCheck className="h-4 w-4" />
+              Connected
             </button>
           )
-        }
-        break
+          break
+        case 'PENDING_SENT':
+          buttons.push(
+            <button
+              key="connection"
+              onClick={() => relationship.pendingRequestId && cancelConnectionMutation.mutate(relationship.pendingRequestId)}
+              disabled={isActionPending}
+              className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground-muted hover:bg-surface-muted hover:text-danger transition-colors disabled:opacity-50 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+            >
+              <Clock className="h-4 w-4 group-hover:hidden" />
+              <UserX className="h-4 w-4 hidden group-hover:block" />
+              <span className="group-hover:hidden">Pending</span>
+              <span className="hidden group-hover:inline">Cancel Request</span>
+            </button>
+          )
+          break
+        case 'PENDING_RECEIVED':
+          buttons.push(
+            <div key="connection" className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => relationship.pendingRequestId && acceptConnectionMutation.mutate(relationship.pendingRequestId)}
+                disabled={isActionPending}
+                className="flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <UserCheck className="h-4 w-4" />
+                Accept
+              </button>
+              <button
+                onClick={() => relationship.pendingRequestId && rejectConnectionMutation.mutate(relationship.pendingRequestId)}
+                disabled={isActionPending}
+                className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground-muted hover:bg-surface-muted transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <UserX className="h-4 w-4" />
+                Ignore
+              </button>
+            </div>
+          )
+          break
+        case 'NONE':
+        default:
+          if (!relationship.isFollowedBy) {
+            buttons.push(
+              <button
+                key="connection"
+                onClick={() => sendConnectionMutation.mutate()}
+                disabled={isActionPending}
+                className="flex shrink-0 items-center gap-2 rounded-full bg-primary px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                <UserPlus className="h-4 w-4" />
+                Connect
+              </button>
+            )
+          }
+          break
+      }
     }
 
-    // Follow/Unfollow
-    if (relationship.connectionStatus !== 'CONNECTED') {
+    // Follow/Unfollow (Always enabled for Admin handles or non-connected users)
+    if (isAdminAccount || relationship.connectionStatus !== 'CONNECTED') {
       if (relationship.isFollowing) {
         buttons.push(
           <button
@@ -287,17 +323,31 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
     }
 
     // Message button
-    buttons.push(
-      <button
-        key="message"
-        onClick={handleMessageUser}
-        className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-        title="Send message"
-      >
-        <MessageSquare className="h-4 w-4 hidden sm:block" />
-        Message
-      </button>
-    )
+    if (isMessagingAllowed) {
+      buttons.push(
+        <button
+          key="message"
+          onClick={handleMessageUser}
+          className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground hover:bg-surface-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+          title="Send message"
+        >
+          <MessageSquare className="h-4 w-4 hidden sm:block" />
+          Message
+        </button>
+      )
+    } else {
+      buttons.push(
+        <button
+          key="message"
+          onClick={() => toast.error('You can only message users you are connected with. Send a connection request first!')}
+          className="flex shrink-0 items-center gap-2 rounded-full border border-border bg-surface-muted/40 px-4 py-1.5 sm:px-5 sm:py-2 text-sm font-medium text-foreground-muted opacity-65 transition-colors focus-visible:outline-none"
+          title="Connect to send messages"
+        >
+          <MessageSquare className="h-4 w-4 hidden sm:block" />
+          Message
+        </button>
+      )
+    }
 
     // More menu (block)
     buttons.push(
@@ -327,6 +377,29 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
               <Ban className="h-4 w-4" />
               Block User
             </button>
+            {currentUser?.role === 'ADMIN' && (
+              <button
+                onClick={async () => {
+                  setShowMoreMenu(false)
+                  const isSuspended = profile.status === 'SUSPENDED' || profile.status === 'BANNED'
+                  const newStatus = isSuspended ? 'ACTIVE' : 'SUSPENDED'
+                  try {
+                    await (await import('@/api/client')).client.patch(`/admin/users/${profile.userId}/status`, {
+                      status: newStatus,
+                      reason: isSuspended ? 'Admin revoked suspension' : 'Admin suspended for terms violation',
+                    })
+                    toast.success(isSuspended ? 'Account restored successfully' : 'Account suspended successfully')
+                    queryClient.invalidateQueries({ queryKey: ['profile', profile.username] })
+                  } catch (e: any) {
+                    toast.error(e?.response?.data?.message || 'Failed to update account status')
+                  }
+                }}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-danger border-t border-border transition-colors hover:bg-danger/10"
+              >
+                <Ban className="h-4 w-4" />
+                {profile.status === 'SUSPENDED' || profile.status === 'BANNED' ? 'Revoke Suspension' : 'Suspend Account (Admin)'}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -365,7 +438,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
           <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 via-surface-muted to-accent/10 dark:from-primary/15 dark:via-surface/50 dark:to-accent/15" />
         )}
         
-        {/* Subtle bottom gradient to ensure avatar pops against cover */}
+        {/* Subtle bottom gradient */}
         <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/30 to-transparent pointer-events-none" />
         
         {isOwnProfile && (
@@ -425,7 +498,7 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
             </div>
           </div>
 
-          {/* Actions Area — scrollable on mobile so buttons never wrap off-screen */}
+          {/* Actions Area */}
           <div className="flex gap-2 items-center mt-2 sm:mt-0 sm:pb-4 lg:pb-6 overflow-x-auto [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden flex-nowrap sm:flex-wrap">
             {isOwnProfile ? (
               <button
@@ -445,41 +518,61 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
         <div className="mt-4 sm:mt-5 max-w-3xl">
           <h1 className="flex items-center gap-2 text-2xl sm:text-3xl font-bold text-foreground tracking-tight leading-tight">
             {profile.displayName || profile.fullName}
-            {profile.isVerifiedIdentity && (
+            {isUserVerified(profile) && (
               <VerifiedBadge className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 ml-1" />
             )}
           </h1>
           <p className="text-base text-foreground-muted mt-0.5">@{profile.username}</p>
           
+          {/* Followers & Following Count */}
+          <div className="mt-3 flex items-center gap-4 text-sm font-medium">
+            <button
+              onClick={() => setFollowersModalState({ isOpen: true, tab: 'followers' })}
+              className="flex items-center gap-1.5 text-foreground hover:opacity-80 transition-opacity cursor-pointer focus:outline-none"
+            >
+              <span className="font-bold text-foreground">{followersCount}</span>
+              <span className="text-foreground-muted hover:text-primary transition-colors">Followers</span>
+            </button>
+            <span className="text-border">•</span>
+            <button
+              onClick={() => setFollowersModalState({ isOpen: true, tab: 'following' })}
+              className="flex items-center gap-1.5 text-foreground hover:opacity-80 transition-opacity cursor-pointer focus:outline-none"
+            >
+              <span className="font-bold text-foreground">{followingCount}</span>
+              <span className="text-foreground-muted hover:text-primary transition-colors">Following</span>
+            </button>
+          </div>
+
           {/* Bio */}
-          {/* @ts-ignore */}
           {profile.bio && (
-            <p className="mt-4 text-base text-foreground leading-relaxed whitespace-pre-wrap break-words">
-              {profile.bio}
-            </p>
+            <div className="mt-3 text-base text-foreground leading-relaxed break-words">
+              <FormattedContent content={profile.bio} />
+            </div>
           )}
 
           {/* Social Links */}
-          {profile.socialLinks && Object.values(profile.socialLinks).some(val => val && val.trim() !== '') && (
-            <div className="mt-4 flex flex-wrap gap-3">
-              {profile.socialLinks.website && (
-                <a href={profile.socialLinks.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-primary transition-colors">
-                  <ExternalLink className="h-4 w-4" />
-                  Website
-                </a>
-              )}
-              {profile.socialLinks.github && (
-                <a href={profile.socialLinks.github} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-primary transition-colors">
-                  <Globe className="h-4 w-4" />
-                  GitHub
-                </a>
-              )}
-              {profile.socialLinks.linkedin && (
-                <a href={profile.socialLinks.linkedin} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-primary transition-colors">
-                  <Briefcase className="h-4 w-4" />
-                  LinkedIn
-                </a>
-              )}
+          {profile.socialLinks && Object.values(profile.socialLinks).some(url => url && typeof url === 'string' && url.trim().length > 0) && (
+            <div className="mt-3.5 flex flex-wrap items-center gap-2">
+              {Object.entries(profile.socialLinks).map(([key, rawUrl]) => {
+                if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) return null
+                const trimmed = rawUrl.trim()
+                const href = trimmed.startsWith('http://') || trimmed.startsWith('https://') ? trimmed : `https://${trimmed}`
+                const label = key.charAt(0).toUpperCase() + key.slice(1)
+
+                return (
+                  <a
+                    key={key}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface-muted/70 px-3 py-1 text-xs font-medium text-foreground hover:bg-surface-muted hover:border-primary/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                  >
+                    <Globe className="h-3.5 w-3.5 text-primary shrink-0" />
+                    <span>{label}</span>
+                    <ExternalLink className="h-3 w-3 text-foreground-muted shrink-0" />
+                  </a>
+                )
+              })}
             </div>
           )}
           
@@ -524,6 +617,16 @@ export function ProfileHeader({ profile, isOwnProfile }: Props) {
         <EditProfileModal 
           profile={profile} 
           onClose={() => setIsEditModalOpen(false)} 
+        />
+      )}
+
+      {followersModalState.isOpen && (
+        <FollowersModal
+          userId={profile.userId}
+          initialTab={followersModalState.tab}
+          followersCount={followersCount}
+          followingCount={followingCount}
+          onClose={() => setFollowersModalState((prev) => ({ ...prev, isOpen: false }))}
         />
       )}
     </div>

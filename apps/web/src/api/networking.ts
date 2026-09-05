@@ -40,6 +40,17 @@ export interface ConnectionItem {
   createdAt: string
 }
 
+export interface FollowUserItem {
+  id: string
+  userId: string
+  username?: string
+  displayName?: string
+  avatarUrl?: string | null
+  bio?: string | null
+  isVerifiedIdentity?: boolean
+  createdAt: string
+}
+
 // --- API Methods ---
 
 export const networkingApi = {
@@ -50,10 +61,10 @@ export const networkingApi = {
   unfollowUser: (targetUserId: string) =>
     client.delete(`/networking/follow/${targetUserId}`),
 
-  getFollowers: (userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<any>> =>
+  getFollowers: (userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<FollowUserItem>> =>
     client.get(`/networking/followers/${userId}`, { params }),
 
-  getFollowing: (userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<any>> =>
+  getFollowing: (userId: string, params?: { limit?: number; cursor?: string }): Promise<PaginatedResponse<FollowUserItem>> =>
     client.get(`/networking/following/${userId}`, { params }),
 
   // Connections

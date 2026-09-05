@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Put,
   Get,
   Patch,
   Body,
@@ -57,7 +58,7 @@ export class ProfileController {
       });
       buffer = Buffer.concat(chunks);
     }
-    const mimeType = (req.headers['content-type'] as string) || 'image/jpeg';
+    const mimeType = (req.headers['x-file-type'] as string) || (req.headers['content-type'] as string) || 'image/jpeg';
 
     return this.profileService.uploadAvatar(
       (req as any).user.sub,
@@ -81,7 +82,7 @@ export class ProfileController {
       });
       buffer = Buffer.concat(chunks);
     }
-    const mimeType = (req.headers['content-type'] as string) || 'image/jpeg';
+    const mimeType = (req.headers['x-file-type'] as string) || (req.headers['content-type'] as string) || 'image/jpeg';
 
     return this.profileService.uploadCover(
       (req as any).user.sub,
@@ -109,5 +110,32 @@ export class ProfileController {
   @Get('id/:userId')
   async getProfileByUserId(@Req() req: any, @Param('userId') userId: string) {
     return this.profileService.getProfileByUserId(req.user.sub, userId);
+  }
+
+  @Put('upload-direct/*')
+  @HttpCode(HttpStatus.OK)
+  async uploadDirect(@Req() req: FastifyRequest) {
+    let buffer: Buffer;
+    if (Buffer.isBuffer(req.body)) {
+      buffer = req.body;
+    } else {
+      const chunks: Buffer[] = [];
+      await new Promise<void>((resolve, reject) => {
+        req.raw.on('data', (chunk) => chunks.push(chunk));
+        req.raw.on('end', () => resolve());
+        req.raw.on('error', (err) => reject(err));
+      });
+      buffer = Buffer.concat(chunks);
+    }
+
+    const rawUrl = req.raw.url || req.url || '';
+    const match = rawUrl.match(/\/upload-direct\/(.+)$/);
+    if (!match) {
+      throw new BadRequestException('Invalid upload path');
+    }
+    const storageKey = decodeURIComponent(match[1].split('?')[0]);
+    const mimeType = (req.headers['x-file-type'] as string) || (req.headers['content-type'] as string) || 'image/jpeg';
+
+    return this.profileService.uploadDirect(buffer, storageKey, mimeType);
   }
 }

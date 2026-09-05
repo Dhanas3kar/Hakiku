@@ -17,6 +17,7 @@ import { NotificationPrivacyService } from './notification-privacy.service';
 import { NotificationPreferenceService } from './notification-preference.service';
 import { NotificationGateway } from '../notification.gateway';
 import { Redis } from 'ioredis';
+import { MetricsService } from '../../metrics/metrics.service';
 
 @Injectable()
 export class NotificationWorkerService
@@ -33,6 +34,7 @@ export class NotificationWorkerService
     private readonly preferenceService: NotificationPreferenceService,
     private readonly gateway: NotificationGateway,
     @Inject('REDIS_CLIENT') private readonly redis: Redis,
+    private readonly metricsService: MetricsService,
   ) {
     this.db = db;
   }
@@ -104,7 +106,7 @@ export class NotificationWorkerService
             .from(notificationOutbox)
             .where(
               sql`
-                (status = 'PENDING' AND available_at <= NOW() + INTERVAL '5 seconds')
+                (status = 'PENDING' AND COALESCE(available_at, created_at) <= NOW() + INTERVAL '5 seconds')
                 OR (status = 'PROCESSING' AND claimed_at <= NOW() - INTERVAL '5 minutes')
               `
             )
@@ -140,15 +142,17 @@ export class NotificationWorkerService
           
           try {
             await this.db.transaction(async (eventTx: any) => {
-            await this.handleEvent(eventTx, outboxEvent);
-          });
+              await this.handleEvent(eventTx, outboxEvent);
+            });
 
-          // Mark as PROCESSED
-          await this.db
-            .update(notificationOutbox)
-            .set({ status: 'PROCESSED', updatedAt: new Date() })
-            .where(eq(notificationOutbox.id, outboxEvent.id));
-        } catch (err: any) {
+            // Mark as PROCESSED
+            await this.db
+              .update(notificationOutbox)
+              .set({ status: 'PROCESSED', updatedAt: new Date() })
+              .where(eq(notificationOutbox.id, outboxEvent.id));
+            this.metricsService.recordOutboxProcessed(1);
+          } catch (err: any) {
+          this.metricsService.recordOutboxFailed(1);
           this.logger.error(
             `Failed to process outbox event ${outboxEvent.id}`,
             err.stack,
@@ -208,11 +212,28 @@ export class NotificationWorkerService
     // Payload includes recipientId, actorId, entityType, entityId
     const { recipientId, actorId, entityType, entityId, data } = payload;
 
+    let validActorId = actorId || null;
+    if (actorId) {
+      const [actorExists] = await tx
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.id, actorId))
+        .limit(1);
+      if (!actorExists) {
+        validActorId = null;
+      }
+    }
+
+    // Do NOT send self-notifications (when user performs action on own content/profile)
+    if (recipientId && validActorId && recipientId === validActorId) {
+      return;
+    }
+
     // Evaluate block privacy
-    if (recipientId && actorId && recipientId !== actorId) {
+    if (recipientId && validActorId && recipientId !== validActorId) {
       const canDeliver = await this.privacyService.canDeliverNotification(
         recipientId,
-        actorId,
+        validActorId,
       );
       if (!canDeliver) return; // Drop silently
     }
@@ -233,7 +254,7 @@ export class NotificationWorkerService
         .values({
           eventId,
           recipientId,
-          actorId: actorId || null,
+          actorId: validActorId,
           type,
           entityType,
           entityId,
@@ -261,7 +282,7 @@ export class NotificationWorkerService
         actor = profile || null;
       }
 
-      const baseUrl = process.env.VITE_API_URL || 'http://localhost:3001';
+      const baseUrl = process.env.BASE_URL || process.env.VITE_API_URL || 'http://localhost:3001';
       let content = '';
       switch (inserted.type) {
         case 'FOLLOW':

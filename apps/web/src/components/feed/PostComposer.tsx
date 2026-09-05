@@ -6,13 +6,13 @@ import { useAuth } from '../../hooks/useAuth'
 import { Image, X, Loader2, Globe, Users, Lock, Send, BarChart2, Plus } from 'lucide-react'
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
+import { MentionTextarea } from '../ui/MentionTextarea'
 
 interface PostComposerProps {
   onPostCreated?: (newPost: PostItem) => void
 }
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024 // 10 MB
-const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 50 MB
 
 export function PostComposer({ onPostCreated }: PostComposerProps) {
   const { user } = useAuth()
@@ -75,21 +75,15 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const isVideo = file.type.startsWith('video/')
     const isImage = file.type.startsWith('image/')
 
-    if (!isImage && !isVideo) {
-      setUploadError('Only images and videos are supported')
+    if (!isImage) {
+      setUploadError('Only images are supported')
       return
     }
 
-    if (isImage && file.size > MAX_IMAGE_SIZE) {
+    if (file.size > MAX_IMAGE_SIZE) {
       setUploadError('Images must be under 10 MB')
-      return
-    }
-
-    if (isVideo && file.size > MAX_VIDEO_SIZE) {
-      setUploadError('Videos must be under 50 MB')
       return
     }
 
@@ -109,8 +103,8 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
     }
   }
 
-  const removeMedia = (id: string) => {
-    setMediaList((prev) => prev.filter((m) => m.id !== id))
+  const removeMedia = (target: PostMedia, index: number) => {
+    setMediaList((prev) => prev.filter((m, i) => (m.id ? m.id !== target.id : i !== index)))
   }
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -120,11 +114,15 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
     const currentKey = idempotencyKeyRef.current
     idempotencyKeyRef.current = crypto.randomUUID()
 
+    const validMediaIds = mediaList
+      .map((m: any) => m.uploadId || m.id)
+      .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+
     createPostMutation.mutate({
       content: content.trim(),
       visibility,
-      mediaUploadIds: mediaList.map((m) => m.id),
-      idempotencyKey: currentKey
+      mediaUploadIds: validMediaIds.length > 0 ? validMediaIds : undefined,
+      idempotencyKey: currentKey,
     })
   }
 
@@ -138,20 +136,21 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
   return (
     <div className="mb-0 sm:mb-2 border-b border-border-subtle bg-surface sm:bg-transparent px-4 py-5 sm:px-1 sm:py-6">
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Avatar + Textarea */}
-        <div className="flex items-start gap-3">
+        {/* Author Avatar & Main Textarea */}
+        <div className="flex gap-3">
           <Avatar
             src={user?.avatarUrl}
             alt={user?.displayName || user?.fullName || 'User'}
             name={user?.displayName || user?.fullName || 'S'}
           />
           <div className="flex-1 min-w-0">
-            <textarea
+            <MentionTextarea
               rows={3}
               value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="What's happening on campus?"
+              onChangeValue={setContent}
+              placeholder="What's happening on campus? Type @ to tag someone..."
               className="w-full resize-none border-none bg-transparent text-[15px] leading-relaxed text-foreground placeholder-foreground-subtle focus:outline-none focus:ring-0"
+              containerClassName="w-full"
             />
           </div>
         </div>
@@ -159,9 +158,9 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
         {/* Media Previews */}
         {mediaList.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2">
-            {mediaList.map((item) => (
+            {mediaList.map((item, index) => (
               <div
-                key={item.id}
+                key={item.id || item.url || `media-${index}`}
                 className="relative aspect-video rounded-lg overflow-hidden border border-border bg-surface-muted group"
               >
                 {item.type === 'VIDEO' ? (
@@ -177,7 +176,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
                 )}
                 <button
                   type="button"
-                  onClick={() => removeMedia(item.id)}
+                  onClick={() => removeMedia(item, index)}
                   className="absolute top-1 right-1 p-1 rounded-full bg-background/80 text-foreground hover:bg-background transition-colors"
                   aria-label="Remove media"
                 >
@@ -226,7 +225,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
 
             <div className="space-y-2">
               {pollOptions.map((opt, i) => (
-                <div key={i} className="flex items-center gap-2">
+                <div key={`poll-opt-${i}`} className="flex items-center gap-2">
                   <input
                     type="text"
                     value={opt}
@@ -272,7 +271,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept="image/*,video/*"
+              accept="image/*"
               className="hidden"
               id="composer-file-input"
             />

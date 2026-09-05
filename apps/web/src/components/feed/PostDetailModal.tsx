@@ -15,6 +15,8 @@ export function PostDetailModal({ postId, onClose, onEdit, onMediaClick }: PostD
   const { data: post, isLoading, isError } = useQuery({
     queryKey: ['post', postId],
     queryFn: () => postsApi.getPost(postId),
+    enabled: Boolean(postId),
+    retry: false,
     staleTime: 30 * 1000,
   })
 

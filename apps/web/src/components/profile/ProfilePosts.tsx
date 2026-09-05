@@ -83,7 +83,22 @@ export function ProfilePosts({ profile, isOwnProfile }: Props) {
       
       <div className="flex flex-col gap-6">
         {posts.map((post) => (
-          <PostCard key={post.id} post={post} />
+          <PostCard
+            key={post.id}
+            post={{
+              ...post,
+              author: post.author || {
+                id: profile.userId,
+                userId: profile.userId,
+                username: profile.username,
+                displayName: profile.displayName,
+                avatarUrl: profile.avatarUrl,
+                isVerifiedIdentity: profile.isVerifiedIdentity,
+                adminHandle: profile.adminHandle,
+                department: profile.department,
+              },
+            }}
+          />
         ))}
       </div>
 

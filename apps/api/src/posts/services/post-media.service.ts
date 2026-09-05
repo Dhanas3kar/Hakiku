@@ -68,6 +68,7 @@ export class PostMediaService {
       .returning();
 
     return {
+      id: pending.id,
       uploadId: pending.id,
       storageKey: pending.storageKey,
       mediaType: pending.mediaType,

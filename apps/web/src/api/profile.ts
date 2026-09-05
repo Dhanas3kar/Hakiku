@@ -9,6 +9,7 @@ export interface UserProfile {
   displayName: string;
   fullName?: string; // alias for displayName for backward compat
   bio: string | null;
+  about?: string | null;
   department: string | null;
   batch: string | null;
   batchYear?: number | null;
@@ -16,6 +17,8 @@ export interface UserProfile {
   avatarUrl: string | null;
   coverUrl: string | null;
   socialLinks: Record<string, string> | null;
+  followersCount?: number;
+  followingCount?: number;
   role?: UserRole;
   isVerifiedIdentity?: boolean;
   skillIds?: string[];
@@ -40,14 +43,16 @@ export const profileApi = {
   uploadAvatar: (file: File) => {
     return client.post('/profile/me/avatar', file, {
       headers: {
-        'Content-Type': file.type,
+        'Content-Type': 'application/octet-stream',
+        'X-File-Type': file.type || 'image/jpeg',
       },
     })
   },
   uploadCover: (file: File) => {
     return client.post('/profile/me/cover', file, {
       headers: {
-        'Content-Type': file.type,
+        'Content-Type': 'application/octet-stream',
+        'X-File-Type': file.type || 'image/jpeg',
       },
     })
   },
