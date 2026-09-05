@@ -1,6 +1,6 @@
 import { db } from '../src/db/index';
 import * as schema from '../src/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
@@ -17,34 +17,45 @@ const ARGON2_OPTIONS = {
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 async function provisionAdmin() {
-  console.log('--- PROVISION HAKIKU SYSTEM IDENTITY ---');
+  console.log('--- PROVISION HAKIKU OFFICIAL ADMIN IDENTITY ---');
   
   const nodeEnv = process.env.NODE_ENV || 'development';
   const dbUrl = process.env.DATABASE_URL || '';
-  const adminEmail = process.env.HAKIKU_ADMIN_EMAIL;
-  const adminPassword = process.env.HAKIKU_ADMIN_PASSWORD;
-  
-  if (!adminEmail || !adminPassword) {
-    console.error('[ERROR] HAKIKU_ADMIN_EMAIL or HAKIKU_ADMIN_PASSWORD is not defined in the environment.');
-    process.exit(1);
-  }
+  const adminEmail = process.env.HAKIKU_ADMIN_EMAIL || 'admin@srmconnect.edu.in';
+  const adminPassword = process.env.HAKIKU_ADMIN_PASSWORD || 'AdminPass123!';
 
   const urlObj = new URL(dbUrl);
   const maskedHost = urlObj.hostname;
   
-  if (nodeEnv === 'production' || maskedHost !== '127.0.0.1' && maskedHost !== 'localhost') {
+  if (nodeEnv === 'production' || (maskedHost !== '127.0.0.1' && maskedHost !== 'localhost')) {
     console.error(`[ERROR] This appears to be a production database. Disabling provisioning.`);
     process.exit(1);
   }
 
   try {
-    // 1. Check if user already exists
+    // 1. Cleanup old legacy 'hakikuadmin' profile if present
+    const oldAdminProfile = await db.query.profiles.findFirst({
+      where: eq(schema.profiles.username, 'hakikuadmin'),
+    });
+
+    if (oldAdminProfile) {
+      console.log(`Cleaning up old legacy 'hakikuadmin' profile (${oldAdminProfile.userId})...`);
+      // Delete old admin credentials if any
+      await db.delete(schema.adminCredentials).where(eq(schema.adminCredentials.userId, oldAdminProfile.userId));
+      // Delete old profile
+      await db.delete(schema.profiles).where(eq(schema.profiles.id, oldAdminProfile.id));
+      // Delete old user record
+      await db.delete(schema.users).where(eq(schema.users.id, oldAdminProfile.userId));
+      console.log(`Deleted legacy 'hakikuadmin' profile & user.`);
+    }
+
+    // 2. Check if main admin user already exists
     let user = await db.query.users.findFirst({
       where: eq(schema.users.email, adminEmail),
     });
 
     if (!user) {
-      console.log(`User ${adminEmail} not found. Creating user...`);
+      console.log(`User ${adminEmail} not found. Creating official admin user...`);
       const [newUser] = await db.insert(schema.users).values({
         id: uuidv4(),
         email: adminEmail,
@@ -55,7 +66,7 @@ async function provisionAdmin() {
       }).returning();
       user = newUser;
     } else {
-      console.log(`User ${adminEmail} found. Updating role...`);
+      console.log(`User ${adminEmail} found. Updating role to ADMIN...`);
       const [updatedUser] = await db.update(schema.users).set({
         role: 'ADMIN',
         isVerified: true,
@@ -63,7 +74,7 @@ async function provisionAdmin() {
       user = updatedUser;
     }
 
-    // 2. Provision admin credentials
+    // 3. Provision admin credentials
     console.log(`Provisioning admin credentials for ${adminEmail}...`);
     const passwordHash = await argon2.hash(adminPassword, ARGON2_OPTIONS);
     
@@ -79,18 +90,18 @@ async function provisionAdmin() {
       },
     });
 
-    // 3. Provision profile
+    // 4. Provision official 'hakiku_official' profile
     let profile = await db.query.profiles.findFirst({
       where: eq(schema.profiles.userId, user.id),
     });
 
     if (!profile) {
-      console.log(`Profile for ${adminEmail} not found. Creating profile...`);
+      console.log(`Profile for ${adminEmail} not found. Creating @hakiku_official profile...`);
       await db.insert(schema.profiles).values({
         id: uuidv4(),
         userId: user.id,
-        username: 'hakikuadmin',
-        displayName: 'Hakiku Admin',
+        username: 'hakiku_official',
+        displayName: 'HAKIKU Official',
         campus: 'SYSTEM',
         department: 'ADMINISTRATION',
         degreeProgram: 'SYSTEM',
@@ -102,18 +113,19 @@ async function provisionAdmin() {
         visibility: 'PUBLIC',
       });
     } else {
-      console.log(`Profile for ${adminEmail} found. Updating verified identity...`);
+      console.log(`Profile for ${adminEmail} found. Updating to @hakiku_official...`);
       await db.update(schema.profiles).set({
-        username: 'hakikuadmin',
-        displayName: 'Hakiku Admin',
+        username: 'hakiku_official',
+        displayName: 'HAKIKU Official',
         isVerifiedIdentity: true,
       }).where(eq(schema.profiles.id, profile.id));
     }
 
-    console.log(`\n[SUCCESS] Hakiku Admin identity provisioned successfully.`);
+    console.log(`\n[SUCCESS] Hakiku Official Admin identity provisioned successfully.`);
     console.log(`  Email: ${adminEmail}`);
     console.log(`  Role: ADMIN`);
-    console.log(`  Username: hakikuadmin`);
+    console.log(`  Username: hakiku_official`);
+    console.log(`  DisplayName: HAKIKU Official`);
     console.log(`  Verified Identity: true\n`);
     
   } catch (err) {

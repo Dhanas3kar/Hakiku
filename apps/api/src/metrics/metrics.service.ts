@@ -37,6 +37,23 @@ export class MetricsService implements OnModuleInit, OnModuleDestroy {
   private outboxFailedCount = 0;
   private activeWsConnections = 0;
 
+  // Collaboration Telemetry (Bounded Cardinality)
+  private collaborationRequestsTotal = 0;
+  private collaborationRequestsAcceptedTotal = 0;
+  private collaborationDiscoveryRequestsTotal = 0;
+
+  public recordCollaborationRequestCreated() {
+    this.collaborationRequestsTotal++;
+  }
+
+  public recordCollaborationRequestAccepted() {
+    this.collaborationRequestsAcceptedTotal++;
+  }
+
+  public recordCollaborationDiscovery() {
+    this.collaborationDiscoveryRequestsTotal++;
+  }
+
   onModuleInit() {
     this.histogram.enable();
     const isTest = process.env.NODE_ENV === 'test';

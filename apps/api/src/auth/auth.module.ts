@@ -14,7 +14,7 @@ import { AdminAuthController } from './admin-auth.controller';
       global: true,
       secret: process.env.JWT_SECRET!,
       signOptions: {
-        expiresIn: '15m',
+        expiresIn: '24h',
         issuer: process.env.JWT_ISSUER as string,
         audience: process.env.JWT_AUDIENCE as string,
       },

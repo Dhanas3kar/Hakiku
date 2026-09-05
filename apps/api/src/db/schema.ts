@@ -12,6 +12,7 @@ import {
   index,
   uniqueIndex,
   integer,
+  AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
@@ -464,7 +465,7 @@ export const postLikes = pgTable(
   }),
 );
 
-// 5. Flat Comments Table
+// 5. Comments Table (Supports Nested Replies & Likes)
 export const comments = pgTable(
   'comments',
   {
@@ -472,10 +473,14 @@ export const comments = pgTable(
     postId: uuid('post_id')
       .notNull()
       .references(() => posts.id, { onDelete: 'cascade' }),
+    parentId: uuid('parent_id').references((): AnyPgColumn => comments.id, {
+      onDelete: 'cascade',
+    }),
     authorId: uuid('author_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     content: text('content').notNull(),
+    likesCount: integer('likes_count').default(0).notNull(),
     deletedAt: timestamp('deleted_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -485,7 +490,26 @@ export const comments = pgTable(
       table.postId,
       table.createdAt,
     ),
+    parentIdx: index('idx_comments_parent').on(table.parentId),
     authorIdx: index('idx_comments_author').on(table.authorId),
+  }),
+);
+
+// 6. Comment Likes Relationship Table
+export const commentLikes = pgTable(
+  'comment_likes',
+  {
+    commentId: uuid('comment_id')
+      .notNull()
+      .references(() => comments.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.commentId, table.userId] }),
+    userLikesIdx: index('idx_comment_likes_user').on(table.userId),
   }),
 );
 
@@ -501,6 +525,17 @@ export const notificationTypeEnum = pgEnum('notification_type', [
   'SYSTEM',
   'MESSAGE',
   'MENTION',
+  'COMMUNITY_INVITE',
+  'TEAM_JOIN_REQUEST',
+  'TEAM_JOIN_ACCEPTED',
+  'TEAM_JOIN_REJECTED',
+  'TEAM_INVITATION_RECEIVED',
+  'TEAM_INVITATION_ACCEPTED',
+  'COLLABORATION_REQUEST',
+  'COLLABORATION_ACCEPTED',
+  'COLLABORATION_DECLINED',
+  'TEAM_ROLE_MATCH',
+  'HACKATHON_MATCH',
 ]);
 
 export const outboxStatusEnum = pgEnum('outbox_status', [
@@ -641,6 +676,7 @@ export const conversationParticipants = pgTable(
     joinedAt: timestamp('joined_at').defaultNow().notNull(),
     lastReadMessageId: uuid('last_read_message_id'),
     lastReadAt: timestamp('last_read_at'),
+    clearedAt: timestamp('cleared_at'),
     isArchived: boolean('is_archived').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
@@ -669,6 +705,7 @@ export const messages = pgTable(
     replyToMessageId: uuid('reply_to_message_id'), // Self-reference skipped here for simplicity to avoid circular dep at runtime setup, or use explicit relation
     idempotencyKey: varchar('idempotency_key', { length: 100 }),
     deletedAt: timestamp('deleted_at'),
+    deletedBy: uuid('deleted_by'),
     editedAt: timestamp('edited_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -802,6 +839,7 @@ export const reportTargetTypeEnum = pgEnum('report_target_type', [
   'COMMENT',
   'USER',
   'HOT_TAKE',
+  'MESSAGE',
 ]);
 
 // 1. Confessions Table
@@ -911,6 +949,7 @@ export const communityReports = pgTable(
     targetType: reportTargetTypeEnum('target_type').notNull(),
     targetId: uuid('target_id').notNull(),
     reason: text('reason').notNull(),
+    snapshotContent: text('snapshot_content'),
     status: reportStatusEnum('status').default('PENDING').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
@@ -951,3 +990,580 @@ export const hotTakes = pgTable(
     createdAtIdx: index('idx_hot_takes_created_at').on(table.createdAt),
   }),
 );
+
+// 7. Hot Take Votes Table
+export const hotTakeVotes = pgTable(
+  'hot_take_votes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    hotTakeId: uuid('hot_take_id')
+      .notNull()
+      .references(() => hotTakes.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    voteType: text('vote_type').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueUserVote: uniqueIndex('idx_unique_user_hot_take_vote').on(
+      table.hotTakeId,
+      table.userId,
+    ),
+    hotTakeIdx: index('idx_hot_take_votes_take_id').on(table.hotTakeId),
+  }),
+);
+
+// --- PHASE 10: STUDENT COMMUNITIES, HACKATHON HUB & TEAM FORMATION ---
+
+export const communityVisibilityEnum = pgEnum('community_visibility', [
+  'PUBLIC',
+  'PRIVATE',
+]);
+
+export const communityRoleEnum = pgEnum('community_role', [
+  'OWNER',
+  'MODERATOR',
+  'MEMBER',
+]);
+
+export const communityChannelTypeEnum = pgEnum('community_channel_type', [
+  'TEXT',
+]);
+
+export const hackathonModeEnum = pgEnum('hackathon_mode', [
+  'ONLINE',
+  'OFFLINE',
+  'HYBRID',
+]);
+
+export const hackathonStatusEnum = pgEnum('hackathon_status', [
+  'UPCOMING',
+  'REGISTRATION_OPEN',
+  'DEADLINE_SOON',
+  'REGISTRATION_CLOSED',
+  'ONGOING',
+  'ENDED',
+]);
+
+export const teamStatusEnum = pgEnum('team_status', [
+  'OPEN',
+  'FULL',
+  'CLOSED',
+  'DISBANDED',
+]);
+
+export const teamRoleCategoryEnum = pgEnum('team_role_category', [
+  'FRONTEND',
+  'BACKEND',
+  'AI_ML',
+  'UI_UX',
+  'DEVOPS',
+  'PRODUCT',
+  'RESEARCH',
+  'BLOCKCHAIN',
+  'DATA',
+  'OTHER',
+]);
+
+export const teamRequestStatusEnum = pgEnum('team_request_status', [
+  'PENDING',
+  'ACCEPTED',
+  'REJECTED',
+  'CANCELLED',
+]);
+
+export const teamInvitationStatusEnum = pgEnum('team_invitation_status', [
+  'TEAM_INVITATION_PENDING',
+  'TEAM_INVITATION_ACCEPTED',
+  'TEAM_INVITATION_DECLINED',
+  'TEAM_INVITATION_EXPIRED',
+]);
+
+// 1. Communities Table
+export const communities = pgTable(
+  'communities',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    name: varchar('name', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 255 }).notNull().unique(),
+    description: text('description'),
+    avatarUrl: text('avatar_url'),
+    bannerUrl: text('banner_url'),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    visibility: communityVisibilityEnum('visibility')
+      .default('PUBLIC')
+      .notNull(),
+    category: varchar('category', { length: 100 }).default('General').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    slugIdx: uniqueIndex('idx_communities_slug').on(table.slug),
+    ownerIdx: index('idx_communities_owner_id').on(table.ownerId),
+    categoryVisibilityIdx: index('idx_communities_cat_vis').on(
+      table.category,
+      table.visibility,
+    ),
+  }),
+);
+
+// 2. Community Members Table
+export const communityMembers = pgTable(
+  'community_members',
+  {
+    communityId: uuid('community_id')
+      .notNull()
+      .references(() => communities.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: communityRoleEnum('role').default('MEMBER').notNull(),
+    joinedAt: timestamp('joined_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.communityId, table.userId] }),
+    userCommunitiesIdx: index('idx_community_members_user').on(table.userId),
+    communityRoleIdx: index('idx_community_members_comm_role').on(
+      table.communityId,
+      table.role,
+    ),
+  }),
+);
+
+// 3. Community Channels Table
+export const communityChannels = pgTable(
+  'community_channels',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    communityId: uuid('community_id')
+      .notNull()
+      .references(() => communities.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 100 }).notNull(),
+    slug: varchar('slug', { length: 100 }).notNull(),
+    type: communityChannelTypeEnum('type').default('TEXT').notNull(),
+    description: text('description'),
+    displayOrder: integer('display_order').default(0).notNull(),
+    isPrivate: boolean('is_private').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    commSlugIdx: uniqueIndex('idx_community_channels_comm_slug').on(
+      table.communityId,
+      table.slug,
+    ),
+    displayOrderIdx: index('idx_community_channels_order').on(
+      table.communityId,
+      table.displayOrder,
+    ),
+  }),
+);
+
+// 4. Community Bans Table
+export const communityBans = pgTable(
+  'community_bans',
+  {
+    communityId: uuid('community_id')
+      .notNull()
+      .references(() => communities.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    bannedBy: uuid('banned_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    reason: text('reason'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.communityId, table.userId] }),
+  }),
+);
+
+// 5. Community Moderation Events Table
+export const communityModerationEvents = pgTable(
+  'community_moderation_events',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    communityId: uuid('community_id')
+      .notNull()
+      .references(() => communities.id, { onDelete: 'cascade' }),
+    actorId: uuid('actor_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    targetUserId: uuid('target_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    action: varchar('action', { length: 100 }).notNull(),
+    reason: text('reason'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    commCreatedIdx: index('idx_community_mod_events_comm_created').on(
+      table.communityId,
+      table.createdAt,
+    ),
+  }),
+);
+
+// 6. Community Messages Table
+export const communityMessages = pgTable(
+  'community_messages',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => communityChannels.id, { onDelete: 'cascade' }),
+    communityId: uuid('community_id')
+      .notNull()
+      .references(() => communities.id, { onDelete: 'cascade' }),
+    senderId: uuid('sender_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    deletedAt: timestamp('deleted_at'),
+    deletedBy: uuid('deleted_by').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    channelCreatedIdx: index('idx_community_messages_chan_created').on(
+      table.channelId,
+      table.createdAt,
+    ),
+  }),
+);
+
+// 7. Hackathons Table
+export const hackathons = pgTable(
+  'hackathons',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    provider: varchar('provider', { length: 100 }).default('MANUAL').notNull(),
+    externalId: varchar('external_id', { length: 255 }),
+    title: varchar('title', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 255 }).notNull().unique(),
+    organizer: varchar('organizer', { length: 255 }).notNull(),
+    description: text('description').notNull(),
+    url: text('url').notNull(),
+    registrationDeadline: timestamp('registration_deadline'),
+    startDate: timestamp('start_date'),
+    endDate: timestamp('end_date'),
+    mode: hackathonModeEnum('mode').default('ONLINE').notNull(),
+    location: varchar('location', { length: 255 }),
+    themes: jsonb('themes').default([]).notNull(),
+    skills: jsonb('skills').default([]).notNull(),
+    prizeInfo: text('prize_info'),
+    canonicalStatus: hackathonStatusEnum('canonical_status')
+      .default('UPCOMING')
+      .notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    slugIdx: uniqueIndex('idx_hackathons_slug').on(table.slug),
+    providerExtIdx: index('idx_hackathons_provider_ext').on(
+      table.provider,
+      table.externalId,
+    ),
+    statusDeadlineIdx: index('idx_hackathons_status_deadline').on(
+      table.canonicalStatus,
+      table.registrationDeadline,
+    ),
+  }),
+);
+
+// 8. Hackathon Sync Runs Table
+export const hackathonSyncRuns = pgTable('hackathon_sync_runs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  provider: varchar('provider', { length: 100 }).notNull(),
+  status: varchar('status', { length: 50 }).default('COMPLETED').notNull(),
+  itemsProcessed: integer('items_processed').default(0).notNull(),
+  itemsCreated: integer('items_created').default(0).notNull(),
+  itemsUpdated: integer('items_updated').default(0).notNull(),
+  errorMessage: text('error_message'),
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+});
+
+// 9. Hackathon Teams Table
+export const hackathonTeams = pgTable(
+  'hackathon_teams',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    hackathonId: uuid('hackathon_id')
+      .notNull()
+      .references(() => hackathons.id, { onDelete: 'cascade' }),
+    name: varchar('name', { length: 255 }).notNull(),
+    description: text('description'),
+    ownerId: uuid('owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: teamStatusEnum('status').default('OPEN').notNull(),
+    maxMembers: integer('max_members').default(4).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    hackathonStatusIdx: index('idx_hackathon_teams_hack_status').on(
+      table.hackathonId,
+      table.status,
+    ),
+    ownerIdx: index('idx_hackathon_teams_owner').on(table.ownerId),
+  }),
+);
+
+// 10. Hackathon Team Members Table
+export const hackathonTeamMembers = pgTable(
+  'hackathon_team_members',
+  {
+    teamId: uuid('team_id')
+      .notNull()
+      .references(() => hackathonTeams.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    roleCategory: teamRoleCategoryEnum('role_category')
+      .default('OTHER')
+      .notNull(),
+    joinedAt: timestamp('joined_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.teamId, table.userId] }),
+    userTeamsIdx: index('idx_team_members_user').on(table.userId),
+  }),
+);
+
+// 11. Hackathon Team Roles (Open Positions) Table
+export const hackathonTeamRoles = pgTable(
+  'hackathon_team_roles',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    teamId: uuid('team_id')
+      .notNull()
+      .references(() => hackathonTeams.id, { onDelete: 'cascade' }),
+    roleCategory: teamRoleCategoryEnum('role_category').notNull(),
+    title: varchar('title', { length: 100 }).notNull(),
+    description: text('description'),
+    isFilled: boolean('is_filled').default(false).notNull(),
+    filledByUserId: uuid('filled_by_user_id').references(() => users.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    teamFilledIdx: index('idx_team_roles_team_filled').on(
+      table.teamId,
+      table.isFilled,
+    ),
+  }),
+);
+
+// 12. Team Join Requests Table
+export const teamJoinRequests = pgTable(
+  'team_join_requests',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    teamId: uuid('team_id')
+      .notNull()
+      .references(() => hackathonTeams.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    roleCategory: teamRoleCategoryEnum('role_category')
+      .default('OTHER')
+      .notNull(),
+    message: text('message'),
+    status: teamRequestStatusEnum('status').default('PENDING').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    teamStatusIdx: index('idx_team_join_req_team_status').on(
+      table.teamId,
+      table.status,
+    ),
+    userStatusIdx: index('idx_team_join_req_user_status').on(
+      table.userId,
+      table.status,
+    ),
+  }),
+);
+
+// 13. Team Invitations Table
+export const teamInvitations = pgTable(
+  'team_invitations',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    teamId: uuid('team_id')
+      .notNull()
+      .references(() => hackathonTeams.id, { onDelete: 'cascade' }),
+    inviterId: uuid('inviter_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    inviteeId: uuid('invitee_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    roleCategory: teamRoleCategoryEnum('role_category')
+      .default('OTHER')
+      .notNull(),
+    message: text('message'),
+    status: teamInvitationStatusEnum('status')
+      .default('TEAM_INVITATION_PENDING')
+      .notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    teamStatusIdx: index('idx_team_inv_team_status').on(
+      table.teamId,
+      table.status,
+    ),
+    inviteeStatusIdx: index('idx_team_inv_invitee_status').on(
+      table.inviteeId,
+      table.status,
+    ),
+  }),
+);
+
+// --- PHASE 11: STUDENT COLLABORATION INTELLIGENCE LAYER ---
+
+export const collaborationIntentEnum = pgEnum('collaboration_intent', [
+  'LOOKING_FOR_TEAMMATES',
+  'OPEN_TO_COLLABORATION',
+  'JUST_EXPLORING',
+]);
+
+export const availabilityEnum = pgEnum('availability', [
+  'WEEKDAYS',
+  'WEEKENDS',
+  'FLEXIBLE',
+]);
+
+export const collaborationRequestStatusEnum = pgEnum('collaboration_request_status', [
+  'PENDING',
+  'ACCEPTED',
+  'DECLINED',
+  'CANCELLED',
+  'EXPIRED',
+]);
+
+// 1. Skill Aliases Table (Canonical Normalization Registry)
+export const skillAliases = pgTable(
+  'skill_aliases',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    alias: varchar('alias', { length: 50 }).notNull(),
+    normalizedAlias: varchar('normalized_alias', { length: 50 }).notNull().unique(),
+    canonicalSkillId: uuid('canonical_skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    normalizedAliasIdx: uniqueIndex('idx_skill_aliases_normalized').on(table.normalizedAlias),
+    canonicalSkillIdx: index('idx_skill_aliases_canonical').on(table.canonicalSkillId),
+  }),
+);
+
+// 2. User Skills Join Table
+export const userSkills = pgTable(
+  'user_skills',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    skillId: uuid('skill_id')
+      .notNull()
+      .references(() => skills.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.skillId] }),
+    userSkillIdx: index('idx_user_skills_user').on(table.userId, table.skillId),
+    skillUserIdx: index('idx_user_skills_skill').on(table.skillId, table.userId),
+  }),
+);
+
+// 3. User Interests Join Table
+export const userInterests = pgTable(
+  'user_interests',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    interestId: uuid('interest_id')
+      .notNull()
+      .references(() => interests.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userId, table.interestId] }),
+    userInterestIdx: index('idx_user_interests_user').on(table.userId, table.interestId),
+    interestUserIdx: index('idx_user_interests_interest').on(table.interestId, table.userId),
+  }),
+);
+
+// 4. Collaboration Preferences Table
+export const collaborationPreferences = pgTable(
+  'collaboration_preferences',
+  {
+    userId: uuid('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    intent: collaborationIntentEnum('intent').default('OPEN_TO_COLLABORATION').notNull(),
+    availability: availabilityEnum('availability').default('FLEXIBLE').notNull(),
+    lookingForRoles: jsonb('looking_for_roles').default([]).notNull(),
+    preferredHackathonThemes: jsonb('preferred_hackathon_themes').default([]).notNull(),
+    bio: text('bio'),
+    isDiscoverable: boolean('is_discoverable').default(true).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    discoverableIntentIdx: index('idx_collab_pref_disc_intent').on(
+      table.isDiscoverable,
+      table.intent,
+    ),
+  }),
+);
+
+// 5. Collaboration Requests Table
+export const collaborationRequests = pgTable(
+  'collaboration_requests',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    senderId: uuid('sender_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    targetUserId: uuid('target_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    message: text('message'),
+    status: collaborationRequestStatusEnum('status').default('PENDING').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    targetStatusIdx: index('idx_collab_req_target_status').on(
+      table.targetUserId,
+      table.status,
+      table.createdAt,
+    ),
+    senderStatusIdx: index('idx_collab_req_sender_status').on(
+      table.senderId,
+      table.status,
+      table.createdAt,
+    ),
+    senderTargetUnique: uniqueIndex('idx_collab_req_sender_target_pending')
+      .on(table.senderId, table.targetUserId)
+      .where(sql`${table.status} = 'PENDING'`),
+    noSelfRequestCheck: check('no_self_collaboration_request', sql`${table.senderId} <> ${table.targetUserId}`),
+  }),
+);
+

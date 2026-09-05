@@ -6,6 +6,7 @@ import {
   postLikes,
   polls,
   pollOptions,
+  pollVotes,
 } from '../../db/schema';
 import { FeedItemContext, ViewerContext } from './feed-ranking.service';
 
@@ -191,13 +192,17 @@ export class FeedQueryService {
         pollsPromise,
       ]);
 
-    // Fetch Poll Options if we have polls (conditional 6th query)
+    // Fetch Poll Options & Viewer Poll Votes if we have polls (conditional 6th query)
     let pollOptsRows: any[] = [];
+    let userPollVotesRows: any[] = [];
     if ((pollsRows as any[]).length > 0) {
-      pollOptsRows = await this.db
-        .select()
-        .from(pollOptions)
-        .where(inArray(pollOptions.pollId, (pollsRows as any[]).map((p: any) => p.id)));
+      const pollIds = (pollsRows as any[]).map((p: any) => p.id);
+      [pollOptsRows, userPollVotesRows] = await Promise.all([
+        this.db.select().from(pollOptions).where(inArray(pollOptions.pollId, pollIds)),
+        viewerId
+          ? this.db.select().from(pollVotes).where(and(inArray(pollVotes.pollId, pollIds), eq(pollVotes.userId, viewerId)))
+          : Promise.resolve([])
+      ]);
     }
 
     // ── Build Lookup Maps ──
@@ -230,8 +235,12 @@ export class FeedQueryService {
     // Poll Map
     const pollMap = new Map<string, any>();
     (pollsRows as any[]).forEach((p: any) => {
+      const pVotes = userPollVotesRows.filter((v: any) => v.pollId === p.id).map((v: any) => v.optionId);
+      const isExpired = p.endsAt && new Date(p.endsAt) <= new Date();
       pollMap.set(p.postId, {
         ...p,
+        isActive: p.status === 'PUBLISHED' && !isExpired,
+        userVotedOptionIds: pVotes,
         options: pollOptsRows.filter((opt: any) => opt.pollId === p.id),
       });
     });

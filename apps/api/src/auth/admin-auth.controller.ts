@@ -86,8 +86,8 @@ export class AdminAuthController {
 
     res.setCookie('access_token', accessToken, {
       ...cookieOptions,
-      maxAge: 15 * 60,
-    }); // 15 mins
+      maxAge: 24 * 60 * 60,
+    }); // 24 hours
     res.setCookie('refresh_token', refreshToken, {
       ...cookieOptions,
       maxAge: 30 * 24 * 60 * 60,

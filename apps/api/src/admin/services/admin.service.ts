@@ -188,7 +188,7 @@ export class AdminService {
   async setUserStatus(
     adminId: string,
     targetUserId: string,
-    status: 'ACTIVE' | 'BANNED',
+    status: 'ACTIVE' | 'BANNED' | 'SUSPENDED',
     reason: string,
   ) {
     if (adminId === targetUserId)
@@ -213,7 +213,7 @@ export class AdminService {
       await tx.insert(schema.auditLogs).values({
         adminId,
         event:
-          status === 'BANNED' ? 'ADMIN_SUSPEND_USER' : 'ADMIN_RESTORE_USER',
+          status === 'ACTIVE' ? 'ADMIN_RESTORE_USER' : 'ADMIN_SUSPEND_USER',
         targetId: targetUserId,
         metadata: { reason },
       });

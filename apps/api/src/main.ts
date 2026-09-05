@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { IncomingMessage } from 'http';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+// Trigger NestJS reload - user profile posts author details fixed
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -15,8 +16,11 @@ import fastifyStatic from '@fastify/static';
 import { ValidationPipe } from '@nestjs/common';
 import * as path from 'path';
 import { db } from './db';
-import { sql } from 'drizzle-orm';
+import { users, profiles, adminCredentials } from './db/schema';
+import { sql, eq } from 'drizzle-orm';
 import * as crypto from 'crypto';
+import * as argon2 from 'argon2';
+import { v4 as uuidv4 } from 'uuid';
 
 async function bootstrap() {
   const requiredEnv = ['COOKIE_SECRET', 'JWT_SECRET', 'JWT_ISSUER', 'JWT_AUDIENCE', 'DATABASE_URL', 'OTP_SECRET'];
@@ -38,6 +42,322 @@ async function bootstrap() {
 
   // Enable graceful NestJS lifecycle shutdown hooks (SIGTERM/SIGINT)
   app.enableShutdownHooks();
+
+  // Automatic schema migrations check on startup
+  try {
+    console.log('[STARTUP MIGRATION] Ensuring required database tables and columns exist...');
+    await db.execute(sql`
+      ALTER TABLE polls ADD COLUMN IF NOT EXISTS post_id UUID REFERENCES posts(id) ON DELETE CASCADE;
+      CREATE TABLE IF NOT EXISTS hot_takes (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "date" TEXT;
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "place" TEXT;
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "time" TEXT;
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "media" TEXT;
+      ALTER TABLE hot_takes ADD COLUMN IF NOT EXISTS "other_details" TEXT;
+      CREATE INDEX IF NOT EXISTS idx_hot_takes_author_created ON hot_takes(author_id, created_at);
+      CREATE INDEX IF NOT EXISTS idx_hot_takes_created_at ON hot_takes(created_at);
+      CREATE INDEX IF NOT EXISTS idx_polls_post_id ON polls(post_id);
+      ALTER TABLE profiles ADD COLUMN IF NOT EXISTS social_links JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES comments(id) ON DELETE CASCADE;
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0;
+      CREATE TABLE IF NOT EXISTS comment_likes (
+        comment_id UUID NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (comment_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_comment_likes_user ON comment_likes(user_id);
+      CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON comments(parent_id);
+      CREATE TABLE IF NOT EXISTS admin_credentials (
+        user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        password_hash VARCHAR(255) NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      -- Communities Tables
+      CREATE TABLE IF NOT EXISTS communities (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        avatar_url TEXT,
+        banner_url TEXT,
+        owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        visibility VARCHAR(50) NOT NULL DEFAULT 'PUBLIC',
+        category VARCHAR(100) NOT NULL DEFAULT 'General',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      ALTER TABLE communities ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE communities ADD COLUMN IF NOT EXISTS banner_url TEXT;
+      ALTER TABLE communities ADD COLUMN IF NOT EXISTS visibility VARCHAR(50) NOT NULL DEFAULT 'PUBLIC';
+      ALTER TABLE communities ADD COLUMN IF NOT EXISTS category VARCHAR(100) NOT NULL DEFAULT 'General';
+
+      CREATE TABLE IF NOT EXISTS community_members (
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(50) NOT NULL DEFAULT 'MEMBER',
+        joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (community_id, user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS community_channels (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        slug VARCHAR(100) NOT NULL,
+        type VARCHAR(50) NOT NULL DEFAULT 'TEXT',
+        description TEXT,
+        display_order INTEGER NOT NULL DEFAULT 0,
+        is_private BOOLEAN NOT NULL DEFAULT false,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS community_bans (
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        banned_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        reason TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (community_id, user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS community_moderation_events (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        actor_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        target_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+        action VARCHAR(100) NOT NULL,
+        reason TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS community_messages (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        channel_id UUID NOT NULL REFERENCES community_channels(id) ON DELETE CASCADE,
+        community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
+        sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      -- Hackathons & Hackathon Teams Tables
+      CREATE TABLE IF NOT EXISTS hackathons (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        title VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        organizer VARCHAR(255) NOT NULL,
+        location VARCHAR(255) NOT NULL DEFAULT 'Online',
+        mode VARCHAR(50) NOT NULL DEFAULT 'ONLINE',
+        registration_start_date TIMESTAMP,
+        registration_end_date TIMESTAMP,
+        start_date TIMESTAMP NOT NULL,
+        end_date TIMESTAMP NOT NULL,
+        min_team_size INTEGER NOT NULL DEFAULT 1,
+        max_team_size INTEGER NOT NULL DEFAULT 4,
+        website_url TEXT,
+        banner_url TEXT,
+        tags JSONB DEFAULT '[]'::jsonb,
+        status VARCHAR(50) NOT NULL DEFAULT 'UPCOMING',
+        external_id VARCHAR(255),
+        source VARCHAR(100) NOT NULL DEFAULT 'HAKIKU',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS hackathon_sync_runs (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        source VARCHAR(100) NOT NULL,
+        status VARCHAR(50) NOT NULL,
+        items_synced INTEGER NOT NULL DEFAULT 0,
+        error_log TEXT,
+        started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        completed_at TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS hackathon_teams (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        hackathon_id UUID NOT NULL REFERENCES hackathons(id) ON DELETE CASCADE,
+        leader_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name VARCHAR(100) NOT NULL,
+        tagline VARCHAR(255),
+        description TEXT,
+        looking_for TEXT,
+        status VARCHAR(50) NOT NULL DEFAULT 'RECRUITING',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS hackathon_team_members (
+        team_id UUID NOT NULL REFERENCES hackathon_teams(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role VARCHAR(50) NOT NULL DEFAULT 'MEMBER',
+        joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (team_id, user_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS hackathon_team_roles (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        team_id UUID NOT NULL REFERENCES hackathon_teams(id) ON DELETE CASCADE,
+        role_name VARCHAR(100) NOT NULL,
+        description TEXT,
+        is_filled BOOLEAN NOT NULL DEFAULT false,
+        filled_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS team_join_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        team_id UUID NOT NULL REFERENCES hackathon_teams(id) ON DELETE CASCADE,
+        applicant_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        target_role_id UUID REFERENCES hackathon_team_roles(id) ON DELETE SET NULL,
+        message TEXT,
+        status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS team_invitations (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        team_id UUID NOT NULL REFERENCES hackathon_teams(id) ON DELETE CASCADE,
+        inviter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        invitee_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        target_role_id UUID REFERENCES hackathon_team_roles(id) ON DELETE SET NULL,
+        message TEXT,
+        status VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+    `);
+    console.log('[STARTUP MIGRATION] Schema migration check completed successfully.');
+  } catch (err) {
+    console.error('[STARTUP MIGRATION] Failed to apply schema migrations:', err);
+  }
+
+  // Automatic startup cleanup for any legacy 'hakikuadmin' handle (case-insensitive) to enforce single @hakiku_official admin handle
+  try {
+    const legacyProfiles = await db.execute(sql`
+      SELECT id, user_id, username FROM profiles WHERE LOWER(username) LIKE '%hakikuadmin%' OR LOWER(username) = 'hakikuadmin'
+    `);
+    
+    const rows = (legacyProfiles as any).rows || legacyProfiles;
+    if (Array.isArray(rows) && rows.length > 0) {
+      for (const row of rows as any[]) {
+        const pId = row.id;
+        const uId = row.user_id;
+        if (!uId) continue;
+        console.log(`[CLEANUP] Purging legacy admin profile: ${row.username} (${uId})...`);
+        
+        try { await db.execute(sql`DELETE FROM comments WHERE author_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM post_likes WHERE user_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM posts WHERE author_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM connections WHERE user_a_id = ${uId} OR user_b_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM connection_requests WHERE sender_id = ${uId} OR receiver_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM follows WHERE follower_id = ${uId} OR following_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM notifications WHERE recipient_id = ${uId} OR actor_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM messages WHERE sender_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM conversation_participants WHERE user_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM admin_credentials WHERE user_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM profiles WHERE id = ${pId} OR user_id = ${uId}`) } catch (_) {}
+        try { await db.execute(sql`DELETE FROM users WHERE id = ${uId}`) } catch (_) {}
+        console.log(`[CLEANUP] Deleted legacy admin profile: ${row.username}`);
+      }
+    }
+  } catch (cleanupErr) {
+    console.error('[CLEANUP] Legacy admin cleanup error:', cleanupErr);
+  }
+
+  // Automatic startup provisioning for official HAKIKU Admin user & credentials
+  try {
+    const adminEmail = (process.env.HAKIKU_ADMIN_EMAIL || 'admin@hakiku.com').trim().toLowerCase();
+    const adminPassword = process.env.HAKIKU_ADMIN_PASSWORD || 'Admin@Hakiku';
+
+    const userList = await db.select().from(users).where(eq(users.email, adminEmail));
+    let adminUser: typeof users.$inferSelect;
+
+    if (userList.length === 0) {
+      const [newUser] = await db.insert(users).values({
+        id: uuidv4(),
+        email: adminEmail,
+        isVerified: true,
+        emailVerifiedAt: new Date(),
+        role: 'ADMIN',
+        status: 'ACTIVE',
+      }).returning();
+      adminUser = newUser;
+    } else {
+      const [updatedUser] = await db.update(users).set({
+        role: 'ADMIN',
+        isVerified: true,
+        status: 'ACTIVE',
+      }).where(eq(users.id, userList[0].id)).returning();
+      adminUser = updatedUser;
+    }
+
+    const passwordHash = await argon2.hash(adminPassword, {
+      type: argon2.argon2id as 2,
+      memoryCost: 19456,
+      timeCost: 2,
+      parallelism: 1,
+    });
+
+    await db.insert(adminCredentials).values({
+      userId: adminUser.id,
+      passwordHash,
+      updatedAt: new Date(),
+    }).onConflictDoUpdate({
+      target: adminCredentials.userId,
+      set: {
+        passwordHash,
+        updatedAt: new Date(),
+      },
+    });
+
+    const existingProfiles = await db.select().from(profiles).where(eq(profiles.userId, adminUser.id));
+    if (existingProfiles.length === 0) {
+      const existingByUsername = await db.select().from(profiles).where(eq(profiles.username, 'hakiku_official'));
+      if (existingByUsername.length > 0) {
+        await db.update(profiles).set({
+          userId: adminUser.id,
+          displayName: 'HAKIKU Official',
+          isVerifiedIdentity: true,
+        }).where(eq(profiles.id, existingByUsername[0].id));
+      } else {
+        await db.insert(profiles).values({
+          id: uuidv4(),
+          userId: adminUser.id,
+          username: 'hakiku_official',
+          displayName: 'HAKIKU Official',
+          campus: 'SYSTEM',
+          department: 'ADMINISTRATION',
+          degreeProgram: 'SYSTEM',
+          batchYear: 2024,
+          graduationYear: 2028,
+          isVerifiedIdentity: true,
+          isProfileCompleted: true,
+          completionPercentage: 100,
+          visibility: 'PUBLIC',
+        });
+      }
+    } else {
+      await db.update(profiles).set({
+        username: 'hakiku_official',
+        displayName: 'HAKIKU Official',
+        isVerifiedIdentity: true,
+      }).where(eq(profiles.id, existingProfiles[0].id));
+    }
+
+    console.log(`[PROVISION] Official Admin account (${adminEmail}) provisioned/verified on startup.`);
+  } catch (adminErr) {
+    console.error('[PROVISION] Failed to provision admin user on startup:', adminErr);
+  }
 
   await app.register(fastifyHelmet as any, {
     contentSecurityPolicy: false, // APIs don't typically need CSP, and we want to avoid breaking static/WebSocket integrations
@@ -71,9 +391,9 @@ async function bootstrap() {
   const fastifyInstance = app.getHttpAdapter().getInstance();
   fastifyInstance.addHook('onRequest', (req, reply, done) => {
     const stateChangingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
-    // Fastify-csrf only requires protection on non-GET/HEAD/OPTIONS methods normally.
-    // Our frontend must send the csrf token in the headers for all these requests.
-    if (stateChangingMethods.includes(req.method)) {
+    const url = req.url || '';
+    const isAuthRoute = url.startsWith('/admin/auth/') || url.startsWith('/auth/send-otp') || url.startsWith('/auth/verify-otp') || url.startsWith('/auth/refresh');
+    if (stateChangingMethods.includes(req.method) && !isAuthRoute) {
       if (typeof (req as any).csrfProtect === 'function') {
         (req as any).csrfProtect(reply, done);
       } else {
@@ -84,21 +404,30 @@ async function bootstrap() {
     }
   });
 
-  let allowedOrigins: (string | RegExp)[] | string = 'http://localhost:3000';
-  if (process.env.CORS_ALLOWED_ORIGINS) {
-    allowedOrigins = process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim());
-  } else if (process.env.FRONTEND_URL) {
-    allowedOrigins = [process.env.FRONTEND_URL];
-  }
-
   app.enableCors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (process.env.CORS_ALLOWED_ORIGINS) {
+        const origins = process.env.CORS_ALLOWED_ORIGINS.split(',').map((o) => o.trim());
+        if (origins.includes(origin)) return callback(null, true);
+      }
+      if (process.env.FRONTEND_URL && origin === process.env.FRONTEND_URL) {
+        return callback(null, true);
+      }
+      if (
+        process.env.NODE_ENV !== 'production' ||
+        /^http:\/\/(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2[0-9]|3[0-1])\.\d+\.\d+):3000$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
   });
 
-  fastifyInstance.addContentTypeParser(
-    ['image/jpeg', 'image/png', 'image/webp', 'application/octet-stream'],
+  (fastifyInstance as any).addContentTypeParser(
+    '*',
     { parseAs: 'buffer' },
     (_req: any, payload: any, done: any) => {
       done(null, payload);
@@ -108,3 +437,5 @@ async function bootstrap() {
   await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
 }
 bootstrap();
+// Force NestJS watch server route map update for channel messages endpoint fix
+

@@ -6,6 +6,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { db } from '../src/db';
+import { sql } from 'drizzle-orm';
 import {
   users,
   profiles,

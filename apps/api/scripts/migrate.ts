@@ -23,6 +23,15 @@ async function runMigrations() {
 
     console.log('[migrate] Running custom idempotent schema extensions...');
     await db.execute(sql`
+      DO $$ 
+      BEGIN 
+        IF NOT EXISTS (SELECT 1 FROM pg_enum JOIN pg_type ON pg_enum.enumtypid = pg_type.oid WHERE typname = 'report_target_type' AND enumlabel = 'MESSAGE') THEN
+          ALTER TYPE report_target_type ADD VALUE 'MESSAGE';
+        END IF;
+      END $$;
+      ALTER TABLE conversation_participants ADD COLUMN IF NOT EXISTS cleared_at TIMESTAMP;
+      ALTER TABLE messages ADD COLUMN IF NOT EXISTS deleted_by UUID;
+      ALTER TABLE community_reports ADD COLUMN IF NOT EXISTS snapshot_content TEXT;
       ALTER TABLE polls ADD COLUMN IF NOT EXISTS post_id UUID REFERENCES posts(id) ON DELETE CASCADE;
       CREATE TABLE IF NOT EXISTS hot_takes (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -39,6 +48,16 @@ async function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_hot_takes_created_at ON hot_takes(created_at);
       CREATE INDEX IF NOT EXISTS idx_polls_post_id ON polls(post_id);
       ALTER TABLE profiles ADD COLUMN IF NOT EXISTS social_links JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS parent_id UUID REFERENCES comments(id) ON DELETE CASCADE;
+      ALTER TABLE comments ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0;
+      CREATE TABLE IF NOT EXISTS comment_likes (
+        comment_id UUID NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (comment_id, user_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_comment_likes_user ON comment_likes(user_id);
+      CREATE INDEX IF NOT EXISTS idx_comments_parent_id ON comments(parent_id);
     `);
     console.log('[migrate] Custom schema extensions applied.');
     console.log('[migrate] Migration process complete.');
