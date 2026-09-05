@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { AlertCircle, ShieldAlert } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AUTH_QUERY_KEY } from '../hooks/useAuth';
+import { client } from '../api/client';
 
 export const Route = createFileRoute('/admin/login')({
   component: AdminLogin,
@@ -27,19 +28,7 @@ function AdminLogin() {
     setError('');
 
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/admin/auth/login`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-          credentials: 'include',
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Invalid admin credentials');
-      }
+      await client.post('/admin/auth/login', { email, password });
 
       // Success, invalidate auth cache to trigger a refetch of /profile/me
       await queryClient.invalidateQueries({ queryKey: AUTH_QUERY_KEY });
@@ -88,7 +77,7 @@ function AdminLogin() {
               <input
                 id="email"
                 type="email"
-                placeholder="admin@srmist.edu.in"
+                placeholder="admin@hakiku.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-3 py-2 bg-neutral-800/50 border border-neutral-700 rounded-md text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-red-500"

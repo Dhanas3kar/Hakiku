@@ -1,4 +1,14 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+export function getApiBaseUrl(): string {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL
+  }
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    return `${window.location.protocol}//${window.location.hostname}:3001`
+  }
+  return 'http://localhost:3001'
+}
+
+const API_BASE_URL = getApiBaseUrl()
 const DEFAULT_TIMEOUT_MS = 30000
 
 type ErrorCode = 'NETWORK' | 'TIMEOUT' | 'OFFLINE' | 'AUTH' | 'HTTP' | 'UNKNOWN'
@@ -45,7 +55,6 @@ async function getCsrfToken(): Promise<string | null> {
   return null
 }
 
-let refreshPromise: Promise<boolean> | null = null
 let authFailureEventLocked = false
 
 function emitAuthExpired(reason: string = 'session-expired') {
@@ -61,7 +70,11 @@ function emitAuthExpired(reason: string = 'session-expired') {
   }, 250)
 }
 
-async function performRefresh(): Promise<boolean> {
+type RefreshResult = { success: boolean; isNetworkError?: boolean }
+
+let refreshPromise: Promise<RefreshResult> | null = null
+
+async function performRefresh(): Promise<RefreshResult> {
   if (refreshPromise) {
     return refreshPromise
   }
@@ -72,9 +85,15 @@ async function performRefresh(): Promise<boolean> {
         method: 'POST',
         credentials: 'include',
       })
-      return refreshResponse.ok
+      if (refreshResponse.ok) {
+        return { success: true }
+      }
+      if (refreshResponse.status === 401) {
+        return { success: false, isNetworkError: false }
+      }
+      return { success: false, isNetworkError: true }
     } catch {
-      return false
+      return { success: false, isNetworkError: true }
     } finally {
       refreshPromise = null
     }
@@ -157,9 +176,13 @@ async function fetchWithInterceptor(endpoint: string, options: FetchOptions = {}
       }
 
       const refreshed = await performRefresh()
-      if (refreshed) {
+      if (refreshed.success) {
         const retryResponse = await fetch(url, { ...config, signal: requestSignal })
         return handleResponse(retryResponse)
+      }
+
+      if (refreshed.isNetworkError) {
+        throw new ApiError(0, 'Unable to connect to auth server', null, 'NETWORK')
       }
 
       emitAuthExpired('session-expired')
@@ -224,7 +247,7 @@ async function handleResponse(response: Response) {
   if (response.status === 400 || response.status === 422) {
     // Validation errors preserved as-is.
   } else if (response.status === 401) {
-    errorMessage = 'Authentication required'
+    errorMessage = data?.message || 'Authentication required'
   } else if (response.status === 403) {
     errorMessage = 'You do not have permission to perform this action'
   } else if (response.status === 404) {
@@ -246,6 +269,10 @@ async function handleResponse(response: Response) {
 export const client = {
   get: <T = any>(endpoint: string, options?: FetchOptions): Promise<T> => fetchWithInterceptor(endpoint, { ...options, method: 'GET' }),
   post: <T = any>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> => fetchWithInterceptor(endpoint, { ...options, method: 'POST', data }),
+  put: <T = any>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> => fetchWithInterceptor(endpoint, { ...options, method: 'PUT', data }),
   patch: <T = any>(endpoint: string, data?: any, options?: FetchOptions): Promise<T> => fetchWithInterceptor(endpoint, { ...options, method: 'PATCH', data }),
   delete: <T = any>(endpoint: string, options?: FetchOptions): Promise<T> => fetchWithInterceptor(endpoint, { ...options, method: 'DELETE' }),
 }
+
+export const apiClient = client
+

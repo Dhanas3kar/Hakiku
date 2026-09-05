@@ -1,5 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700&display=swap");
 @import "tailwindcss";
+@variant dark (&:where(.dark, [data-theme="dark"], .dark *, [data-theme="dark"] *));
 @plugin "@tailwindcss/typography";
 
 @theme {
@@ -81,6 +82,7 @@
   --overlay: rgb(23 22 20 / 0.45);
 }
 
+:root.dark,
 :root[data-theme="dark"] {
   --background: #111110;
   --surface: #1a1917;

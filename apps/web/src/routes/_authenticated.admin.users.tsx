@@ -5,11 +5,15 @@ import { useState } from 'react';
 import { Loader2, Search, Ban, Unlock } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { useAuth } from '../hooks/useAuth';
+
 export const Route = createFileRoute('/_authenticated/admin/users')({
   component: AdminUsers,
 });
 
 function AdminUsers() {
+  const { isAuthenticated, user } = useAuth();
+  const isAdmin = Boolean(isAuthenticated && user?.role === 'ADMIN');
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [queryInput, setQueryInput] = useState('');
@@ -17,6 +21,7 @@ function AdminUsers() {
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'users', search],
     queryFn: () => api.get(`/admin/users?q=${search}`),
+    enabled: isAdmin,
   });
 
   const statusMutation = useMutation({
@@ -97,28 +102,32 @@ function AdminUsers() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                        user.status === 'BANNED' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                        user.status === 'BANNED' || user.status === 'SUSPENDED' 
+                          ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' 
+                          : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
                       }`}>
                         {user.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       {user.role !== 'ADMIN' && (
-                        user.status === 'BANNED' ? (
+                        user.status === 'BANNED' || user.status === 'SUSPENDED' ? (
                           <button
                             className="inline-flex items-center px-3 py-1.5 border border-emerald-900/50 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
                             onClick={() => statusMutation.mutate({ id: user.id, status: 'ACTIVE' })}
                             disabled={statusMutation.isPending}
+                            title="Revoke suspension & restore account access"
                           >
-                            <Unlock className="w-3.5 h-3.5 mr-1" /> Restore
+                            <Unlock className="w-3.5 h-3.5 mr-1" /> Revoke Suspension
                           </button>
                         ) : (
                           <button
                             className="inline-flex items-center px-3 py-1.5 border border-rose-900/50 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-                            onClick={() => statusMutation.mutate({ id: user.id, status: 'BANNED' })}
+                            onClick={() => statusMutation.mutate({ id: user.id, status: 'SUSPENDED' })}
                             disabled={statusMutation.isPending}
+                            title="Suspend account access for guideline violations"
                           >
-                            <Ban className="w-3.5 h-3.5 mr-1" /> Suspend
+                            <Ban className="w-3.5 h-3.5 mr-1" /> Suspend Account
                           </button>
                         )
                       )}

@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { getApiBaseUrl } from '../api/client'
 import type { ReactNode } from 'react'
 import { useAuth } from './useAuth'
 import { io, Socket } from 'socket.io-client'
@@ -75,7 +76,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001'
+    const apiUrl = getApiBaseUrl()
     const socketOptions = {
       withCredentials: true,
       transports: ['websocket', 'polling'],

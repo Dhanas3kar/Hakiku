@@ -4,19 +4,22 @@ import { cn } from '../../lib/cn'
 
 export function Dialog({
   open,
+  isOpen,
   onClose,
   title,
   children,
   className,
 }: {
-  open: boolean
+  open?: boolean
+  isOpen?: boolean
   onClose: () => void
   title?: string
   children: React.ReactNode
   className?: string
 }) {
+  const isDialogOpen = Boolean(open ?? isOpen ?? false)
   return (
-    <HuiDialog open={open} onClose={onClose} className="relative z-50">
+    <HuiDialog open={isDialogOpen} onClose={onClose} className="relative z-50">
       <DialogBackdrop
         transition
         className="fixed inset-0 bg-[var(--overlay)] transition duration-200 data-closed:opacity-0"

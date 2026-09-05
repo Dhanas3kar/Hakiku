@@ -4,19 +4,26 @@ import { client as api } from '../api/client';
 import { Flag, Users, Activity, TrendingUp } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
 
+import { useAuth } from '../hooks/useAuth';
+
 export const Route = createFileRoute('/_authenticated/admin/')({
   component: AdminDashboard,
 });
 
 function AdminDashboard() {
+  const { isAuthenticated, user } = useAuth();
+  const isAdmin = Boolean(isAuthenticated && user?.role === 'ADMIN');
+
   const { data: reportsData } = useQuery({
     queryKey: ['admin', 'reports', 'PENDING'],
     queryFn: () => api.get('/admin/reports?status=PENDING'),
+    enabled: isAdmin,
   });
 
   const { data: pulseData, isLoading: pulseLoading } = useQuery({
     queryKey: ['admin', 'campusPulse'],
     queryFn: () => api.get('/community/campus/pulse'),
+    enabled: isAdmin,
   });
 
   const pendingReports = reportsData?.meta?.total || 0;

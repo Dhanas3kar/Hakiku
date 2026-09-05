@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query'
 import { notificationsApi } from '../api/notifications'
 import { useAuth } from '../hooks/useAuth'
+import { toast } from 'sonner'
 
 export const Route = createFileRoute('/_authenticated/settings')({
   component: SettingsPage,
@@ -64,9 +65,17 @@ function SettingsPage() {
   }
 
   const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      logout()
-    }
+    toast('Are you sure you want to log out?', {
+      description: 'You will need to sign in again to access HAKIKU.',
+      action: {
+        label: 'Log Out',
+        onClick: () => logout(),
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {},
+      },
+    })
   }
 
   return (

@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, Link, useRouter } from '@tanstack/react-router
 import { useAuth } from '../hooks/useAuth';
 import { Shield, Users, Flag, LayoutDashboard, Loader2, LogOut } from 'lucide-react';
 import { useEffect } from 'react';
+import { getApiBaseUrl } from '../api/client';
 
 export const Route = createFileRoute('/_authenticated/admin')({
   component: AdminLayout,
@@ -13,7 +14,7 @@ function AdminLayout() {
 
   const handleLogout = async () => {
     try {
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/admin/auth/logout`, {
+      await fetch(`${getApiBaseUrl()}/admin/auth/logout`, {
         method: 'POST',
       });
       logout();

@@ -1,18 +1,17 @@
 import { useState, useRef } from 'react'
 import { profileApi } from '../../api/profile'
 import { useAuth } from '../../hooks/useAuth'
-import { TagSelect } from '../profile/TagSelect'
 import { User, Upload, ArrowRight, ArrowLeft, Link as LinkIcon, Globe, Briefcase } from 'lucide-react'
 
 export function OnboardingForm() {
   const { refetchSession } = useAuth()
-  
+
   // Steps: 1 = Basic Info, 2 = Avatar, 3 = Extras
   const [step, setStep] = useState(1)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
@@ -25,8 +24,6 @@ export function OnboardingForm() {
     batchYear: '',
     graduationYear: '',
     bio: '',
-    skillIds: [] as string[],
-    interestIds: [] as string[],
     socialLinks: {
       website: '',
       github: '',
@@ -35,11 +32,17 @@ export function OnboardingForm() {
   })
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }))
-  }
-
-  const handleTagsChange = (field: 'skillIds' | 'interestIds', ids: string[]) => {
-    setFormData((prev) => ({ ...prev, [field]: ids }))
+    const { name, value } = e.target
+    if (name === 'username') {
+      const sanitized = value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)
+      setFormData((prev) => ({ ...prev, username: sanitized }))
+      return
+    }
+    if (name === 'bio') {
+      setFormData((prev) => ({ ...prev, bio: value.slice(0, 160) }))
+      return
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSocialLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -131,18 +134,29 @@ export function OnboardingForm() {
       {step === 1 && (
         <form onSubmit={handleNext} className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium">Username</label>
-            <input
-              id="username"
-              name="username"
-              type="text"
-              required
-              pattern="^[a-zA-Z0-9_]{3,20}$"
-              title="3-20 characters, alphanumeric and underscores only"
-              value={formData.username}
-              onChange={handleChange}
-              className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus"
-            />
+            <div className="flex items-center justify-between">
+              <label htmlFor="username" className="block text-sm font-medium">Username / Handle</label>
+              {formData.username && (
+                <span className="text-xs font-medium text-emerald-500">
+                  @{formData.username}
+                </span>
+              )}
+            </div>
+            <div className="relative mt-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-foreground-muted">@</span>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                required
+                pattern="^[a-z0-9_]{3,20}$"
+                placeholder="username"
+                value={formData.username}
+                onChange={handleChange}
+                className="block w-full rounded-lg border border-border bg-surface-muted pl-8 pr-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus text-sm"
+              />
+            </div>
+            <p className="mt-1 text-[11px] text-foreground-muted">3-20 characters (lowercase letters, numbers, underscores)</p>
           </div>
 
           <div>
@@ -152,9 +166,10 @@ export function OnboardingForm() {
               name="displayName"
               type="text"
               required
+              placeholder="e.g. Alex Johnson"
               value={formData.displayName}
               onChange={handleChange}
-              className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus"
+              className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus text-sm"
             />
           </div>
 
@@ -165,11 +180,11 @@ export function OnboardingForm() {
                 id="department"
                 name="department"
                 type="text"
-                placeholder="e.g. CSE"
+                placeholder="e.g. CSE, ECE, Mechanical"
                 required
                 value={formData.department}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus"
+                className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus text-sm"
               />
             </div>
 
@@ -181,11 +196,11 @@ export function OnboardingForm() {
                 type="number"
                 min="2000"
                 max="2100"
-                placeholder="e.g. 2023"
+                placeholder="e.g. 2024"
                 required
                 value={formData.batchYear}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus"
+                className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus text-sm"
               />
             </div>
 
@@ -199,20 +214,27 @@ export function OnboardingForm() {
                 required
                 value={formData.degreeProgram}
                 onChange={handleChange}
-                className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus"
+                className="mt-1 block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus text-sm"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="bio" className="block text-sm font-medium">Bio</label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="bio" className="block text-sm font-medium">Bio / Headline</label>
+              <span className={`text-xs ${formData.bio.length >= 150 ? 'text-amber-500 font-semibold' : 'text-foreground-muted'}`}>
+                {formData.bio.length} / 160
+              </span>
+            </div>
             <textarea
               id="bio"
               name="bio"
-              rows={2}
+              rows={3}
+              maxLength={160}
+              placeholder="e.g. Tell about yourself"
               value={formData.bio}
               onChange={handleChange}
-              className="mt-1 block w-full resize-none rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus"
+              className="mt-1 block w-full resize-none rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus text-sm"
             />
           </div>
 
@@ -241,7 +263,7 @@ export function OnboardingForm() {
                 <Upload className="h-6 w-6" />
               </div>
             </div>
-            
+
             <input
               ref={avatarInputRef}
               type="file"
@@ -249,7 +271,7 @@ export function OnboardingForm() {
               className="hidden"
               onChange={handleAvatarChange}
             />
-            
+
             <button
               type="button"
               onClick={() => avatarInputRef.current?.click()}
@@ -283,41 +305,17 @@ export function OnboardingForm() {
           <div className="space-y-3">
             <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">Social Links (Optional)</h3>
             <div>
-              <label htmlFor="website" className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1.5"><LinkIcon className="h-3 w-3"/> Website</label>
+              <label htmlFor="website" className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1.5"><LinkIcon className="h-3 w-3" /> Website</label>
               <input id="website" name="website" type="url" placeholder="https://yourwebsite.com" value={formData.socialLinks.website} onChange={handleSocialLinkChange} className="block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus" disabled={isSubmitting} />
             </div>
             <div>
-              <label htmlFor="github" className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1.5"><Globe className="h-3 w-3"/> GitHub</label>
+              <label htmlFor="github" className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1.5"><Globe className="h-3 w-3" /> GitHub</label>
               <input id="github" name="github" type="url" placeholder="https://github.com/username" value={formData.socialLinks.github} onChange={handleSocialLinkChange} className="block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus" disabled={isSubmitting} />
             </div>
             <div>
-              <label htmlFor="linkedin" className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1.5"><Briefcase className="h-3 w-3"/> LinkedIn</label>
+              <label htmlFor="linkedin" className="block text-xs font-medium text-foreground-muted mb-1 flex items-center gap-1.5"><Briefcase className="h-3 w-3" /> LinkedIn</label>
               <input id="linkedin" name="linkedin" type="url" placeholder="https://linkedin.com/in/username" value={formData.socialLinks.linkedin} onChange={handleSocialLinkChange} className="block w-full rounded-lg border border-border bg-surface-muted px-3 py-2 text-foreground focus:border-focus focus:outline-none focus:ring-1 focus:ring-focus" disabled={isSubmitting} />
             </div>
-          </div>
-
-          <div className="space-y-4 pt-2">
-            <h3 className="text-sm font-semibold text-foreground border-b border-border pb-1">Skills & Interests (Optional)</h3>
-            <TagSelect
-              label="Skills"
-              placeholder="Search skills (e.g. React, TypeScript)..."
-              selectedIds={formData.skillIds}
-              onChange={(ids) => handleTagsChange('skillIds', ids)}
-              fetchFn={async (query) => {
-                const res = await profileApi.searchSkills(query, 5)
-                return res.map((s: any) => ({ id: s.id, name: s.name, category: s.category }))
-              }}
-            />
-            <TagSelect
-              label="Interests"
-              placeholder="Search interests (e.g. Web Development, AI)..."
-              selectedIds={formData.interestIds}
-              onChange={(ids) => handleTagsChange('interestIds', ids)}
-              fetchFn={async (query) => {
-                const res = await profileApi.searchInterests(query, 5)
-                return res.map((i: any) => ({ id: i.id, name: i.name, category: i.category }))
-              }}
-            />
           </div>
 
           {submitError && (
@@ -345,6 +343,36 @@ export function OnboardingForm() {
           </div>
         </form>
       )}
+
+      {/* Live Profile Preview Card */}
+      <div className="mt-8 rounded-xl border border-border bg-surface p-4 shadow-sm">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-foreground-muted mb-3">Live Profile Preview</h4>
+        <div className="flex items-center gap-3">
+          <div className="h-12 w-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center overflow-hidden shrink-0">
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="Preview" className="h-full w-full object-cover" />
+            ) : (
+              <User className="h-6 w-6 text-primary" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-foreground text-sm truncate">{formData.displayName || 'Your Display Name'}</span>
+            </div>
+            <p className="text-xs text-foreground-muted truncate">@{formData.username || 'handle'}</p>
+            {(formData.department || formData.batchYear) && (
+              <p className="text-[11px] text-primary font-medium mt-0.5">
+                {formData.department} {formData.batchYear ? `• Class of ${formData.batchYear}` : ''}
+              </p>
+            )}
+          </div>
+        </div>
+        {formData.bio && (
+          <p className="mt-2.5 text-xs text-foreground-muted border-t border-border/50 pt-2 line-clamp-2 italic">
+            "{formData.bio}"
+          </p>
+        )}
+      </div>
     </div>
   )
 }

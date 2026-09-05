@@ -1,11 +1,12 @@
 import { Link } from '@tanstack/react-router'
-import { Home, Compass, MessageSquare, Bell, User, Settings, LogOut, Shield } from 'lucide-react'
+import { Home, Compass, MessageSquare, Bell, User, Settings, LogOut, Shield, Users, Trophy, Sparkles } from 'lucide-react'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from './ThemeToggle'
 import { BrandLogo } from './ui/BrandLogo'
 import { Avatar } from './ui/Avatar'
 import { cn } from '../lib/cn'
+import { toast } from 'sonner'
 
 export function Sidebar() {
   const { logout, user } = useAuth()
@@ -17,6 +18,9 @@ export function Sidebar() {
     badge?: number
   }> = [
     { label: 'Home', to: '/', icon: Home },
+    { label: 'Collaborate', to: '/collaborate', icon: Sparkles },
+    { label: 'Communities', to: '/communities', icon: Users },
+    { label: 'Hackathons', to: '/hackathons', icon: Trophy },
     { label: 'Discover', to: '/discover', icon: Compass },
     { label: 'Messages', to: '/messages', icon: MessageSquare, badge: unreadCounts.messages },
     { label: 'Notifications', to: '/notifications', icon: Bell, badge: unreadCounts.notifications },
@@ -25,6 +29,20 @@ export function Sidebar() {
   ]
   if (user?.role === 'ADMIN') {
     navItems.push({ label: 'Admin', to: '/admin', icon: Shield })
+  }
+
+  const handleLogout = () => {
+    toast('Are you sure you want to log out?', {
+      description: 'You will need to sign in again to access HAKIKU.',
+      action: {
+        label: 'Log Out',
+        onClick: () => logout(),
+      },
+      cancel: {
+        label: 'Cancel',
+        onClick: () => {},
+      },
+    })
   }
 
   return (
@@ -36,18 +54,21 @@ export function Sidebar() {
         <BrandLogo className="h-7" />
       </Link>
 
-      <nav className="flex flex-1 flex-col gap-0.5">
+      <nav className="flex flex-1 flex-col gap-1">
         {navItems.map((item) => (
           <Link
             key={item.to}
             to={item.to}
-            className="group flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground-muted transition-colors duration-150 hover:bg-surface-muted hover:text-foreground focus-visible:outline-none relative"
-            activeProps={{ className: 'bg-surface-muted text-foreground', 'aria-current': 'page' }}
+            className="group flex items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-foreground-muted transition-all duration-150 hover:bg-surface-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative"
+            activeProps={{
+              className: 'bg-primary/10 text-primary font-semibold shadow-xs',
+              'aria-current': 'page',
+            }}
           >
-            <item.icon className="h-[18px] w-[18px]" strokeWidth={1.75} />
+            <item.icon className="h-[18px] w-[18px] transition-transform duration-150 group-hover:scale-105" strokeWidth={2} />
             <span className="flex-1">{item.label}</span>
             {!!item.badge && item.badge > 0 && (
-              <span className="flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
+              <span className="flex h-5 min-w-5 px-1.5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground shadow-xs">
                 {item.badge > 99 ? '99+' : item.badge}
               </span>
             )}
@@ -74,13 +95,9 @@ export function Sidebar() {
         <ThemeToggle />
         <button
           type="button"
-          onClick={() => {
-            if (window.confirm('Are you sure you want to log out?')) {
-              logout()
-            }
-          }}
+          onClick={handleLogout}
           className={cn(
-            'flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground-muted transition-colors duration-150 hover:bg-surface-muted hover:text-danger focus-visible:outline-none',
+            'flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-foreground-muted transition-colors duration-150 hover:bg-surface-muted hover:text-danger focus-visible:outline-none cursor-pointer',
           )}
         >
           <LogOut className="h-[18px] w-[18px]" strokeWidth={1.75} />

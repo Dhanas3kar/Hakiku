@@ -5,17 +5,22 @@ import { useState } from 'react';
 import { Loader2, Flag, Trash2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { useAuth } from '../hooks/useAuth';
+
 export const Route = createFileRoute('/_authenticated/admin/reports')({
   component: AdminReports,
 });
 
 function AdminReports() {
+  const { isAuthenticated, user } = useAuth();
+  const isAdmin = Boolean(isAuthenticated && user?.role === 'ADMIN');
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'PENDING' | 'RESOLVED' | 'DISMISSED'>('PENDING');
 
   const { data, isLoading } = useQuery({
     queryKey: ['admin', 'reports', filter],
     queryFn: () => api.get(`/admin/reports?status=${filter}`),
+    enabled: isAdmin,
   });
 
   const resolveMutation = useMutation({

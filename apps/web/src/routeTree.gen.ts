@@ -15,7 +15,9 @@ import { Route as RegisterRouteImport } from './routes/register'
 import { Route as VerifyOtpRouteImport } from './routes/verify-otp'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated.index'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated.admin'
+import { Route as AuthenticatedCollaborateRouteImport } from './routes/_authenticated.collaborate'
 import { Route as AuthenticatedDiscoverRouteImport } from './routes/_authenticated.discover'
+import { Route as AuthenticatedHackathonRouteImport } from './routes/_authenticated.hackathon'
 import { Route as AuthenticatedMessagesRouteImport } from './routes/_authenticated.messages'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated.notifications'
 import { Route as AuthenticatedOnboardingRouteImport } from './routes/_authenticated.onboarding'
@@ -24,9 +26,14 @@ import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated.admin.index'
 import { Route as AuthenticatedAdminReportsRouteImport } from './routes/_authenticated.admin.reports'
 import { Route as AuthenticatedAdminUsersRouteImport } from './routes/_authenticated.admin.users'
+import { Route as AuthenticatedCommunitiesIndexRouteImport } from './routes/_authenticated.communities.index'
+import { Route as AuthenticatedCommunitiesCommunityIdRouteImport } from './routes/_authenticated.communities.$communityId'
+import { Route as AuthenticatedHackathonsIndexRouteImport } from './routes/_authenticated.hackathons.index'
+import { Route as AuthenticatedHackathonsHackathonIdRouteImport } from './routes/_authenticated.hackathons.$hackathonId'
 import { Route as AuthenticatedMessagesIndexRouteImport } from './routes/_authenticated.messages.index'
 import { Route as AuthenticatedMessagesConversationIdRouteImport } from './routes/_authenticated.messages.$conversationId'
 import { Route as AuthenticatedProfileUsernameRouteImport } from './routes/_authenticated.profile.$username'
+import { Route as AuthenticatedTeamsTeamIdRouteImport } from './routes/_authenticated.teams.$teamId'
 
 const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
@@ -57,9 +64,20 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+const AuthenticatedCollaborateRoute =
+  AuthenticatedCollaborateRouteImport.update({
+    id: '/collaborate',
+    path: '/collaborate',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedDiscoverRoute = AuthenticatedDiscoverRouteImport.update({
   id: '/discover',
   path: '/discover',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+const AuthenticatedHackathonRoute = AuthenticatedHackathonRouteImport.update({
+  id: '/hackathon',
+  path: '/hackathon',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 const AuthenticatedMessagesRoute = AuthenticatedMessagesRouteImport.update({
@@ -104,6 +122,30 @@ const AuthenticatedAdminUsersRoute = AuthenticatedAdminUsersRouteImport.update({
   path: '/users',
   getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
+const AuthenticatedCommunitiesIndexRoute =
+  AuthenticatedCommunitiesIndexRouteImport.update({
+    id: '/communities/',
+    path: '/communities/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedCommunitiesCommunityIdRoute =
+  AuthenticatedCommunitiesCommunityIdRouteImport.update({
+    id: '/communities/$communityId',
+    path: '/communities/$communityId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedHackathonsIndexRoute =
+  AuthenticatedHackathonsIndexRouteImport.update({
+    id: '/hackathons/',
+    path: '/hackathons/',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+const AuthenticatedHackathonsHackathonIdRoute =
+  AuthenticatedHackathonsHackathonIdRouteImport.update({
+    id: '/hackathons/$hackathonId',
+    path: '/hackathons/$hackathonId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedMessagesIndexRoute =
   AuthenticatedMessagesIndexRouteImport.update({
     id: '/',
@@ -122,6 +164,12 @@ const AuthenticatedProfileUsernameRoute =
     path: '/profile/$username',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
+const AuthenticatedTeamsTeamIdRoute =
+  AuthenticatedTeamsTeamIdRouteImport.update({
+    id: '/teams/$teamId',
+    path: '/teams/$teamId',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -129,7 +177,9 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/verify-otp': typeof VerifyOtpRoute
   '/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/collaborate': typeof AuthenticatedCollaborateRoute
   '/discover': typeof AuthenticatedDiscoverRoute
+  '/hackathon': typeof AuthenticatedHackathonRoute
   '/messages': typeof AuthenticatedMessagesRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
@@ -137,16 +187,23 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/communities/$communityId': typeof AuthenticatedCommunitiesCommunityIdRoute
+  '/hackathons/$hackathonId': typeof AuthenticatedHackathonsHackathonIdRoute
   '/messages/$conversationId': typeof AuthenticatedMessagesConversationIdRoute
   '/profile/$username': typeof AuthenticatedProfileUsernameRoute
+  '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/admin/': typeof AuthenticatedAdminIndexRoute
+  '/communities/': typeof AuthenticatedCommunitiesIndexRoute
+  '/hackathons/': typeof AuthenticatedHackathonsIndexRoute
   '/messages/': typeof AuthenticatedMessagesIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/register': typeof RegisterRoute
   '/verify-otp': typeof VerifyOtpRoute
+  '/collaborate': typeof AuthenticatedCollaborateRoute
   '/discover': typeof AuthenticatedDiscoverRoute
+  '/hackathon': typeof AuthenticatedHackathonRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/onboarding': typeof AuthenticatedOnboardingRoute
   '/settings': typeof AuthenticatedSettingsRoute
@@ -154,9 +211,14 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/communities/$communityId': typeof AuthenticatedCommunitiesCommunityIdRoute
+  '/hackathons/$hackathonId': typeof AuthenticatedHackathonsHackathonIdRoute
   '/messages/$conversationId': typeof AuthenticatedMessagesConversationIdRoute
   '/profile/$username': typeof AuthenticatedProfileUsernameRoute
+  '/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/admin': typeof AuthenticatedAdminIndexRoute
+  '/communities': typeof AuthenticatedCommunitiesIndexRoute
+  '/hackathons': typeof AuthenticatedHackathonsIndexRoute
   '/messages': typeof AuthenticatedMessagesIndexRoute
 }
 export interface FileRoutesById {
@@ -166,7 +228,9 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/verify-otp': typeof VerifyOtpRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
+  '/_authenticated/collaborate': typeof AuthenticatedCollaborateRoute
   '/_authenticated/discover': typeof AuthenticatedDiscoverRoute
+  '/_authenticated/hackathon': typeof AuthenticatedHackathonRoute
   '/_authenticated/messages': typeof AuthenticatedMessagesRouteWithChildren
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/onboarding': typeof AuthenticatedOnboardingRoute
@@ -175,9 +239,14 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/admin/reports': typeof AuthenticatedAdminReportsRoute
   '/_authenticated/admin/users': typeof AuthenticatedAdminUsersRoute
+  '/_authenticated/communities/$communityId': typeof AuthenticatedCommunitiesCommunityIdRoute
+  '/_authenticated/hackathons/$hackathonId': typeof AuthenticatedHackathonsHackathonIdRoute
   '/_authenticated/messages/$conversationId': typeof AuthenticatedMessagesConversationIdRoute
   '/_authenticated/profile/$username': typeof AuthenticatedProfileUsernameRoute
+  '/_authenticated/teams/$teamId': typeof AuthenticatedTeamsTeamIdRoute
   '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
+  '/_authenticated/communities/': typeof AuthenticatedCommunitiesIndexRoute
+  '/_authenticated/hackathons/': typeof AuthenticatedHackathonsIndexRoute
   '/_authenticated/messages/': typeof AuthenticatedMessagesIndexRoute
 }
 export interface FileRouteTypes {
@@ -188,7 +257,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/verify-otp'
     | '/admin'
+    | '/collaborate'
     | '/discover'
+    | '/hackathon'
     | '/messages'
     | '/notifications'
     | '/onboarding'
@@ -196,16 +267,23 @@ export interface FileRouteTypes {
     | '/admin/login'
     | '/admin/reports'
     | '/admin/users'
+    | '/communities/$communityId'
+    | '/hackathons/$hackathonId'
     | '/messages/$conversationId'
     | '/profile/$username'
+    | '/teams/$teamId'
     | '/admin/'
+    | '/communities/'
+    | '/hackathons/'
     | '/messages/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
     | '/register'
     | '/verify-otp'
+    | '/collaborate'
     | '/discover'
+    | '/hackathon'
     | '/notifications'
     | '/onboarding'
     | '/settings'
@@ -213,9 +291,14 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/reports'
     | '/admin/users'
+    | '/communities/$communityId'
+    | '/hackathons/$hackathonId'
     | '/messages/$conversationId'
     | '/profile/$username'
+    | '/teams/$teamId'
     | '/admin'
+    | '/communities'
+    | '/hackathons'
     | '/messages'
   id:
     | '__root__'
@@ -224,7 +307,9 @@ export interface FileRouteTypes {
     | '/register'
     | '/verify-otp'
     | '/_authenticated/admin'
+    | '/_authenticated/collaborate'
     | '/_authenticated/discover'
+    | '/_authenticated/hackathon'
     | '/_authenticated/messages'
     | '/_authenticated/notifications'
     | '/_authenticated/onboarding'
@@ -233,9 +318,14 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/admin/reports'
     | '/_authenticated/admin/users'
+    | '/_authenticated/communities/$communityId'
+    | '/_authenticated/hackathons/$hackathonId'
     | '/_authenticated/messages/$conversationId'
     | '/_authenticated/profile/$username'
+    | '/_authenticated/teams/$teamId'
     | '/_authenticated/admin/'
+    | '/_authenticated/communities/'
+    | '/_authenticated/hackathons/'
     | '/_authenticated/messages/'
   fileRoutesById: FileRoutesById
 }
@@ -291,11 +381,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
+    '/_authenticated/collaborate': {
+      id: '/_authenticated/collaborate'
+      path: '/collaborate'
+      fullPath: '/collaborate'
+      preLoaderRoute: typeof AuthenticatedCollaborateRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/discover': {
       id: '/_authenticated/discover'
       path: '/discover'
       fullPath: '/discover'
       preLoaderRoute: typeof AuthenticatedDiscoverRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/hackathon': {
+      id: '/_authenticated/hackathon'
+      path: '/hackathon'
+      fullPath: '/hackathon'
+      preLoaderRoute: typeof AuthenticatedHackathonRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
     '/_authenticated/messages': {
@@ -354,6 +458,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminUsersRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/communities/': {
+      id: '/_authenticated/communities/'
+      path: '/communities'
+      fullPath: '/communities/'
+      preLoaderRoute: typeof AuthenticatedCommunitiesIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/communities/$communityId': {
+      id: '/_authenticated/communities/$communityId'
+      path: '/communities/$communityId'
+      fullPath: '/communities/$communityId'
+      preLoaderRoute: typeof AuthenticatedCommunitiesCommunityIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/hackathons/': {
+      id: '/_authenticated/hackathons/'
+      path: '/hackathons'
+      fullPath: '/hackathons/'
+      preLoaderRoute: typeof AuthenticatedHackathonsIndexRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/hackathons/$hackathonId': {
+      id: '/_authenticated/hackathons/$hackathonId'
+      path: '/hackathons/$hackathonId'
+      fullPath: '/hackathons/$hackathonId'
+      preLoaderRoute: typeof AuthenticatedHackathonsHackathonIdRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
     '/_authenticated/messages/': {
       id: '/_authenticated/messages/'
       path: '/'
@@ -373,6 +505,13 @@ declare module '@tanstack/react-router' {
       path: '/profile/$username'
       fullPath: '/profile/$username'
       preLoaderRoute: typeof AuthenticatedProfileUsernameRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/teams/$teamId': {
+      id: '/_authenticated/teams/$teamId'
+      path: '/teams/$teamId'
+      fullPath: '/teams/$teamId'
+      preLoaderRoute: typeof AuthenticatedTeamsTeamIdRouteImport
       parentRoute: typeof AuthenticatedRoute
     }
   }
@@ -411,24 +550,40 @@ const AuthenticatedMessagesRouteWithChildren =
 
 interface AuthenticatedRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
+  AuthenticatedCollaborateRoute: typeof AuthenticatedCollaborateRoute
   AuthenticatedDiscoverRoute: typeof AuthenticatedDiscoverRoute
+  AuthenticatedHackathonRoute: typeof AuthenticatedHackathonRoute
   AuthenticatedMessagesRoute: typeof AuthenticatedMessagesRouteWithChildren
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedOnboardingRoute: typeof AuthenticatedOnboardingRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
+  AuthenticatedCommunitiesCommunityIdRoute: typeof AuthenticatedCommunitiesCommunityIdRoute
+  AuthenticatedHackathonsHackathonIdRoute: typeof AuthenticatedHackathonsHackathonIdRoute
   AuthenticatedProfileUsernameRoute: typeof AuthenticatedProfileUsernameRoute
+  AuthenticatedTeamsTeamIdRoute: typeof AuthenticatedTeamsTeamIdRoute
+  AuthenticatedCommunitiesIndexRoute: typeof AuthenticatedCommunitiesIndexRoute
+  AuthenticatedHackathonsIndexRoute: typeof AuthenticatedHackathonsIndexRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
+  AuthenticatedCollaborateRoute: AuthenticatedCollaborateRoute,
   AuthenticatedDiscoverRoute: AuthenticatedDiscoverRoute,
+  AuthenticatedHackathonRoute: AuthenticatedHackathonRoute,
   AuthenticatedMessagesRoute: AuthenticatedMessagesRouteWithChildren,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedOnboardingRoute: AuthenticatedOnboardingRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
+  AuthenticatedCommunitiesCommunityIdRoute:
+    AuthenticatedCommunitiesCommunityIdRoute,
+  AuthenticatedHackathonsHackathonIdRoute:
+    AuthenticatedHackathonsHackathonIdRoute,
   AuthenticatedProfileUsernameRoute: AuthenticatedProfileUsernameRoute,
+  AuthenticatedTeamsTeamIdRoute: AuthenticatedTeamsTeamIdRoute,
+  AuthenticatedCommunitiesIndexRoute: AuthenticatedCommunitiesIndexRoute,
+  AuthenticatedHackathonsIndexRoute: AuthenticatedHackathonsIndexRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(

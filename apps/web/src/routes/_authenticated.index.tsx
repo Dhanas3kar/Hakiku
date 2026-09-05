@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { feedApi } from '../api/feed'
+import { useAuth } from '../hooks/useAuth'
 import { ConfessionHero } from '../components/feed/ConfessionHero'
 import { PostComposer } from '../components/feed/PostComposer'
 import { PostCard } from '../components/feed/PostCard'
@@ -28,6 +29,7 @@ function Home() {
   const [viewingMedia, setViewingMedia] = useState<{ media: any[]; index: number } | null>(null)
   const { postId } = Route.useSearch()
   const navigate = useNavigate()
+  const { isAuthenticated } = useAuth()
   
   const {
     data,
@@ -40,6 +42,7 @@ function Home() {
     queryFn: ({ pageParam }) => feedApi.getPersonalizedFeed({ cursor: pageParam as string | undefined, limit: 10 }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
+    enabled: isAuthenticated,
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
   })

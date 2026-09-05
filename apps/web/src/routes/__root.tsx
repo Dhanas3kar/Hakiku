@@ -1,6 +1,4 @@
 import { HeadContent, Scripts, Outlet, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
-import { TanStackDevtools } from '@tanstack/react-devtools'
 import { Providers } from '../components/Providers'
 import { NotFound } from '../components/NotFound'
 import { GlobalErrorBoundary } from '../components/GlobalErrorBoundary'
@@ -46,22 +44,44 @@ function RootDocument() {
         <GlobalErrorBoundary>
           <Providers>
             <Outlet />
-            <Toaster position="bottom-center" theme="system" richColors />
-            {import.meta.env.DEV && (
-              <div className="hidden md:block">
-                <TanStackDevtools
-                  config={{
-                    position: 'top-right',
-                  }}
-                  plugins={[
-                    {
-                      name: 'Tanstack Router',
-                      render: <TanStackRouterDevtoolsPanel />,
-                    },
-                  ]}
-                />
-              </div>
-            )}
+            <Toaster 
+              position="top-center" 
+              duration={3500}
+              toastOptions={{
+                duration: 3500,
+                style: {
+                  background: 'var(--surface-elevated, #16181c)',
+                  color: 'var(--foreground, #f7f9f9)',
+                  border: '1px solid var(--border, #2f3336)',
+                  borderRadius: '16px',
+                  padding: '12px 16px',
+                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+                  fontSize: '0.875rem',
+                  fontFamily: 'var(--font-sans)',
+                },
+                descriptionStyle: {
+                  color: 'var(--foreground-muted, #71767b)',
+                  fontSize: '0.8125rem',
+                  marginTop: '2px',
+                },
+                actionButtonStyle: {
+                  background: 'var(--primary, #1d9bf0)',
+                  color: 'var(--primary-foreground, #ffffff)',
+                  borderRadius: '9999px',
+                  fontWeight: 600,
+                  fontSize: '0.8125rem',
+                  padding: '6px 14px',
+                },
+                cancelButtonStyle: {
+                  background: 'var(--surface-muted, #202327)',
+                  color: 'var(--foreground-muted, #71767b)',
+                  borderRadius: '9999px',
+                  fontWeight: 500,
+                  fontSize: '0.8125rem',
+                  padding: '6px 14px',
+                },
+              }}
+            />
           </Providers>
         </GlobalErrorBoundary>
         <Scripts />
@@ -69,4 +89,3 @@ function RootDocument() {
     </html>
   )
 }
-

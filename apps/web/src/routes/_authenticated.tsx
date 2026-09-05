@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, useLocation, useRouter } from '@tanstack/react-router'
 import { ShellLayout } from '../layouts/ShellLayout'
+import { GlobalToastNotifier } from '../components/GlobalToastNotifier'
 import { useAuth, AUTH_QUERY_KEY } from '../hooks/useAuth'
 import { Loader2 } from 'lucide-react'
 import { useEffect } from 'react'
@@ -18,16 +19,14 @@ function AuthenticatedLayout() {
 
   useEffect(() => {
     const handleAuthExpired = () => {
-      // Instead of clearing the cache (which causes /login to refetch and hit 401 again),
-      // we explicitly set the auth query to null so it stays cached as unauthenticated.
       queryClient.setQueryData(AUTH_QUERY_KEY, null)
-      // We can also clear other queries
       queryClient.removeQueries({
         predicate: (query) => query.queryKey[0] !== 'auth'
       })
 
-      if (location.pathname !== '/login') {
-        router.navigate({ to: '/login', replace: true })
+      const targetLogin = location.pathname.startsWith('/admin') ? '/admin/login' : '/login'
+      if (location.pathname !== targetLogin) {
+        router.navigate({ to: targetLogin, replace: true })
       }
     }
 
@@ -36,20 +35,33 @@ function AuthenticatedLayout() {
   }, [location.pathname, queryClient, router])
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
-      if (location.pathname !== '/login') {
-        router.navigate({ to: '/login', search: { redirect: location.pathname }, replace: true })
+    let isMounted = true
+
+    if (status === 'unauthenticated' || status === 'error') {
+      const targetLogin = location.pathname.startsWith('/admin') ? '/admin/login' : '/login'
+      if (location.pathname !== targetLogin) {
+        Promise.resolve().then(() => {
+          if (isMounted) router.navigate({ to: targetLogin, search: { redirect: location.pathname }, replace: true })
+        })
       }
       return
     }
 
-    if (needsOnboarding && !location.pathname.startsWith('/onboarding')) {
-      router.navigate({ to: '/onboarding', replace: true })
+    if (status === 'needs_onboarding' && needsOnboarding && !location.pathname.startsWith('/onboarding')) {
+      Promise.resolve().then(() => {
+        if (isMounted) router.navigate({ to: '/onboarding', replace: true })
+      })
       return
     }
 
     if (!needsOnboarding && location.pathname.startsWith('/onboarding') && status === 'authenticated') {
-      router.navigate({ to: '/', replace: true })
+      Promise.resolve().then(() => {
+        if (isMounted) router.navigate({ to: '/', replace: true })
+      })
+    }
+
+    return () => {
+      isMounted = false
     }
   }, [status, isAuthenticated, needsOnboarding, location.pathname, router])
 
@@ -87,8 +99,8 @@ function AuthenticatedLayout() {
 
   return (
     <ShellLayout>
+      <GlobalToastNotifier />
       <Outlet />
     </ShellLayout>
   )
 }
-
