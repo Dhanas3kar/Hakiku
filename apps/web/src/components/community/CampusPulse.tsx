@@ -2,12 +2,22 @@ import { useQuery } from '@tanstack/react-query'
 import { communityApi } from '../../api/community'
 import { TrendingUp, TrendingDown, Minus, Activity } from 'lucide-react'
 
+import { useAuth } from '../../hooks/useAuth'
+
 export function CampusPulse() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
+
   const { data: pulseStats, isLoading, error } = useQuery({
     queryKey: ['campus-pulse'],
     queryFn: () => communityApi.getPulse(),
+    enabled: isAdmin,
     staleTime: 5 * 60 * 1000,
   })
+
+  if (!isAdmin) {
+    return null
+  }
 
   if (isLoading) {
     return (

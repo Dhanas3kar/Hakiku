@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { IncomingMessage } from 'http';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-// Trigger NestJS reload - user profile posts author details fixed
+// Trigger NestJS reload - Collaboration controller compilation errors resolved
 import {
   FastifyAdapter,
   NestFastifyApplication,
@@ -150,50 +150,80 @@ async function bootstrap() {
       -- Hackathons & Hackathon Teams Tables
       CREATE TABLE IF NOT EXISTS hackathons (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        provider VARCHAR(100) NOT NULL DEFAULT 'MANUAL',
+        external_id VARCHAR(255),
         title VARCHAR(255) NOT NULL,
         slug VARCHAR(255) NOT NULL UNIQUE,
-        description TEXT,
         organizer VARCHAR(255) NOT NULL,
-        location VARCHAR(255) NOT NULL DEFAULT 'Online',
+        description TEXT NOT NULL DEFAULT '',
+        url TEXT NOT NULL DEFAULT '',
+        registration_deadline TIMESTAMP,
+        start_date TIMESTAMP,
+        end_date TIMESTAMP,
         mode VARCHAR(50) NOT NULL DEFAULT 'ONLINE',
-        registration_start_date TIMESTAMP,
-        registration_end_date TIMESTAMP,
-        start_date TIMESTAMP NOT NULL,
-        end_date TIMESTAMP NOT NULL,
-        min_team_size INTEGER NOT NULL DEFAULT 1,
-        max_team_size INTEGER NOT NULL DEFAULT 4,
-        website_url TEXT,
-        banner_url TEXT,
-        tags JSONB DEFAULT '[]'::jsonb,
-        status VARCHAR(50) NOT NULL DEFAULT 'UPCOMING',
-        external_id VARCHAR(255),
-        source VARCHAR(100) NOT NULL DEFAULT 'HAKIKU',
+        location VARCHAR(255),
+        themes JSONB DEFAULT '[]'::jsonb,
+        skills JSONB DEFAULT '[]'::jsonb,
+        prize_info TEXT,
+        canonical_status VARCHAR(50) NOT NULL DEFAULT 'UPCOMING',
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
 
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS provider VARCHAR(100) NOT NULL DEFAULT 'MANUAL';
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS external_id VARCHAR(255);
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS url TEXT DEFAULT '';
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS registration_deadline TIMESTAMP;
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS location VARCHAR(255);
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS themes JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS skills JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS prize_info TEXT;
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS canonical_status VARCHAR(50) DEFAULT 'UPCOMING';
+      ALTER TABLE hackathons ALTER COLUMN start_date DROP NOT NULL;
+      ALTER TABLE hackathons ALTER COLUMN end_date DROP NOT NULL;
+      ALTER TABLE hackathons ALTER COLUMN description DROP NOT NULL;
+
       CREATE TABLE IF NOT EXISTS hackathon_sync_runs (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        source VARCHAR(100) NOT NULL,
-        status VARCHAR(50) NOT NULL,
-        items_synced INTEGER NOT NULL DEFAULT 0,
-        error_log TEXT,
+        provider VARCHAR(100) NOT NULL DEFAULT 'PUBLIC_API',
+        status VARCHAR(50) NOT NULL DEFAULT 'COMPLETED',
+        items_processed INTEGER NOT NULL DEFAULT 0,
+        items_created INTEGER NOT NULL DEFAULT 0,
+        items_updated INTEGER NOT NULL DEFAULT 0,
+        error_message TEXT,
         started_at TIMESTAMP NOT NULL DEFAULT NOW(),
         completed_at TIMESTAMP
       );
 
+      ALTER TABLE hackathon_sync_runs ADD COLUMN IF NOT EXISTS provider VARCHAR(100) DEFAULT 'PUBLIC_API';
+      ALTER TABLE hackathon_sync_runs ADD COLUMN IF NOT EXISTS items_processed INTEGER DEFAULT 0;
+      ALTER TABLE hackathon_sync_runs ADD COLUMN IF NOT EXISTS items_created INTEGER DEFAULT 0;
+      ALTER TABLE hackathon_sync_runs ADD COLUMN IF NOT EXISTS items_updated INTEGER DEFAULT 0;
+      ALTER TABLE hackathon_sync_runs ADD COLUMN IF NOT EXISTS error_message TEXT;
+      DO $$ BEGIN
+        ALTER TABLE hackathon_sync_runs ALTER COLUMN source DROP NOT NULL;
+      EXCEPTION WHEN OTHERS THEN END $$;
+
       CREATE TABLE IF NOT EXISTS hackathon_teams (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         hackathon_id UUID NOT NULL REFERENCES hackathons(id) ON DELETE CASCADE,
-        leader_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        owner_id UUID REFERENCES users(id) ON DELETE CASCADE,
         name VARCHAR(100) NOT NULL,
         tagline VARCHAR(255),
         description TEXT,
         looking_for TEXT,
-        status VARCHAR(50) NOT NULL DEFAULT 'RECRUITING',
+        status VARCHAR(50) NOT NULL DEFAULT 'OPEN',
+        max_members INTEGER NOT NULL DEFAULT 4,
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+
+      ALTER TABLE hackathon_teams ADD COLUMN IF NOT EXISTS owner_id UUID REFERENCES users(id) ON DELETE CASCADE;
+      ALTER TABLE hackathon_teams ADD COLUMN IF NOT EXISTS max_members INTEGER DEFAULT 4;
+      DO $$ BEGIN
+        ALTER TABLE hackathon_teams ALTER COLUMN leader_id DROP NOT NULL;
+      EXCEPTION WHEN OTHERS THEN END $$;
 
       CREATE TABLE IF NOT EXISTS hackathon_team_members (
         team_id UUID NOT NULL REFERENCES hackathon_teams(id) ON DELETE CASCADE,
@@ -235,6 +265,95 @@ async function bootstrap() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+
+      -- Collaboration & Student Intelligence Tables
+      CREATE TABLE IF NOT EXISTS blocks (
+        blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        blocked_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (blocker_id, blocked_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS skills (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(50) NOT NULL UNIQUE,
+        category VARCHAR(50),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS interests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name VARCHAR(50) NOT NULL UNIQUE,
+        category VARCHAR(50),
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS skill_aliases (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        alias VARCHAR(50) NOT NULL,
+        normalized_alias VARCHAR(50) NOT NULL UNIQUE,
+        canonical_skill_id UUID NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS user_skills (
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        skill_id UUID NOT NULL REFERENCES skills(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, skill_id)
+      );
+
+      CREATE TABLE IF NOT EXISTS user_interests (
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        interest_id UUID NOT NULL REFERENCES interests(id) ON DELETE CASCADE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, interest_id)
+      );
+
+      DO $$ BEGIN
+        CREATE TYPE collaboration_intent AS ENUM ('LOOKING_FOR_TEAMMATES', 'OPEN_TO_COLLABORATION', 'JUST_EXPLORING');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+
+      DO $$ BEGIN
+        CREATE TYPE availability AS ENUM ('WEEKDAYS', 'WEEKENDS', 'FLEXIBLE');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+
+      DO $$ BEGIN
+        CREATE TYPE collaboration_request_status AS ENUM ('PENDING', 'ACCEPTED', 'DECLINED', 'CANCELLED', 'EXPIRED');
+      EXCEPTION
+        WHEN duplicate_object THEN null;
+      END $$;
+
+      CREATE TABLE IF NOT EXISTS collaboration_preferences (
+        user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        intent collaboration_intent NOT NULL DEFAULT 'OPEN_TO_COLLABORATION',
+        availability availability NOT NULL DEFAULT 'FLEXIBLE',
+        looking_for_roles JSONB NOT NULL DEFAULT '[]'::jsonb,
+        preferred_hackathon_themes JSONB NOT NULL DEFAULT '[]'::jsonb,
+        bio TEXT,
+        is_discoverable BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS collaboration_requests (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        target_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message TEXT,
+        status collaboration_request_status NOT NULL DEFAULT 'PENDING',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+
+      ALTER TABLE hackathon_team_roles ADD COLUMN IF NOT EXISTS role_category VARCHAR(50) DEFAULT 'OTHER';
+      ALTER TABLE hackathon_team_roles ADD COLUMN IF NOT EXISTS title VARCHAR(100) DEFAULT 'Teammate';
+      ALTER TABLE hackathon_team_roles ADD COLUMN IF NOT EXISTS filled_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE hackathons ADD COLUMN IF NOT EXISTS skills JSONB DEFAULT '[]'::jsonb;
     `);
     console.log('[STARTUP MIGRATION] Schema migration check completed successfully.');
   } catch (err) {

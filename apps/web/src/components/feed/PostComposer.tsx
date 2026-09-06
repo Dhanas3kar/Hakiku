@@ -7,6 +7,7 @@ import { Image, X, Loader2, Globe, Users, Lock, Send, BarChart2, Plus } from 'lu
 import { Avatar } from '../ui/Avatar'
 import { Button } from '../ui/Button'
 import { MentionTextarea } from '../ui/MentionTextarea'
+import { safeRandomUUID } from '../../utils/uuid'
 
 interface PostComposerProps {
   onPostCreated?: (newPost: PostItem) => void
@@ -28,7 +29,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
   const [pollOptions, setPollOptions] = useState<string[]>(['', ''])
 
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const idempotencyKeyRef = useRef<string>(crypto.randomUUID())
+  const idempotencyKeyRef = useRef<string>(safeRandomUUID())
 
   const createPostMutation = useMutation({
     mutationFn: async (payload: { content: string; visibility: PostVisibility; mediaUploadIds?: string[]; idempotencyKey: string }) => {
@@ -112,7 +113,7 @@ export function PostComposer({ onPostCreated }: PostComposerProps) {
     if (!content.trim() && mediaList.length === 0) return
 
     const currentKey = idempotencyKeyRef.current
-    idempotencyKeyRef.current = crypto.randomUUID()
+    idempotencyKeyRef.current = safeRandomUUID()
 
     const validMediaIds = mediaList
       .map((m: any) => m.uploadId || m.id)

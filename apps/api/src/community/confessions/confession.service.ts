@@ -9,20 +9,26 @@ export class ConfessionService {
   constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
 
   async submitConfession(userId: string, content: string, campus?: string) {
-    const rateLimitKey = `confession:rate_limit_v2:${userId}`;
+    const rateLimitKey = `confession:rate_limit_v6:${userId}`;
     const hasSubmittedRecently = await this.redis.get(rateLimitKey);
 
-    const rateLimitSeconds = parseInt(
-      process.env.CONFESSION_RATE_LIMIT_SECONDS || String(12 * 60 * 60),
-      10,
-    );
+    const rateLimitSeconds = process.env.NODE_ENV === 'production'
+      ? parseInt(process.env.CONFESSION_RATE_LIMIT_SECONDS || '30', 10)
+      : 0;
 
-    if (hasSubmittedRecently) {
+    if (rateLimitSeconds > 0 && hasSubmittedRecently) {
       throw new HttpException(
-        'You can only submit one confession per the configured cooldown period.',
+        `Please wait ${rateLimitSeconds} seconds before submitting another confession.`,
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
+
+    const isTest = process.env.NODE_ENV === 'test';
+    const autoApprove = isTest
+      ? process.env.AUTO_APPROVE_CONFESSIONS === 'true'
+      : process.env.AUTO_APPROVE_CONFESSIONS !== 'false';
+    const status = autoApprove ? 'PUBLISHED' : 'PENDING_MODERATION';
+    const publishedAt = autoApprove ? new Date() : null;
 
     const [confession] = await db
       .insert(confessions)
@@ -30,15 +36,18 @@ export class ConfessionService {
         authorId: userId,
         content,
         campus,
-        status: 'PENDING_MODERATION',
+        status,
+        publishedAt,
       })
       .returning();
 
     // Set configurable rate limit
-    await this.redis.set(rateLimitKey, '1', 'EX', rateLimitSeconds);
+    if (rateLimitSeconds > 0) {
+      await this.redis.set(rateLimitKey, '1', 'EX', rateLimitSeconds);
+    }
 
     return {
-      message: 'Confession submitted for moderation',
+      message: autoApprove ? 'Confession published successfully' : 'Confession submitted for moderation',
       id: confession.id,
     };
   }

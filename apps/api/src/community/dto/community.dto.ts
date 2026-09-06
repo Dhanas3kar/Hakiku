@@ -74,6 +74,7 @@ export enum ReportTargetType {
   COMMENT = 'COMMENT',
   USER = 'USER',
   HOT_TAKE = 'HOT_TAKE',
+  MESSAGE = 'MESSAGE',
 }
 
 export class ReportContentDto {

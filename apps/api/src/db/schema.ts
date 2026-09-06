@@ -1544,6 +1544,7 @@ export const collaborationRequests = pgTable(
     targetUserId: uuid('target_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    hackathonId: uuid('hackathon_id').references(() => hackathons.id, { onDelete: 'set null' }),
     message: text('message'),
     status: collaborationRequestStatusEnum('status').default('PENDING').notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -1560,6 +1561,7 @@ export const collaborationRequests = pgTable(
       table.status,
       table.createdAt,
     ),
+    hackathonIdx: index('idx_collab_req_hackathon').on(table.hackathonId),
     senderTargetUnique: uniqueIndex('idx_collab_req_sender_target_pending')
       .on(table.senderId, table.targetUserId)
       .where(sql`${table.status} = 'PENDING'`),

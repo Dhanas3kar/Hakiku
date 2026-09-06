@@ -1,52 +1,60 @@
 import { useState } from 'react'
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { hotTakesApi } from '../../api/hotTakes'
-import { Flame, Loader2, Send, Trash2, MapPin, Calendar, Clock, Link as LinkIcon, Info, Edit2, Flag } from 'lucide-react'
+import { communityApi, type HotTake } from '../../api/community'
 import { useAuth } from '../../hooks/useAuth'
+import { Flame, Trash2, Edit2, Loader2, Calendar, MapPin, Clock, Link as LinkIcon, Info, Flag, ArrowBigUp, ArrowBigDown } from 'lucide-react'
 import { ReportDialog } from './ReportDialog'
 import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { isUserVerified } from '@/utils/user'
 import { FormattedContent } from '@/components/ui/FormattedContent'
+import { MentionTextarea } from '@/components/ui/MentionTextarea'
 
 // Simple URL validator
 const isValidUrl = (string: string) => {
   try {
-    new URL(string);
-    return true;
+    new URL(string)
+    return true
   } catch (_) {
-    return false;
+    return false
   }
 }
 
 export function HotTakesFeed() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [isCreating, setIsCreating] = useState(false)
+  const [editingTakeId, setEditingTakeId] = useState<string | null>(null)
+
+  // Form states
   const [content, setContent] = useState('')
   const [date, setDate] = useState('')
   const [place, setPlace] = useState('')
   const [time, setTime] = useState('')
   const [media, setMedia] = useState('')
   const [otherDetails, setOtherDetails] = useState('')
-  const [editingTakeId, setEditingTakeId] = useState<string | null>(null)
+
   const [reportTargetId, setReportTargetId] = useState<string | null>(null)
 
-  const queryClient = useQueryClient()
-
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } = useInfiniteQuery({
-    queryKey: ['hotTakes'],
-    queryFn: ({ pageParam }) => hotTakesApi.getHotTakes({ cursor: pageParam }),
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    status
+  } = useInfiniteQuery({
+    queryKey: ['hot-takes'],
+    queryFn: ({ pageParam }) => communityApi.listHotTakes({ limit: 10, offset: pageParam ? Number(pageParam) : 0 }),
     initialPageParam: 0,
-    getNextPageParam: (lastPage) => lastPage.nextOffset,
+    getNextPageParam: (lastPage: any) => lastPage?.nextCursorAt ? Number(lastPage.nextCursorAt) : undefined
   })
 
-  const createMutation = useMutation({
-    mutationFn: () => hotTakesApi.createHotTake({
-      content,
-      date: date.trim() || undefined,
-      place: place.trim() || undefined,
-      time: time.trim() || undefined,
-      media: media.trim() || undefined,
-      otherDetails: otherDetails.trim() || undefined,
-    }),
+  const submitMutation = useMutation({
+    mutationFn: (data: { content: string, date?: string, place?: string, time?: string, media?: string, otherDetails?: string }) => {
+      if (editingTakeId) {
+        return communityApi.updateHotTake(editingTakeId, data)
+      }
+      return communityApi.createHotTake(data)
+    },
     onSuccess: () => {
       setContent('')
       setDate('')
@@ -55,39 +63,93 @@ export function HotTakesFeed() {
       setMedia('')
       setOtherDetails('')
       setIsCreating(false)
-      queryClient.invalidateQueries({ queryKey: ['hotTakes'] })
+      setEditingTakeId(null)
+      queryClient.invalidateQueries({ queryKey: ['hot-takes'] })
     }
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => hotTakesApi.deleteHotTake(id),
+    mutationFn: (id: string) => communityApi.deleteHotTake(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hotTakes'] })
+      queryClient.invalidateQueries({ queryKey: ['hot-takes'] })
     }
   })
 
-  const updateMutation = useMutation({
-    mutationFn: (data: { id: string, content: string, date?: string, place?: string, time?: string, media?: string, otherDetails?: string }) =>
-      hotTakesApi.updateHotTake(data.id, {
-        content: data.content,
-        date: data.date?.trim() || undefined,
-        place: data.place?.trim() || undefined,
-        time: data.time?.trim() || undefined,
-        media: data.media?.trim() || undefined,
-        otherDetails: data.otherDetails?.trim() || undefined
-      }),
-    onSuccess: () => {
-      setContent('')
-      setDate('')
-      setPlace('')
-      setTime('')
-      setMedia('')
-      setOtherDetails('')
-      setEditingTakeId(null)
-      setIsCreating(false)
-      queryClient.invalidateQueries({ queryKey: ['hotTakes'] })
-    }
+  const voteMutation = useMutation({
+    mutationFn: ({ id, voteType }: { id: string; voteType: 'UP' | 'DOWN' }) =>
+      communityApi.voteHotTake(id, voteType),
+    onMutate: async ({ id, voteType }) => {
+      await queryClient.cancelQueries({ queryKey: ['hot-takes'] })
+      const previousData = queryClient.getQueryData(['hot-takes'])
+
+      queryClient.setQueryData(['hot-takes'], (old: any) => {
+        if (!old) return old
+        const newPages = old.pages.map((page: any) => ({
+          ...page,
+          items: page.items.map((take: HotTake) => {
+            if (take.id !== id) return take
+
+            let newVote: 'UP' | 'DOWN' | null = voteType
+            let upDiff = 0
+            let downDiff = 0
+
+            if (take.userVote === voteType) {
+              // Toggle off
+              newVote = null
+              if (voteType === 'UP') upDiff = -1
+              else downDiff = -1
+            } else if (take.userVote) {
+              // Switch vote
+              if (voteType === 'UP') {
+                upDiff = 1
+                downDiff = -1
+              } else {
+                upDiff = -1
+                downDiff = 1
+              }
+            } else {
+              // New vote
+              if (voteType === 'UP') upDiff = 1
+              else downDiff = 1
+            }
+
+            const upvotesCount = Math.max(0, (take.upvotesCount || 0) + upDiff)
+            const downvotesCount = Math.max(0, (take.downvotesCount || 0) + downDiff)
+
+            return {
+              ...take,
+              userVote: newVote,
+              upvotesCount,
+              downvotesCount,
+              score: upvotesCount - downvotesCount,
+            }
+          }),
+        }))
+        return { ...old, pages: newPages }
+      })
+
+      return { previousData }
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(['hot-takes'], context?.previousData)
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['hot-takes'] })
+    },
   })
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!content.trim() || submitMutation.isPending) return
+    submitMutation.mutate({
+      content: content.trim(),
+      date,
+      place,
+      time,
+      media,
+      otherDetails
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -99,7 +161,6 @@ export function HotTakesFeed() {
         <button
           onClick={() => {
             if (isCreating) {
-              // clear on cancel
               setContent('')
               setDate('')
               setPlace('')
@@ -117,61 +178,88 @@ export function HotTakesFeed() {
       </div>
 
       {isCreating && (
-        <div className="bg-surface border border-border p-4 rounded-xl shadow-sm mb-6 flex flex-col gap-3">
-          <textarea
+        <form onSubmit={handleSubmit} className="bg-surface border border-border p-4 rounded-xl shadow-sm mb-6 flex flex-col gap-3">
+          <MentionTextarea
             value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder="What's your controversial opinion?"
-            className="w-full bg-surface-muted border border-border rounded-lg p-3 min-h-[100px] resize-none focus:outline-none focus:border-primary"
+            onChangeValue={setContent}
+            placeholder="What's your controversial opinion? Type @ to tag someone..."
+            className="w-full bg-surface-muted border border-border rounded-lg p-3 min-h-[100px] resize-none focus:outline-none focus:border-primary text-foreground"
+            containerClassName="w-full"
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             <div className="flex items-center gap-2 bg-surface-muted border border-border rounded-lg px-3 py-2">
               <Calendar className="h-4 w-4 text-foreground-muted shrink-0" />
-              <input type="text" placeholder="Date (Optional)" value={date} onChange={e => setDate(e.target.value)} className="bg-transparent border-none outline-none w-full" />
+              <input
+                type="text"
+                value={date}
+                onChange={e => setDate(e.target.value)}
+                placeholder="Date (Optional)"
+                className="bg-transparent border-none w-full focus:outline-none text-foreground text-sm"
+              />
             </div>
             <div className="flex items-center gap-2 bg-surface-muted border border-border rounded-lg px-3 py-2">
               <MapPin className="h-4 w-4 text-foreground-muted shrink-0" />
-              <input type="text" placeholder="Place (Optional)" value={place} onChange={e => setPlace(e.target.value)} className="bg-transparent border-none outline-none w-full" />
+              <input
+                type="text"
+                value={place}
+                onChange={e => setPlace(e.target.value)}
+                placeholder="Place (Optional)"
+                className="bg-transparent border-none w-full focus:outline-none text-foreground text-sm"
+              />
             </div>
             <div className="flex items-center gap-2 bg-surface-muted border border-border rounded-lg px-3 py-2">
               <Clock className="h-4 w-4 text-foreground-muted shrink-0" />
-              <input type="text" placeholder="Time (Optional)" value={time} onChange={e => setTime(e.target.value)} className="bg-transparent border-none outline-none w-full" />
+              <input
+                type="text"
+                value={time}
+                onChange={e => setTime(e.target.value)}
+                placeholder="Time (Optional)"
+                className="bg-transparent border-none w-full focus:outline-none text-foreground text-sm"
+              />
             </div>
             <div className="flex items-center gap-2 bg-surface-muted border border-border rounded-lg px-3 py-2">
               <LinkIcon className="h-4 w-4 text-foreground-muted shrink-0" />
-              <input type="url" placeholder="Media URL (Optional)" value={media} onChange={e => setMedia(e.target.value)} className="bg-transparent border-none outline-none w-full" />
-            </div>
-            <div className="sm:col-span-2 flex items-center gap-2 bg-surface-muted border border-border rounded-lg px-3 py-2">
-              <Info className="h-4 w-4 text-foreground-muted shrink-0" />
-              <input type="text" placeholder="Other Details (Optional)" value={otherDetails} onChange={e => setOtherDetails(e.target.value)} className="bg-transparent border-none outline-none w-full" />
+              <input
+                type="text"
+                value={media}
+                onChange={e => setMedia(e.target.value)}
+                placeholder="Media Link / URL (Optional)"
+                className="bg-transparent border-none w-full focus:outline-none text-foreground text-sm"
+              />
             </div>
           </div>
-          <div className="flex justify-end mt-2">
+          <div className="flex items-center gap-2 bg-surface-muted border border-border rounded-lg px-3 py-2 text-sm">
+            <Info className="h-4 w-4 text-foreground-muted shrink-0" />
+            <input
+              type="text"
+              value={otherDetails}
+              onChange={e => setOtherDetails(e.target.value)}
+              placeholder="Other Details (Optional)"
+              className="bg-transparent border-none w-full focus:outline-none text-foreground text-sm"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 mt-2">
             <button
+              type="button"
               onClick={() => {
-                if (editingTakeId) {
-                  updateMutation.mutate({
-                    id: editingTakeId,
-                    content,
-                    date,
-                    place,
-                    time,
-                    media,
-                    otherDetails
-                  })
-                } else {
-                  createMutation.mutate()
-                }
+                setIsCreating(false)
+                setEditingTakeId(null)
               }}
-              disabled={createMutation.isPending || updateMutation.isPending || !content.trim()}
-              className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-lg flex items-center gap-2 hover:bg-primary-hover disabled:opacity-50"
+              className="px-4 py-2 border border-border rounded-full text-sm font-medium text-foreground hover:bg-surface-muted"
             >
-              {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="h-4 w-4 animate-spin" />}
-              {editingTakeId ? 'Update Take' : 'Share Take'}
-              <Send className="h-4 w-4" />
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!content.trim() || submitMutation.isPending}
+              className="px-5 py-2 bg-primary text-primary-foreground font-semibold text-sm rounded-full hover:bg-primary-hover disabled:opacity-50 flex items-center gap-2"
+            >
+              {submitMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {editingTakeId ? 'Update Take' : 'Post Hot Take'}
             </button>
           </div>
-        </div>
+        </form>
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -180,7 +268,7 @@ export function HotTakesFeed() {
         ) : (
           data?.pages.map((page, i) => (
             <div key={i} className="contents">
-              {page.items.map(take => (
+              {page.items.map((take: HotTake) => (
                 <div key={take.id} className="bg-surface border border-border p-5 rounded-2xl shadow-sm relative overflow-hidden group flex flex-col h-full justify-between">
                   <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none">
                     <Flame className="h-16 w-16 text-orange-500" />
@@ -189,7 +277,7 @@ export function HotTakesFeed() {
                     <div className="flex justify-between items-start gap-4 mb-2">
                       <p className="text-lg font-medium text-foreground whitespace-pre-wrap">"<FormattedContent content={take.content} />"</p>
                       <div className="flex items-center gap-1 shrink-0">
-                        {user?.userId === take.author.id ? (
+                        {user?.userId === take.author?.id ? (
                           <>
                             <button
                               onClick={() => {
@@ -272,22 +360,60 @@ export function HotTakesFeed() {
                     )}
                   </div>
 
-                  <div className="relative z-10 flex items-center gap-3 mt-auto">
-                    <div className="h-8 w-8 rounded-full overflow-hidden bg-surface-muted shrink-0">
-                      {take.author.avatarUrl ? (
-                        <img src={take.author.avatarUrl} alt={take.author.displayName} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted text-xs">
-                          {take.author.displayName.charAt(0)}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col overflow-hidden">
-                      <div className="flex items-center gap-1">
-                        <span className="text-sm font-semibold text-foreground truncate">{take.author.displayName}</span>
-                        {take.author.isVerifiedIdentity && <VerifiedBadge />}
+                  {/* Card Footer: Author Info & Upvote/Downvote Pills */}
+                  <div className="relative z-10 flex items-center justify-between gap-3 mt-auto pt-3 border-t border-border-subtle">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-8 w-8 rounded-full overflow-hidden bg-surface-muted shrink-0">
+                        {take.author?.avatarUrl ? (
+                          <img src={take.author.avatarUrl} alt={take.author.displayName} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center font-bold text-foreground-muted text-xs">
+                            {(take.author?.displayName || '?').charAt(0)}
+                          </div>
+                        )}
                       </div>
-                      <span className="text-xs text-foreground-muted truncate">@{take.author.username}</span>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-semibold text-foreground truncate">{take.author?.displayName || 'Student'}</span>
+                          {isUserVerified(take.author) && <VerifiedBadge />}
+                        </div>
+                        <span className="text-xs text-foreground-muted truncate">@{take.author?.username || 'user'}</span>
+                      </div>
+                    </div>
+
+                    {/* Upvote & Downvote Control Pill */}
+                    <div className="inline-flex items-center gap-1 bg-surface-muted rounded-full p-1 border border-border shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => voteMutation.mutate({ id: take.id, voteType: 'UP' })}
+                        className={`p-1 rounded-full transition-colors ${
+                          take.userVote === 'UP'
+                            ? 'bg-orange-500 text-white font-bold shadow-xs'
+                            : 'text-foreground-muted hover:text-orange-500 hover:bg-surface'
+                        }`}
+                        title="Upvote Hot Take"
+                      >
+                        <ArrowBigUp className="h-4 w-4 fill-current" />
+                      </button>
+
+                      <span className={`text-xs font-semibold px-1 min-w-[1.25rem] text-center ${
+                        (take.score || 0) > 0 ? 'text-orange-500 font-bold' : (take.score || 0) < 0 ? 'text-blue-500 font-bold' : 'text-foreground-muted'
+                      }`}>
+                        {take.score || 0}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => voteMutation.mutate({ id: take.id, voteType: 'DOWN' })}
+                        className={`p-1 rounded-full transition-colors ${
+                          take.userVote === 'DOWN'
+                            ? 'bg-blue-500 text-white font-bold shadow-xs'
+                            : 'text-foreground-muted hover:text-blue-500 hover:bg-surface'
+                        }`}
+                        title="Downvote Hot Take"
+                      >
+                        <ArrowBigDown className="h-4 w-4 fill-current" />
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -149,6 +149,8 @@ function MessageBubble({
 }
 // ----------------------------
 
+import { safeRandomUUID } from '../../utils/uuid'
+
 export function ChatWindow({ conversationId }: { conversationId: string }) {
   const { profile } = useAuth()
   const currentUserId = profile?.userId
@@ -331,7 +333,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
     }
   }, [messagingSocket, conversationId, queryClient, currentUserId])
 
-  const idempotencyKeyRef = useRef<string>(crypto.randomUUID())
+  const idempotencyKeyRef = useRef<string>(safeRandomUUID())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isUploadingMedia, setIsUploadingMedia] = useState(false)
 
@@ -345,7 +347,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
       await messagingApi.sendMessage(conversationId, {
         messageType: 'IMAGE',
         mediaKeys: [mediaKey],
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: safeRandomUUID(),
       })
       queryClient.invalidateQueries({ queryKey: ['messages', conversationId] })
       queryClient.invalidateQueries({ queryKey: ['conversations'] })
@@ -372,7 +374,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
       const previousMessages = queryClient.getQueryData(['messages', conversationId])
       
       const optimisticMsg: MessageItem = {
-        id: `temp-${crypto.randomUUID()}`,
+        id: `temp-${safeRandomUUID()}`,
         conversationId,
         senderId: currentUserId!,
         content,
@@ -412,7 +414,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
     if (!inputText.trim()) return
     
     const currentKey = idempotencyKeyRef.current
-    idempotencyKeyRef.current = crypto.randomUUID()
+    idempotencyKeyRef.current = safeRandomUUID()
     
     sendMessageMutation.mutate({ 
       content: inputText.trim(), 

@@ -2,12 +2,22 @@ import { useQuery } from '@tanstack/react-query'
 import { communityApi } from '../../api/community'
 import { Users, TrendingUp } from 'lucide-react'
 
+import { useAuth } from '../../hooks/useAuth'
+
 export function CampusInsights() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
+
   const { data: insights, isLoading, error } = useQuery({
     queryKey: ['campus-insights'],
     queryFn: () => communityApi.getInsights(),
+    enabled: isAdmin,
     staleTime: 5 * 60 * 1000,
   })
+
+  if (!isAdmin) {
+    return null
+  }
 
   if (isLoading) {
     return (

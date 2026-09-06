@@ -1,7 +1,9 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { communityApi } from '../../api/community'
-import { Sparkles, UserPlus } from 'lucide-react'
+import { Sparkles, User } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
+import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { isUserVerified } from '@/utils/user'
 
 export function PeopleWorthKnowing() {
   const { data, isLoading, error } = useInfiniteQuery({
@@ -47,7 +49,7 @@ export function PeopleWorthKnowing() {
             <Link 
               to="/profile/$username" 
               params={{ username: person.username || person.id }} 
-              className="flex flex-col items-center group"
+              className="flex flex-col items-center group w-full"
             >
               <div className="relative mb-3">
                 {person.avatarUrl ? (
@@ -59,8 +61,9 @@ export function PeopleWorthKnowing() {
                 )}
               </div>
               
-              <h3 className="font-semibold text-foreground text-center truncate w-full">
-                {person.displayName}
+              <h3 className="font-semibold text-foreground text-center truncate w-full flex items-center justify-center gap-1">
+                <span className="truncate">{person.displayName}</span>
+                {isUserVerified(person) && <VerifiedBadge />}
               </h3>
               
               <p className="text-xs text-foreground-muted text-center mt-1 line-clamp-2 min-h-[32px]">
@@ -74,10 +77,14 @@ export function PeopleWorthKnowing() {
               </div>
             )}
 
-            <button className="mt-4 w-full flex items-center justify-center gap-2 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-xl transition-colors text-sm font-medium">
-              <UserPlus className="h-4 w-4" />
-              Connect
-            </button>
+            <Link
+              to="/profile/$username"
+              params={{ username: person.username || person.id }}
+              className="mt-4 w-full flex items-center justify-center gap-2 py-2 bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground rounded-xl transition-all duration-200 text-sm font-medium cursor-pointer"
+            >
+              <User className="h-4 w-4" />
+              View Profile
+            </Link>
           </div>
         ))}
       </div>

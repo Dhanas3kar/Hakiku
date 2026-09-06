@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Menu, X, Home, Compass, MessageSquare, Bell, Settings, LogOut, Shield, ChevronRight, Sparkles, Users, Trophy } from 'lucide-react'
+import { Menu, X, Home, Compass, MessageSquare, Bell, Settings, LogOut, Shield, ChevronRight, Users } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import ThemeToggle from './ThemeToggle'
@@ -17,9 +17,7 @@ export default function Header() {
 
   const navItems = [
     { label: 'Home', to: '/', icon: Home },
-    { label: 'Collaborate', to: '/collaborate', icon: Sparkles },
     { label: 'Communities', to: '/communities', icon: Users },
-    { label: 'Hackathons', to: '/hackathons', icon: Trophy },
     { label: 'Discover', to: '/discover', icon: Compass },
     { label: 'Messages', to: '/messages', icon: MessageSquare, badge: unreadCounts.messages },
     { label: 'Notifications', to: '/notifications', icon: Bell, badge: unreadCounts.notifications },

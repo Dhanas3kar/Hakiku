@@ -62,6 +62,29 @@ export interface Poll {
   userVotedOptionIds: string[] // Options the current user voted for
 }
 
+export interface HotTake {
+  id: string
+  authorId: string
+  content: string
+  date?: string | null
+  place?: string | null
+  time?: string | null
+  media?: string | null
+  otherDetails?: string | null
+  createdAt: string
+  upvotesCount?: number
+  downvotesCount?: number
+  score?: number
+  userVote?: 'UP' | 'DOWN' | null
+  author?: {
+    id: string
+    displayName: string
+    username: string
+    avatarUrl: string | null
+    isVerifiedIdentity: boolean
+  }
+}
+
 export interface PaginatedResponse<T> {
   items: T[]
   nextCursorAt?: string
@@ -186,5 +209,33 @@ export const communityApi = {
   // Reporting
   reportContent: async (data: { targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER' | 'HOT_TAKE'; targetId: string; reason: string }): Promise<void> => {
     await client.post('/community/report', data)
+  },
+
+  // Hot Takes
+  createHotTake: async (data: { content: string; date?: string; place?: string; time?: string; media?: string; otherDetails?: string }): Promise<HotTake> => {
+    const res = await client.post<HotTake>('/community/hot-takes', data)
+    return res
+  },
+
+  listHotTakes: async (params?: { limit?: number; offset?: number }): Promise<PaginatedResponse<HotTake>> => {
+    const res = await client.get<any>('/community/hot-takes', { params })
+    if (Array.isArray(res)) {
+      return { items: res }
+    }
+    return res
+  },
+
+  updateHotTake: async (id: string, data: { content: string; date?: string; place?: string; time?: string; media?: string; otherDetails?: string }): Promise<HotTake> => {
+    const res = await client.patch<HotTake>(`/community/hot-takes/${id}`, data)
+    return res
+  },
+
+  deleteHotTake: async (id: string): Promise<void> => {
+    await client.delete(`/community/hot-takes/${id}`)
+  },
+
+  voteHotTake: async (id: string, voteType: 'UP' | 'DOWN'): Promise<{ hotTakeId: string; userVote: 'UP' | 'DOWN' | null; upvotesCount: number; downvotesCount: number; score: number }> => {
+    const res = await client.post<any>(`/community/hot-takes/${id}/vote`, { voteType })
+    return res
   }
 }

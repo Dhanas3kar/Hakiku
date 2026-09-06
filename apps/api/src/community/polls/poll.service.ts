@@ -91,20 +91,61 @@ export class PollService {
         .where(and(eq(pollVotes.pollId, pollId), eq(pollVotes.userId, userId)));
 
       if (!poll.isMultipleChoice && existingVotes.length > 0) {
-        throw new HttpException(
-          'You have already voted in this poll. Remove your vote to change it.',
-          HttpStatus.CONFLICT,
-        );
+        const prevVote = existingVotes[0];
+        if (prevVote.optionId === optionId) {
+          throw new HttpException(
+            'You have already voted for this option',
+            HttpStatus.CONFLICT,
+          );
+        } else {
+          // Switch vote to new option
+          await tx
+            .delete(pollVotes)
+            .where(
+              and(
+                eq(pollVotes.pollId, pollId),
+                eq(pollVotes.userId, userId),
+              ),
+            );
+          await tx
+            .update(pollOptions)
+            .set({ voteCount: sql`GREATEST(0, ${pollOptions.voteCount} - 1)` })
+            .where(eq(pollOptions.id, prevVote.optionId));
+
+          await tx.insert(pollVotes).values({
+            pollId,
+            optionId,
+            userId,
+          });
+          await tx
+            .update(pollOptions)
+            .set({ voteCount: sql`${pollOptions.voteCount} + 1` })
+            .where(eq(pollOptions.id, optionId));
+
+          return { message: 'Vote updated' };
+        }
       }
 
       if (
         poll.isMultipleChoice &&
         existingVotes.some((v) => v.optionId === optionId)
       ) {
-        throw new HttpException(
-          'You have already voted for this option.',
-          HttpStatus.CONFLICT,
-        );
+        // Toggle off specific option in multiple choice
+        await tx
+          .delete(pollVotes)
+          .where(
+            and(
+              eq(pollVotes.pollId, pollId),
+              eq(pollVotes.userId, userId),
+              eq(pollVotes.optionId, optionId),
+            ),
+          );
+        await tx
+          .update(pollOptions)
+          .set({ voteCount: sql`GREATEST(0, ${pollOptions.voteCount} - 1)` })
+          .where(eq(pollOptions.id, optionId));
+
+        return { message: 'Vote removed' };
       }
 
       await tx.insert(pollVotes).values({

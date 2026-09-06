@@ -17,6 +17,7 @@
 *.p12
 *.pfx
 *.jpeg
+*uuid.ts
 
 # ------------------------------------------------------------
 # Node.js / JavaScript / TypeScript

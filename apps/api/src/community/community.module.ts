@@ -11,13 +11,22 @@ import { PollQueryService } from './polls/poll-query.service';
 import { CommunityReportService } from './moderation/community-report.service';
 import { CommunityModerationService } from './moderation/community-moderation.service';
 import { HotTakesService } from './hot-takes/hot-takes.service';
+import { StudentCommunitiesController } from './student-communities/student-communities.controller';
+import { StudentCommunitiesService } from './student-communities/student-communities.service';
 import { ProfileModule } from '../profile/profile.module';
 import { NetworkingModule } from '../networking/networking.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [ProfileModule, NetworkingModule, NotificationsModule],
-  controllers: [CommunityController],
+  imports: [
+    ProfileModule,
+    NetworkingModule,
+    NotificationsModule,
+  ],
+  controllers: [
+    CommunityController,
+    StudentCommunitiesController,
+  ],
   providers: [
     ConfessionService,
     ConfessionQueryService,
@@ -30,7 +39,14 @@ import { NotificationsModule } from '../notifications/notifications.module';
     CommunityReportService,
     CommunityModerationService,
     HotTakesService,
+    StudentCommunitiesService,
   ],
-  exports: [ConfessionModerationService, HotTakesService, PollService],
+  exports: [
+    ConfessionModerationService,
+    HotTakesService,
+    PollService,
+    StudentCommunitiesService,
+  ],
 })
 export class CommunityModule {}
+

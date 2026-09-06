@@ -12,10 +12,12 @@ import {
   HttpStatus,
   HttpException,
   ParseBoolPipe,
+  ParseIntPipe,
   DefaultValuePipe,
   Patch,
 } from '@nestjs/common';
 import { FastifyRequest } from 'fastify';
+import { SkipThrottle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../networking/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -63,16 +65,17 @@ export class CommunityController {
 
   @Get('confessions/hero')
   async getHeroConfession(@Req() req: AuthenticatedRequest) {
-    return this.confessionQueryService.getHeroConfession(req.user.sub);
+    return this.confessionQueryService.getHeroConfession(req.user?.sub || (req.user as any)?.id);
   }
 
+  @SkipThrottle()
   @Post('confessions')
   async submitConfession(
     @Req() req: AuthenticatedRequest,
     @Body() body: SubmitConfessionDto,
   ) {
     return this.confessionService.submitConfession(
-      req.user.sub,
+      req.user?.sub || (req.user as any)?.id,
       body.content,
       body.campus,
     );
@@ -85,7 +88,7 @@ export class CommunityController {
     @Query('offset', new DefaultValuePipe(0)) offset: number,
   ) {
     return this.confessionQueryService.listConfessions(
-      req.user.sub,
+      req.user?.sub || (req.user as any)?.id,
       Number(limit),
       Number(offset),
     );
@@ -196,20 +199,32 @@ export class CommunityController {
   // HOT TAKES
   // ==========================================
 
+  @Get('hot-takes')
+  async getHotTakes(
+    @Req() req: AuthenticatedRequest,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number,
+    @Query('offset', new DefaultValuePipe(0), ParseIntPipe) offset: number,
+  ) {
+    return this.hotTakesService.getHotTakes(req.user.sub, limit, offset);
+  }
+
+  @Post('hot-takes/:id/vote')
+  @HttpCode(HttpStatus.OK)
+  async voteHotTake(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: { voteType: 'UP' | 'DOWN' },
+  ) {
+    const voteType = body?.voteType || 'UP';
+    return this.hotTakesService.voteHotTake(req.user.sub, id, voteType);
+  }
+
   @Post('hot-takes')
   async createHotTake(
     @Req() req: AuthenticatedRequest,
     @Body() body: CreateHotTakeDto,
   ) {
     return this.hotTakesService.createHotTake(req.user.sub, body);
-  }
-
-  @Get('hot-takes')
-  async listHotTakes(
-    @Query('limit', new DefaultValuePipe(20)) limit: number,
-    @Query('offset', new DefaultValuePipe(0)) offset: number,
-  ) {
-    return this.hotTakesService.getHotTakes(Number(limit), Number(offset));
   }
 
   @Delete('hot-takes/:id')

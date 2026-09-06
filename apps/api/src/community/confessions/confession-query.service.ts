@@ -5,7 +5,7 @@ import { eq, and, desc, gt, or } from 'drizzle-orm';
 
 @Injectable()
 export class ConfessionQueryService {
-  async getHeroConfession(viewerId: string) {
+  async getHeroConfession(viewerId?: string) {
     const activeBlocks = await this.getBlockedUserIds(viewerId);
 
     // We fetch the most recently published confession within the last 24h
@@ -21,28 +21,15 @@ export class ConfessionQueryService {
       limit: 20, // Fetch a batch to filter out blocked users
     });
 
-    let isFallback = false;
-
-    // Fallback: if no 24h confessions, just fetch the latest published
-    if (candidates.length === 0) {
-      candidates = await db.query.confessions.findMany({
-        where: eq(confessions.status, 'PUBLISHED'),
-        orderBy: [desc(confessions.publishedAt)],
-        limit: 20,
-      });
-      isFallback = true;
-    }
-
-    const safeHeroes = candidates.filter((c) => !activeBlocks.has(c.authorId)).slice(0, 3);
+    let safeHeroes = candidates.filter((c) => !activeBlocks.has(c.authorId)).slice(0, 5);
 
     return {
       items: safeHeroes.map((c) => this.mapToPublic(c, viewerId)),
-      isFallback,
     };
   }
 
   async listConfessions(
-    viewerId: string,
+    viewerId?: string,
     limit: number = 20,
     offset: number = 0,
   ) {
@@ -63,7 +50,8 @@ export class ConfessionQueryService {
     return paginated.map((c) => this.mapToPublic(c, viewerId));
   }
 
-  private async getBlockedUserIds(userId: string): Promise<Set<string>> {
+  private async getBlockedUserIds(userId?: string): Promise<Set<string>> {
+    if (!userId) return new Set<string>();
     const blockRecords = await db.query.blocks.findMany({
       where: or(eq(blocks.blockerId, userId), eq(blocks.blockedId, userId)),
     });
@@ -75,13 +63,13 @@ export class ConfessionQueryService {
     return blockedIds;
   }
 
-  private mapToPublic(confession: any, viewerId: string) {
+  private mapToPublic(confession: any, viewerId?: string) {
     return {
       id: confession.id,
       content: confession.content,
       campus: confession.campus,
       publishedAt: confession.publishedAt,
-      isAuthor: confession.authorId === viewerId,
+      isAuthor: Boolean(viewerId && confession.authorId === viewerId),
     };
   }
 }

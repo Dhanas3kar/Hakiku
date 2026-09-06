@@ -7,7 +7,7 @@ interface ReportDialogProps {
   isOpen: boolean
   onClose: () => void
   targetId: string
-  targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER' | 'HOT_TAKE'
+  targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER' | 'HOT_TAKE' | 'MESSAGE'
 }
 
 const REPORT_REASONS = [

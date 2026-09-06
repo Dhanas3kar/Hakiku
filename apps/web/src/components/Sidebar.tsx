@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Home, Compass, MessageSquare, Bell, User, Settings, LogOut, Shield, Users, Trophy, Sparkles } from 'lucide-react'
+import { Home, Compass, MessageSquare, Bell, User, Settings, LogOut, Shield, Users } from 'lucide-react'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
 import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from './ThemeToggle'
@@ -18,9 +18,7 @@ export function Sidebar() {
     badge?: number
   }> = [
     { label: 'Home', to: '/', icon: Home },
-    { label: 'Collaborate', to: '/collaborate', icon: Sparkles },
     { label: 'Communities', to: '/communities', icon: Users },
-    { label: 'Hackathons', to: '/hackathons', icon: Trophy },
     { label: 'Discover', to: '/discover', icon: Compass },
     { label: 'Messages', to: '/messages', icon: MessageSquare, badge: unreadCounts.messages },
     { label: 'Notifications', to: '/notifications', icon: Bell, badge: unreadCounts.notifications },

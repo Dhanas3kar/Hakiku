@@ -34,9 +34,10 @@ export class PollQueryService {
       where: eq(pollOptions.pollId, pollId),
     });
 
-    const userVotes = await db.query.pollVotes.findMany({
-      where: and(eq(pollVotes.pollId, pollId), eq(pollVotes.userId, viewerId)),
-    });
+    const userVotes = await db
+      .select()
+      .from(pollVotes)
+      .where(and(eq(pollVotes.pollId, pollId), eq(pollVotes.userId, viewerId)));
 
     const totalVotes = options.reduce((sum, opt) => sum + opt.voteCount, 0);
     const userVotedOptionIds = userVotes.map((v) => v.optionId);
