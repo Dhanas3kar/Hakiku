@@ -198,16 +198,16 @@ export const communityApi = {
     return res
   },
 
-  votePoll: async (id: string, optionId: string): Promise<void> => {
-    await client.post(`/community/polls/${id}/vote`, { optionId })
+  votePoll: async (id: string, optionId: string): Promise<any> => {
+    return client.post(`/community/polls/${id}/vote`, { optionId })
   },
 
-  removeVote: async (id: string, optionId?: string): Promise<void> => {
-    await client.delete(`/community/polls/${id}/vote`, { data: { optionId } })
+  removeVote: async (id: string, optionId?: string): Promise<any> => {
+    return client.delete(`/community/polls/${id}/vote`, { data: { optionId } })
   },
 
   // Reporting
-  reportContent: async (data: { targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER' | 'HOT_TAKE'; targetId: string; reason: string }): Promise<void> => {
+  reportContent: async (data: { targetType: 'CONFESSION' | 'POLL' | 'POST' | 'COMMENT' | 'USER' | 'HOT_TAKE' | 'MESSAGE'; targetId: string; reason: string }): Promise<void> => {
     await client.post('/community/report', data)
   },
 

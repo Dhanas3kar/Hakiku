@@ -10,6 +10,9 @@ export interface HeroConfession {
   isAuthor?: boolean
   imageUrl?: string | null
   authorName?: string | null
+  upvoteCount?: number
+  isUpvoted?: boolean
+  targetHandle?: string | null
 }
 
 export const confessionsApi = {
@@ -19,5 +22,9 @@ export const confessionsApi = {
     } catch {
       return { items: [], isFallback: false }
     }
+  },
+
+  upvoteConfession: async (id: string): Promise<{ confessionId: string; isUpvoted: boolean; upvoteCount: number }> => {
+    return await client.post(`/community/confessions/${id}/upvote`)
   },
 }

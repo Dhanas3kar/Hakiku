@@ -13,13 +13,17 @@ export interface UserProfile {
   department: string | null;
   batch: string | null;
   batchYear?: number | null;
+  graduationYear?: number | null;
   campus?: string | null;
+
   avatarUrl: string | null;
   coverUrl: string | null;
   socialLinks: Record<string, string> | null;
   followersCount?: number;
   followingCount?: number;
   role?: UserRole;
+  status?: 'ACTIVE' | 'SUSPENDED' | 'BANNED' | 'DEACTIVATED' | null;
+  adminHandle?: string | null;
   isVerifiedIdentity?: boolean;
   skillIds?: string[];
   interestIds?: string[];
@@ -57,6 +61,8 @@ export const profileApi = {
     })
   },
   getByUsername: (username: string): Promise<UserProfile> => client.get(`/profile/username/${username}`),
+  getByUserId: (userId: string): Promise<UserProfile> => client.get(`/profile/id/${userId}`),
+
   searchProfiles: async (params: { query?: string; campus?: string; department?: string; batchYear?: number; cursor?: string; limit?: number }): Promise<{ items: UserProfile[], nextCursor: string | null }> => {
     const res = await client.get('/profile/search', { params })
     return {

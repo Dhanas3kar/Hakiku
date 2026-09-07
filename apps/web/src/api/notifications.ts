@@ -1,27 +1,26 @@
 import { client as apiClient } from './client'
 import type { UserProfile } from './profile'
 
-export type NotificationType = 
-  | 'POST_LIKE' 
-  | 'POST_COMMENT' 
-  | 'COMMENT_REPLY' 
+/**
+ * Notification types emitted by the backend.
+ */
+export type NotificationType =
+  | 'POST_LIKE'
+  | 'POST_COMMENT'
+  | 'COMMENT_REPLY'
+  | 'COMMENT_LIKE'
+  | 'MENTION'
   | 'FOLLOW'
   | 'MESSAGE'
-  | 'CONNECTION_REQUEST' 
+  | 'NEW_MESSAGE'
+  | 'CONNECTION_REQUEST'
   | 'CONNECTION_ACCEPTED'
   | 'SYSTEM'
 
-export type NotificationPayload = 
-  | { type: 'POST_LIKE'; payload?: { postId: string; actorId?: string } }
-  | { type: 'POST_COMMENT'; payload?: { postId: string; commentId?: string; actorId?: string } }
-  | { type: 'COMMENT_REPLY'; payload?: { postId: string; commentId?: string; actorId?: string } }
-  | { type: 'FOLLOW'; payload?: any }
-  | { type: 'MESSAGE'; payload?: { conversationId?: string } }
-  | { type: 'CONNECTION_REQUEST'; payload?: any }
-  | { type: 'CONNECTION_ACCEPTED'; payload?: any }
-  | { type: 'SYSTEM'; payload?: any }
-
-export type NotificationItem = {
+/**
+ * A single notification returned by the API.
+ */
+export interface NotificationItem {
   id: string
   recipientId: string
   actorId?: string
@@ -31,65 +30,183 @@ export type NotificationItem = {
   isRead: boolean
   createdAt: string
   updatedAt: string
-} & NotificationPayload
+  type: NotificationType
+  payload?: Record<string, unknown>
+}
 
-
+/**
+ * Cursor-based notification pagination response.
+ */
 export interface PaginatedNotifications {
   items: NotificationItem[]
   nextCursor?: string
   hasMore: boolean
 }
 
-export type NotificationCategory = 'POSTS' | 'CONNECTIONS' | 'MESSAGES' | 'SYSTEM'
+/**
+ * Notification preference categories.
+ */
+export type NotificationCategory =
+  | 'NETWORK'
+  | 'POST_ENGAGEMENT'
+  | 'SYSTEM'
 
+/**
+ * Notification delivery preferences.
+ */
 export interface NotificationPreference {
   category: NotificationCategory
-  emailEnabled: boolean
-  pushEnabled: boolean
-  inAppEnabled: boolean
+  isEmailEnabled: boolean
+  isPushEnabled: boolean
+  isInAppEnabled: boolean
+}
+
+/**
+ * Fields that can be changed for a notification preference.
+ */
+export interface UpdateNotificationPreferenceInput {
+  isEmailEnabled?: boolean
+  isPushEnabled?: boolean
+  isInAppEnabled?: boolean
+}
+
+/**
+ * Query parameters supported by the notification list endpoint.
+ */
+export interface GetNotificationsParams {
+  [key: string]: string | number | boolean | null | undefined
+  cursor?: string
+  limit?: number
+  unreadOnly?: boolean
+}
+
+interface NotificationsApiResponse {
+  data?: NotificationItem[]
+  meta?: {
+    nextCursor?: string | null
+    nextCursorAt?: string | null
+    hasNextPage?: boolean
+  }
 }
 
 export const notificationsApi = {
-  getNotifications: async (params?: { cursor?: string; limit?: number; unreadOnly?: boolean }): Promise<PaginatedNotifications> => {
-    const response = await apiClient.get<any>('/notifications', { params })
+  /**
+   * Fetch notifications using cursor-based pagination.
+   */
+  getNotifications: async (
+    params?: GetNotificationsParams,
+  ): Promise<PaginatedNotifications> => {
+    const response =
+      await apiClient.get<NotificationsApiResponse>(
+        '/notifications',
+        { params },
+      )
+
     return {
-      items: response.data || [],
-      nextCursor: response.meta?.nextCursor || undefined,
-      hasMore: response.meta?.hasNextPage || false
+      items: Array.isArray(response.data)
+        ? response.data
+        : [],
+
+      nextCursor:
+        response.meta?.nextCursor ||
+        response.meta?.nextCursorAt ||
+        undefined,
+
+      hasMore:
+        response.meta?.hasNextPage ?? false,
     }
   },
 
-  getUnreadCount: async (): Promise<{ unreadCount: number }> => {
+  /**
+   * Fetch the current user's unread notification count.
+   *
+   * Failure is intentionally treated as zero so a notification
+   * counter does not break the rest of the application.
+   */
+  getUnreadCount: async (): Promise<{
+    unreadCount: number
+  }> => {
     try {
-      const response = await apiClient.get<any>('/notifications/unread-count', { skipAuthRefresh: true })
-      return { unreadCount: response.count || 0 }
+      const response = await apiClient.get<{
+        count?: number
+      }>('/notifications/unread-count', {
+        skipAuthRefresh: true,
+      })
+
+      return {
+        unreadCount:
+          typeof response.count === 'number'
+            ? Math.max(0, response.count)
+            : 0,
+      }
     } catch {
-      return { unreadCount: 0 }
+      return {
+        unreadCount: 0,
+      }
     }
   },
 
+  /**
+   * Mark every notification as read.
+   */
   markAllAsRead: async (): Promise<void> => {
     await apiClient.patch('/notifications/read-all')
   },
 
-  markAsRead: async (id: string): Promise<void> => {
-    await apiClient.patch(`/notifications/${id}/read`)
+  /**
+   * Mark a single notification as read.
+   */
+  markAsRead: async (
+    id: string,
+  ): Promise<void> => {
+    await apiClient.patch(
+      `/notifications/${encodeURIComponent(id)}/read`,
+    )
   },
 
-  deleteNotification: async (id: string): Promise<void> => {
-    await apiClient.delete(`/notifications/${id}`)
+  /**
+   * Delete a notification.
+   */
+  deleteNotification: async (
+    id: string,
+  ): Promise<void> => {
+    await apiClient.delete(
+      `/notifications/${encodeURIComponent(id)}`,
+    )
   },
 
-  getPreferences: async (): Promise<NotificationPreference[]> => {
-    const response = await apiClient.get('/notifications/preferences')
-    return response
+  /**
+   * Fetch notification preferences.
+   */
+  getPreferences: async (): Promise<
+    NotificationPreference[]
+  > => {
+    const response =
+      await apiClient.get<NotificationPreference[]>(
+        '/notifications/preferences',
+      )
+
+    return Array.isArray(response)
+      ? response
+      : []
   },
 
+  /**
+   * Update delivery preferences for a notification category.
+   */
   updatePreference: async (
-    category: NotificationCategory, 
-    data: { emailEnabled?: boolean; pushEnabled?: boolean; inAppEnabled?: boolean }
+    category: NotificationCategory,
+    data: UpdateNotificationPreferenceInput,
   ): Promise<NotificationPreference> => {
-    const response = await apiClient.patch(`/notifications/preferences/${category}`, data)
+    const response =
+      await apiClient.patch<NotificationPreference>(
+        `/notifications/preferences/${encodeURIComponent(
+          category,
+        )}`,
+        data,
+      )
+
     return response
-  }
+  },
 }
+

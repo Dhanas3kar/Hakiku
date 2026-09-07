@@ -36,9 +36,12 @@ export interface CommunityMember {
   joinedAt: string;
   profile?: {
     fullName: string | null;
+    username?: string | null;
     avatarUrl: string | null;
     bio?: string | null;
     department?: string | null;
+    isVerifiedIdentity?: boolean;
+    systemRole?: string | null;
   };
 }
 
@@ -51,7 +54,10 @@ export interface CommunityMessage {
   createdAt: string;
   senderName?: string | null;
   senderAvatar?: string | null;
+  senderRole?: string | null;
+  isSenderVerified?: boolean;
 }
+
 
 export const communitiesApi = {
   getCommunities: (params?: { search?: string; category?: string; visibility?: string; page?: number; limit?: number }) =>
@@ -74,6 +80,11 @@ export const communitiesApi = {
 
   deleteCommunity: (id: string) =>
     apiClient.delete<{ success: boolean }>(`/communities/${id}`),
+
+  transferOwnership: (communityId: string, targetUserId: string) =>
+    apiClient.post<{ success: boolean; message: string }>(`/communities/${communityId}/transfer-ownership`, {
+      targetUserId,
+    }),
 
   getMembers: (id: string, page = 1, limit = 50) =>
     apiClient.get<CommunityMember[]>(`/communities/${id}/members`, { params: { page, limit } }),
