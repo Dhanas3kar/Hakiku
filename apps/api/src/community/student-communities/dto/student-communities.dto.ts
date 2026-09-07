@@ -9,6 +9,7 @@ import {
   Max,
   MaxLength,
   Matches,
+  IsUUID,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 
@@ -28,11 +29,13 @@ export enum ChannelType {
 }
 
 export class CreateCommunityDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   name: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(100)
@@ -41,6 +44,7 @@ export class CreateCommunityDto {
   })
   slug?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(1000)
@@ -58,6 +62,7 @@ export class CreateCommunityDto {
   @IsOptional()
   visibility?: CommunityVisibility = CommunityVisibility.PUBLIC;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(100)
@@ -65,11 +70,13 @@ export class CreateCommunityDto {
 }
 
 export class UpdateCommunityDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(100)
   name?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(1000)
@@ -87,6 +94,7 @@ export class UpdateCommunityDto {
   @IsOptional()
   visibility?: CommunityVisibility;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(100)
@@ -94,11 +102,13 @@ export class UpdateCommunityDto {
 }
 
 export class CreateChannelDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
   name: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(50)
@@ -111,6 +121,7 @@ export class CreateChannelDto {
   @IsOptional()
   type?: ChannelType = ChannelType.TEXT;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(500)
@@ -122,11 +133,13 @@ export class CreateChannelDto {
 }
 
 export class UpdateChannelDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(50)
   name?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(500)
@@ -148,13 +161,22 @@ export class UpdateMemberRoleDto {
 }
 
 export class BanMemberDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsOptional()
   @MaxLength(500)
   reason?: string;
 }
 
+export class TransferOwnershipDto {
+  @IsString()
+  @IsNotEmpty()
+  @IsUUID('4', { message: 'targetUserId must be a valid UUID' })
+  targetUserId: string;
+}
+
 export class SendChannelMessageDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @IsNotEmpty()
   @MaxLength(4000)

@@ -855,6 +855,7 @@ export const confessions = pgTable(
     status: confessionStatusEnum('status')
       .default('PENDING_MODERATION')
       .notNull(),
+    upvoteCount: integer('upvote_count').default(0).notNull(),
     publishedAt: timestamp('published_at'),
     expiresAt: timestamp('expires_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -868,6 +869,26 @@ export const confessions = pgTable(
     campusPublishedIdx: index('idx_confessions_campus_published').on(
       table.campus,
       table.publishedAt,
+    ),
+  }),
+);
+
+export const confessionUpvotes = pgTable(
+  'confession_upvotes',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    confessionId: uuid('confession_id')
+      .notNull()
+      .references(() => confessions.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    unq: uniqueIndex('idx_confession_upvotes_user_confession').on(
+      table.confessionId,
+      table.userId,
     ),
   }),
 );

@@ -67,10 +67,17 @@ export class LikesService {
       throw err;
     }
 
+    const [updatedPost] = await this.db
+      .select({ likesCount: posts.likesCount })
+      .from(posts)
+      .where(eq(posts.id, postId))
+      .limit(1);
+
     return {
       message: 'Post liked successfully',
       postId,
       isLiked: true,
+      likesCount: updatedPost?.likesCount ?? 1,
     };
   }
 
@@ -111,10 +118,17 @@ export class LikesService {
       throw new NotFoundException('Like record not found for this post');
     }
 
+    const [updatedPost] = await this.db
+      .select({ likesCount: posts.likesCount })
+      .from(posts)
+      .where(eq(posts.id, postId))
+      .limit(1);
+
     return {
       message: 'Post unliked successfully',
       postId,
       isLiked: false,
+      likesCount: updatedPost?.likesCount ?? 0,
     };
   }
 }

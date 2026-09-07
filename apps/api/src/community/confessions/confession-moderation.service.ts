@@ -6,15 +6,18 @@ import { eq } from 'drizzle-orm';
 @Injectable()
 export class ConfessionModerationService {
   async getPendingConfessions() {
-    return db.query.confessions.findMany({
-      where: eq(confessions.status, 'PENDING_MODERATION'),
-    });
+    return db
+      .select()
+      .from(confessions)
+      .where(eq(confessions.status, 'PENDING_MODERATION'));
   }
 
   async approveConfession(confessionId: string) {
-    const confession = await db.query.confessions.findFirst({
-      where: eq(confessions.id, confessionId),
-    });
+    const [confession] = await db
+      .select()
+      .from(confessions)
+      .where(eq(confessions.id, confessionId))
+      .limit(1);
 
     if (!confession) {
       throw new HttpException('Confession not found', HttpStatus.NOT_FOUND);
@@ -32,9 +35,11 @@ export class ConfessionModerationService {
   }
 
   async rejectConfession(confessionId: string) {
-    const confession = await db.query.confessions.findFirst({
-      where: eq(confessions.id, confessionId),
-    });
+    const [confession] = await db
+      .select()
+      .from(confessions)
+      .where(eq(confessions.id, confessionId))
+      .limit(1);
 
     if (!confession) {
       throw new HttpException('Confession not found', HttpStatus.NOT_FOUND);

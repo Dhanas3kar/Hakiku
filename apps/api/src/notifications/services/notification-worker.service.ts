@@ -209,8 +209,17 @@ export class NotificationWorkerService
       .values({ eventId })
       .onConflictDoNothing({ target: [notificationEvents.eventId] });
 
-    // Payload includes recipientId, actorId, entityType, entityId
-    const { recipientId, actorId, entityType, entityId, data } = payload;
+    // Validate recipientId existence to prevent 23503 foreign key violations if user was deleted
+    if (recipientId) {
+      const [recipientExists] = await tx
+        .select({ id: schema.users.id })
+        .from(schema.users)
+        .where(eq(schema.users.id, recipientId))
+        .limit(1);
+      if (!recipientExists) {
+        return; // User no longer exists, drop notification
+      }
+    }
 
     let validActorId = actorId || null;
     if (actorId) {
@@ -223,6 +232,7 @@ export class NotificationWorkerService
         validActorId = null;
       }
     }
+
 
     // Do NOT send self-notifications (when user performs action on own content/profile)
     if (recipientId && validActorId && recipientId === validActorId) {

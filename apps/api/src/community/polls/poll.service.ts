@@ -159,7 +159,22 @@ export class PollService {
         .set({ voteCount: sql`${pollOptions.voteCount} + 1` })
         .where(eq(pollOptions.id, optionId));
 
-      return { message: 'Vote recorded' };
+      const updatedOptions = await tx
+        .select({ id: pollOptions.id, text: pollOptions.text, voteCount: pollOptions.voteCount })
+        .from(pollOptions)
+        .where(eq(pollOptions.pollId, pollId));
+
+      const updatedUserVotes = await tx
+        .select({ optionId: pollVotes.optionId })
+        .from(pollVotes)
+        .where(and(eq(pollVotes.pollId, pollId), eq(pollVotes.userId, userId)));
+
+      return {
+        message: 'Vote recorded',
+        pollId,
+        options: updatedOptions,
+        userVotedOptionIds: updatedUserVotes.map((v) => v.optionId),
+      };
     });
   }
 
@@ -185,11 +200,26 @@ export class PollService {
       for (const vote of votesToRemove) {
         await tx
           .update(pollOptions)
-          .set({ voteCount: sql`${pollOptions.voteCount} - 1` })
+          .set({ voteCount: sql`GREATEST(0, ${pollOptions.voteCount} - 1)` })
           .where(eq(pollOptions.id, vote.optionId));
       }
 
-      return { message: 'Vote(s) removed' };
+      const updatedOptions = await tx
+        .select({ id: pollOptions.id, text: pollOptions.text, voteCount: pollOptions.voteCount })
+        .from(pollOptions)
+        .where(eq(pollOptions.pollId, pollId));
+
+      const updatedUserVotes = await tx
+        .select({ optionId: pollVotes.optionId })
+        .from(pollVotes)
+        .where(and(eq(pollVotes.pollId, pollId), eq(pollVotes.userId, userId)));
+
+      return {
+        message: 'Vote(s) removed',
+        pollId,
+        options: updatedOptions,
+        userVotedOptionIds: updatedUserVotes.map((v) => v.optionId),
+      };
     });
   }
 }

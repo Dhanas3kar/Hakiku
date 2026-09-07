@@ -40,7 +40,13 @@ export class MessageQueryService {
       .limit(1);
 
     let anchorDate: Date | null = null;
-    if (afterId) {
+    const isAfterIdUuid =
+      typeof afterId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        afterId,
+      );
+
+    if (afterId && isAfterIdUuid) {
       const [anchor] = await db
         .select({ createdAt: messages.createdAt })
         .from(messages)

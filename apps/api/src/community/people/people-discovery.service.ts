@@ -3,15 +3,13 @@ import { db } from '../../db';
 import {
   profiles,
   users,
-  skills,
-  interests,
   connections,
   connectionRequests,
   blocks,
   profileSkills,
   profileInterests,
 } from '../../db/schema';
-import { eq, or, and, ne } from 'drizzle-orm';
+import { eq, or, inArray } from 'drizzle-orm';
 
 @Injectable()
 export class PeopleDiscoveryService {
@@ -25,47 +23,52 @@ export class PeopleDiscoveryService {
       : 0;
 
     // 1. Fetch current user data
-    const currentUserProfile = await db.query.profiles.findFirst({
-      where: eq(profiles.userId, userId),
-    });
+    const [currentUserProfile] = await db
+      .select()
+      .from(profiles)
+      .where(eq(profiles.userId, userId))
+      .limit(1);
 
     if (!currentUserProfile) {
       return { items: [], nextCursor: null };
     }
 
-    const currentUserSkills = await db.query.profileSkills.findMany({
-      where: eq(profileSkills.profileId, currentUserProfile.id),
-    });
-    const currentUserSkillIds = new Set(
-      currentUserSkills.map((s) => s.skillId),
-    );
+    const currentUserSkills = await db
+      .select({ skillId: profileSkills.skillId })
+      .from(profileSkills)
+      .where(eq(profileSkills.profileId, currentUserProfile.id));
 
-    const currentUserInterests = await db.query.profileInterests.findMany({
-      where: eq(profileInterests.profileId, currentUserProfile.id),
-    });
-    const currentUserInterestIds = new Set(
-      currentUserInterests.map((i) => i.interestId),
-    );
+    const currentUserSkillIds = new Set(currentUserSkills.map((s) => s.skillId));
+
+    const currentUserInterests = await db
+      .select({ interestId: profileInterests.interestId })
+      .from(profileInterests)
+      .where(eq(profileInterests.profileId, currentUserProfile.id));
+
+    const currentUserInterestIds = new Set(currentUserInterests.map((i) => i.interestId));
 
     // Connections (both directions)
-    const currentUserConnections = await db.query.connections.findMany({
-      where: or(
-        eq(connections.userAId, userId),
-        eq(connections.userBId, userId),
-      ),
-    });
+    const currentUserConnections = await db
+      .select()
+      .from(connections)
+      .where(or(eq(connections.userAId, userId), eq(connections.userBId, userId)));
+
     const connectionIds = new Set<string>();
     currentUserConnections.forEach((c) =>
       connectionIds.add(c.userAId === userId ? c.userBId : c.userAId),
     );
 
     // Pending requests
-    const currentUserRequests = await db.query.connectionRequests.findMany({
-      where: or(
-        eq(connectionRequests.senderId, userId),
-        eq(connectionRequests.receiverId, userId),
-      ),
-    });
+    const currentUserRequests = await db
+      .select()
+      .from(connectionRequests)
+      .where(
+        or(
+          eq(connectionRequests.senderId, userId),
+          eq(connectionRequests.receiverId, userId),
+        ),
+      );
+
     const pendingIds = new Set<string>();
     currentUserRequests.forEach((r) => {
       if (r.status === 'PENDING') {
@@ -74,9 +77,11 @@ export class PeopleDiscoveryService {
     });
 
     // Blocks
-    const currentUserBlocks = await db.query.blocks.findMany({
-      where: or(eq(blocks.blockerId, userId), eq(blocks.blockedId, userId)),
-    });
+    const currentUserBlocks = await db
+      .select()
+      .from(blocks)
+      .where(or(eq(blocks.blockerId, userId), eq(blocks.blockedId, userId)));
+
     const blockIds = new Set<string>();
     currentUserBlocks.forEach((b) =>
       blockIds.add(b.blockerId === userId ? b.blockedId : b.blockerId),
@@ -90,8 +95,7 @@ export class PeopleDiscoveryService {
       userId,
     ]);
 
-    // 2. Fetch candidates (limiting to 200 for memory scoring to prevent OOM)
-    // We could optimize this heavily in SQL but for prototype doing it in memory is acceptable
+    // 2. Fetch candidates (limiting to 200)
     const allProfiles = await db
       .select({
         profile: profiles,
@@ -99,74 +103,111 @@ export class PeopleDiscoveryService {
       })
       .from(profiles)
       .innerJoin(users, eq(profiles.userId, users.id))
-      .limit(500);
+      .limit(200);
 
     const candidates = allProfiles.filter(
       (p) => !excludedIds.has(p.profile.userId),
     );
 
-    // 3. Score candidates
-    const scoredCandidates = await Promise.all(
-      candidates.map(async (candidate) => {
-        let score = 0;
+    if (candidates.length === 0) {
+      return { items: [], nextCursor: null };
+    }
 
-        if (
-          candidate.profile.campus &&
-          candidate.profile.campus === currentUserProfile.campus
-        ) {
-          score += 10;
-        }
-        if (
-          candidate.profile.department &&
-          candidate.profile.department === currentUserProfile.department
-        ) {
-          score += 15;
-        }
-        if (
-          candidate.profile.batchYear &&
-          candidate.profile.batchYear === currentUserProfile.batchYear
-        ) {
-          score += 10;
-        }
+    const candidateProfileIds = candidates.map((c) => c.profile.id);
+    const candidateUserIds = candidates.map((c) => c.profile.userId);
 
-        // Shared skills & interests
-        const candidateSkills = await db.query.profileSkills.findMany({
-          where: eq(profileSkills.profileId, candidate.profile.id),
-        });
-        const sharedSkillsCount = candidateSkills.filter((s) =>
-          currentUserSkillIds.has(s.skillId),
-        ).length;
-        score += sharedSkillsCount * 15;
+    // 3. Batch fetch skills, interests, and connections for all candidates in 3 queries
+    const allCandidateSkills = candidateProfileIds.length > 0
+      ? await db
+          .select({ profileId: profileSkills.profileId, skillId: profileSkills.skillId })
+          .from(profileSkills)
+          .where(inArray(profileSkills.profileId, candidateProfileIds))
+      : [];
 
-        const candidateInterests = await db.query.profileInterests.findMany({
-          where: eq(profileInterests.profileId, candidate.profile.id),
-        });
-        const sharedInterestsCount = candidateInterests.filter((i) =>
-          currentUserInterestIds.has(i.interestId),
-        ).length;
-        score += sharedInterestsCount * 15;
+    const allCandidateInterests = candidateProfileIds.length > 0
+      ? await db
+          .select({ profileId: profileInterests.profileId, interestId: profileInterests.interestId })
+          .from(profileInterests)
+          .where(inArray(profileInterests.profileId, candidateProfileIds))
+      : [];
 
-        // Mutual connections
-        const candidateConns = await db.query.connections.findMany({
-          where: or(
-            eq(connections.userAId, candidate.profile.userId),
-            eq(connections.userBId, candidate.profile.userId),
-          ),
-        });
-        let mutualCount = 0;
-        candidateConns.forEach((c) => {
-          const id =
-            c.userAId === candidate.profile.userId ? c.userBId : c.userAId;
-          if (connectionIds.has(id)) mutualCount++;
-        });
-        score += mutualCount * 40;
+    const allCandidateConns = candidateUserIds.length > 0
+      ? await db
+          .select({ userAId: connections.userAId, userBId: connections.userBId })
+          .from(connections)
+          .where(
+            or(
+              inArray(connections.userAId, candidateUserIds),
+              inArray(connections.userBId, candidateUserIds),
+            ),
+          )
+      : [];
 
-        return {
-          ...candidate,
-          score,
-        };
-      }),
-    );
+    const skillsByProfileId = new Map<string, string[]>();
+    allCandidateSkills.forEach((s) => {
+      const list = skillsByProfileId.get(s.profileId) || [];
+      list.push(s.skillId);
+      skillsByProfileId.set(s.profileId, list);
+    });
+
+    const interestsByProfileId = new Map<string, string[]>();
+    allCandidateInterests.forEach((i) => {
+      const list = interestsByProfileId.get(i.profileId) || [];
+      list.push(i.interestId);
+      interestsByProfileId.set(i.profileId, list);
+    });
+
+    const connsByUserId = new Map<string, string[]>();
+    allCandidateConns.forEach((c) => {
+      const listA = connsByUserId.get(c.userAId) || [];
+      listA.push(c.userBId);
+      connsByUserId.set(c.userAId, listA);
+
+      const listB = connsByUserId.get(c.userBId) || [];
+      listB.push(c.userAId);
+      connsByUserId.set(c.userBId, listB);
+    });
+
+    // 4. Fast synchronous scoring in memory
+    const scoredCandidates = candidates.map((candidate) => {
+      let score = 0;
+
+      if (
+        candidate.profile.campus &&
+        candidate.profile.campus === currentUserProfile.campus
+      ) {
+        score += 10;
+      }
+      if (
+        candidate.profile.department &&
+        candidate.profile.department === currentUserProfile.department
+      ) {
+        score += 15;
+      }
+      if (
+        candidate.profile.batchYear &&
+        candidate.profile.batchYear === currentUserProfile.batchYear
+      ) {
+        score += 10;
+      }
+
+      const candSkills = skillsByProfileId.get(candidate.profile.id) || [];
+      const sharedSkillsCount = candSkills.filter((id) => currentUserSkillIds.has(id)).length;
+      score += sharedSkillsCount * 15;
+
+      const candInterests = interestsByProfileId.get(candidate.profile.id) || [];
+      const sharedInterestsCount = candInterests.filter((id) => currentUserInterestIds.has(id)).length;
+      score += sharedInterestsCount * 15;
+
+      const candConns = connsByUserId.get(candidate.profile.userId) || [];
+      const mutualCount = candConns.filter((id) => connectionIds.has(id)).length;
+      score += mutualCount * 40;
+
+      return {
+        ...candidate,
+        score,
+      };
+    });
 
     // Sort by score DESC
     scoredCandidates.sort((a, b) => b.score - a.score);

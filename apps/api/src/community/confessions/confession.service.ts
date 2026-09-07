@@ -1,70 +1,124 @@
-import { Injectable, Inject, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { db } from '../../db';
-import { confessions } from '../../db/schema';
-import Redis from 'ioredis';
-import { eq, and } from 'drizzle-orm';
+import { confessions, confessionUpvotes } from '../../db/schema';
+import { eq, and, sql } from 'drizzle-orm';
 
 @Injectable()
 export class ConfessionService {
-  constructor(@Inject('REDIS_CLIENT') private readonly redis: Redis) {}
-
-  async submitConfession(userId: string, content: string, campus?: string) {
-    const rateLimitKey = `confession:rate_limit_v6:${userId}`;
-    const hasSubmittedRecently = await this.redis.get(rateLimitKey);
-
-    const rateLimitSeconds = process.env.NODE_ENV === 'production'
-      ? parseInt(process.env.CONFESSION_RATE_LIMIT_SECONDS || '30', 10)
-      : 0;
-
-    if (rateLimitSeconds > 0 && hasSubmittedRecently) {
-      throw new HttpException(
-        `Please wait ${rateLimitSeconds} seconds before submitting another confession.`,
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+  async submitConfession(authorId: string, content: string, campus?: string) {
+    if (!content || !content.trim()) {
+      throw new HttpException('Confession content cannot be empty', HttpStatus.BAD_REQUEST);
     }
-
-    const isTest = process.env.NODE_ENV === 'test';
-    const autoApprove = isTest
-      ? process.env.AUTO_APPROVE_CONFESSIONS === 'true'
-      : process.env.AUTO_APPROVE_CONFESSIONS !== 'false';
-    const status = autoApprove ? 'PUBLISHED' : 'PENDING_MODERATION';
-    const publishedAt = autoApprove ? new Date() : null;
 
     const [confession] = await db
       .insert(confessions)
       .values({
-        authorId: userId,
-        content,
-        campus,
-        status,
-        publishedAt,
+        authorId,
+        content: content.trim(),
+        campus: campus || null,
+        status: 'PUBLISHED',
+        publishedAt: new Date(),
+        upvoteCount: 0,
       })
       .returning();
 
-    // Set configurable rate limit
-    if (rateLimitSeconds > 0) {
-      await this.redis.set(rateLimitKey, '1', 'EX', rateLimitSeconds);
-    }
-
     return {
-      message: autoApprove ? 'Confession published successfully' : 'Confession submitted for moderation',
+      message: 'Confession submitted successfully',
       id: confession.id,
+      content: confession.content,
+      campus: confession.campus,
+      status: confession.status,
+      upvoteCount: 0,
     };
   }
 
-  async deleteOwnConfession(userId: string, confessionId: string) {
-    const confession = await db.query.confessions.findFirst({
-      where: and(
-        eq(confessions.id, confessionId),
-        eq(confessions.authorId, userId),
-      ),
-    });
+  async toggleUpvote(userId: string, confessionId: string) {
+    const [confession] = await db
+      .select({ id: confessions.id, upvoteCount: confessions.upvoteCount })
+      .from(confessions)
+      .where(and(eq(confessions.id, confessionId), eq(confessions.status, 'PUBLISHED')))
+      .limit(1);
 
     if (!confession) {
-      throw new HttpException(
-        'Confession not found or not yours',
-        HttpStatus.NOT_FOUND,
-      );
+      throw new HttpException('Confession not found or not published', HttpStatus.NOT_FOUND);
+    }
+
+    return db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(confessionUpvotes)
+        .where(
+          and(
+            eq(confessionUpvotes.confessionId, confessionId),
+            eq(confessionUpvotes.userId, userId),
+          ),
+        )
+        .limit(1);
+
+      let isUpvoted = false;
+
+      if (existing) {
+        await tx
+          .delete(confessionUpvotes)
+          .where(
+            and(
+              eq(confessionUpvotes.confessionId, confessionId),
+              eq(confessionUpvotes.userId, userId),
+            ),
+          );
+
+        await tx
+          .update(confessions)
+          .set({
+            upvoteCount: sql`GREATEST(0, ${confessions.upvoteCount} - 1)`,
+          })
+          .where(eq(confessions.id, confessionId));
+
+        isUpvoted = false;
+      } else {
+        await tx.insert(confessionUpvotes).values({
+          confessionId,
+          userId,
+        });
+
+        await tx
+          .update(confessions)
+          .set({
+            upvoteCount: sql`${confessions.upvoteCount} + 1`,
+          })
+          .where(eq(confessions.id, confessionId));
+
+        isUpvoted = true;
+      }
+
+      const [updated] = await tx
+        .select({ upvoteCount: confessions.upvoteCount })
+        .from(confessions)
+        .where(eq(confessions.id, confessionId))
+        .limit(1);
+
+      return {
+        message: isUpvoted ? 'Upvoted successfully' : 'Upvote removed',
+        confessionId,
+        isUpvoted,
+        upvoteCount: updated?.upvoteCount ?? (isUpvoted ? confession.upvoteCount + 1 : Math.max(0, confession.upvoteCount - 1)),
+      };
+    });
+  }
+
+  async deleteOwnConfession(userId: string, confessionId: string) {
+    const [confession] = await db
+      .select({ authorId: confessions.authorId })
+      .from(confessions)
+      .where(eq(confessions.id, confessionId))
+      .limit(1);
+
+    if (!confession) {
+      throw new HttpException('Confession not found', HttpStatus.NOT_FOUND);
+    }
+
+    if (confession.authorId !== userId) {
+      throw new HttpException('Forbidden', HttpStatus.FORBIDDEN);
     }
 
     await db
@@ -72,6 +126,6 @@ export class ConfessionService {
       .set({ status: 'REMOVED' })
       .where(eq(confessions.id, confessionId));
 
-    return { message: 'Confession removed' };
+    return { message: 'Confession deleted successfully', confessionId };
   }
 }

@@ -7,11 +7,14 @@ import { desc, eq, inArray, and, sql } from 'drizzle-orm';
 export class HotTakesService implements OnModuleInit {
   private db = db;
 
+  private voteTableEnsured = false;
+
   async onModuleInit() {
     await this.ensureVoteTable();
   }
 
   private async ensureVoteTable() {
+    if (this.voteTableEnsured) return;
     try {
       await this.db.execute(sql`
         CREATE TABLE IF NOT EXISTS hot_take_votes (
@@ -22,12 +25,16 @@ export class HotTakesService implements OnModuleInit {
           created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
           CONSTRAINT idx_unique_user_hot_take_vote UNIQUE (hot_take_id, user_id)
         );
+      `);
+      await this.db.execute(sql`
         CREATE INDEX IF NOT EXISTS idx_hot_take_votes_take_id ON hot_take_votes(hot_take_id);
       `);
+      this.voteTableEnsured = true;
     } catch (err) {
-      // Table already exists or creation complete
+      this.voteTableEnsured = true;
     }
   }
+
 
   async createHotTake(authorId: string, data: {
     content: string;
@@ -154,9 +161,8 @@ export class HotTakesService implements OnModuleInit {
   }
 
   async voteHotTake(userId: string, hotTakeId: string, voteType: 'UP' | 'DOWN') {
-    await this.ensureVoteTable();
     const [take] = await this.db
-      .select()
+      .select({ id: hotTakes.id, authorId: hotTakes.authorId })
       .from(hotTakes)
       .where(eq(hotTakes.id, hotTakeId))
       .limit(1);
@@ -166,7 +172,7 @@ export class HotTakesService implements OnModuleInit {
     }
 
     const [existingVote] = await this.db
-      .select()
+      .select({ id: hotTakeVotes.id, voteType: hotTakeVotes.voteType })
       .from(hotTakeVotes)
       .where(and(eq(hotTakeVotes.hotTakeId, hotTakeId), eq(hotTakeVotes.userId, userId)))
       .limit(1);
@@ -213,14 +219,17 @@ export class HotTakesService implements OnModuleInit {
       }
     }
 
-    // Return updated vote counts for this take
-    const allVotes = await this.db
-      .select()
+    // High performance Drizzle ORM count aggregation instead of raw string execution
+    const [countsResult] = await this.db
+      .select({
+        upCount: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${hotTakeVotes.voteType} = 'UP'), 0)::int`,
+        downCount: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${hotTakeVotes.voteType} = 'DOWN'), 0)::int`,
+      })
       .from(hotTakeVotes)
       .where(eq(hotTakeVotes.hotTakeId, hotTakeId));
 
-    const upvotesCount = allVotes.filter(v => v.voteType === 'UP').length;
-    const downvotesCount = allVotes.filter(v => v.voteType === 'DOWN').length;
+    const upvotesCount = Number(countsResult?.upCount || 0);
+    const downvotesCount = Number(countsResult?.downCount || 0);
     const score = upvotesCount - downvotesCount;
 
     return {
@@ -233,17 +242,19 @@ export class HotTakesService implements OnModuleInit {
   }
 
   async getHotTakes(userId?: string | null, limit: number = 10, offset: number = 0) {
-    await this.ensureVoteTable();
+    const safeLimit = Math.min(Math.max(1, limit), 50);
+    const safeOffset = Math.max(0, offset);
+
     const takes = await this.db
       .select()
       .from(hotTakes)
       .orderBy(desc(hotTakes.createdAt))
-      .limit(limit)
-      .offset(offset);
+      .limit(safeLimit)
+      .offset(safeOffset);
 
     if (takes.length === 0) return { items: [], nextOffset: null };
 
-    const takeIds = takes.map(t => t.id);
+    const takeIds = takes.map((t) => t.id);
     const authorIds = Array.from(new Set(takes.map((t: any) => t.authorId)));
 
     const profilesRows = await this.db
@@ -254,41 +265,51 @@ export class HotTakesService implements OnModuleInit {
     const profileMap = new Map();
     profilesRows.forEach((p: any) => profileMap.set(p.userId, p));
 
-    // Fetch votes for the batch of takes
-    const votesRows = takeIds.length > 0 ? await this.db
-      .select()
+    // High performance Drizzle ORM batch aggregation for vote counts
+    const countsResult = await this.db
+      .select({
+        takeId: hotTakeVotes.hotTakeId,
+        upCount: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${hotTakeVotes.voteType} = 'UP'), 0)::int`,
+        downCount: sql<number>`COALESCE(COUNT(*) FILTER (WHERE ${hotTakeVotes.voteType} = 'DOWN'), 0)::int`,
+      })
       .from(hotTakeVotes)
-      .where(inArray(hotTakeVotes.hotTakeId, takeIds)) : [];
+      .where(inArray(hotTakeVotes.hotTakeId, takeIds))
+      .groupBy(hotTakeVotes.hotTakeId);
 
-    const voteMap = new Map<string, { up: number; down: number; userVote: 'UP' | 'DOWN' | null }>();
-    for (const id of takeIds) {
-      voteMap.set(id, { up: 0, down: 0, userVote: null });
+    const voteCountMap = new Map<string, { up: number; down: number }>();
+    for (const row of countsResult) {
+      voteCountMap.set(row.takeId, {
+        up: Number(row.upCount || 0),
+        down: Number(row.downCount || 0),
+      });
     }
 
-    for (const v of votesRows) {
-      const entry = voteMap.get(v.hotTakeId);
-      if (entry) {
-        if (v.voteType === 'UP') entry.up++;
-        else if (v.voteType === 'DOWN') entry.down++;
-        if (userId && v.userId === userId) {
-          entry.userVote = v.voteType as 'UP' | 'DOWN';
-        }
-      }
+
+    // Fetch user's own votes for this batch only
+    const userVoteMap = new Map<string, 'UP' | 'DOWN'>();
+    if (userId && takeIds.length > 0) {
+      const userVotesRows = await this.db
+        .select({ hotTakeId: hotTakeVotes.hotTakeId, voteType: hotTakeVotes.voteType })
+        .from(hotTakeVotes)
+        .where(and(inArray(hotTakeVotes.hotTakeId, takeIds), eq(hotTakeVotes.userId, userId)));
+
+      userVotesRows.forEach(v => userVoteMap.set(v.hotTakeId, v.voteType as 'UP' | 'DOWN'));
     }
 
     const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
 
     const items = takes.map((t: any) => {
       const prof = profileMap.get(t.authorId);
-      const voteData = voteMap.get(t.id) || { up: 0, down: 0, userVote: null };
-      const score = voteData.up - voteData.down;
+      const counts = voteCountMap.get(t.id) || { up: 0, down: 0 };
+      const userVote = userVoteMap.get(t.id) || null;
+      const score = counts.up - counts.down;
 
       return {
         ...t,
-        upvotesCount: voteData.up,
-        downvotesCount: voteData.down,
+        upvotesCount: counts.up,
+        downvotesCount: counts.down,
         score,
-        userVote: voteData.userVote,
+        userVote,
         author: {
           id: t.authorId,
           displayName: prof?.displayName || 'Student',

@@ -65,7 +65,9 @@ export class CommunityController {
 
   @Get('confessions/hero')
   async getHeroConfession(@Req() req: AuthenticatedRequest) {
-    return this.confessionQueryService.getHeroConfession(req.user?.sub || (req.user as any)?.id);
+    const userId = req.user?.sub || (req.user as any)?.id;
+    const userRole = req.user?.role;
+    return this.confessionQueryService.getHeroConfession(userId, userRole);
   }
 
   @SkipThrottle()
@@ -87,11 +89,24 @@ export class CommunityController {
     @Query('limit', new DefaultValuePipe(20)) limit: number,
     @Query('offset', new DefaultValuePipe(0)) offset: number,
   ) {
+    const userId = req.user?.sub || (req.user as any)?.id;
+    const userRole = req.user?.role;
     return this.confessionQueryService.listConfessions(
-      req.user?.sub || (req.user as any)?.id,
+      userId,
+      userRole,
       Number(limit),
       Number(offset),
     );
+  }
+
+  @Post('confessions/:id/upvote')
+  @HttpCode(HttpStatus.OK)
+  async upvoteConfession(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+  ) {
+    const userId = req.user?.sub || (req.user as any)?.id;
+    return this.confessionService.toggleUpvote(userId, id);
   }
 
   @Delete('confessions/:id')

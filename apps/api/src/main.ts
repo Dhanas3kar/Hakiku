@@ -144,8 +144,15 @@ async function bootstrap() {
         community_id UUID NOT NULL REFERENCES communities(id) ON DELETE CASCADE,
         sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         content TEXT NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        deleted_at TIMESTAMP,
+        deleted_by UUID REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE community_messages ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
+      ALTER TABLE community_messages ADD COLUMN IF NOT EXISTS deleted_by UUID REFERENCES users(id) ON DELETE SET NULL;
+      ALTER TABLE community_messages ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();
+      CREATE INDEX IF NOT EXISTS idx_community_messages_chan_created ON community_messages(channel_id, created_at);
 
       -- Hackathons & Hackathon Teams Tables
       CREATE TABLE IF NOT EXISTS hackathons (

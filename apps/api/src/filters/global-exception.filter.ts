@@ -81,6 +81,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         code = 'BAD_REQUEST';
         message = 'Invalid reference. The requested resource or related entity does not exist.';
         devDetails = { code: errCode, detail: rawError.detail };
+      } else if (errCode === '22P02') {
+        status = HttpStatus.BAD_REQUEST;
+        code = 'BAD_REQUEST';
+        message = 'Invalid input format for resource identifier.';
+        devDetails = { code: errCode, detail: rawError.detail };
       } else {
         // 500 Unhandled Error
         status = HttpStatus.INTERNAL_SERVER_ERROR;

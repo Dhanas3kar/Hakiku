@@ -26,6 +26,19 @@ export class MessageReadService {
       conversationId,
     );
 
+    const isUuid =
+      typeof messageId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        messageId,
+      );
+
+    if (!isUuid) {
+      if (typeof messageId === 'string' && messageId.startsWith('temp-')) {
+        return this.markConversationAsRead(userId, conversationId);
+      }
+      throw new NotFoundException('Message not found');
+    }
+
     // Verify message exists in conversation
     const [message] = await db
       .select()

@@ -43,24 +43,32 @@ export class StudentCommunitiesService {
       .replace(/^-+|-+$/g, '');
   }
 
+  private formatAvatarUrl(key?: string | null): string | null {
+    if (!key) return null;
+    if (key.startsWith('http://') || key.startsWith('https://')) return key;
+    const baseUrl = process.env.BASE_URL || 'http://localhost:3001';
+    return `${baseUrl}/uploads/${key}`;
+  }
+
   // --- COMMUNITY CORE ---
 
   async createCommunity(userId: string, dto: CreateCommunityDto) {
     const rawSlug = dto.slug || this.generateSlug(dto.name);
     const slug = rawSlug || `community-${Date.now()}`;
 
-    // Check slug uniqueness
-    const [existing] = await db
-      .select()
-      .from(communities)
-      .where(eq(communities.slug, slug))
-      .limit(1);
-    if (existing) {
-      throw new ConflictException('A community with this slug already exists.');
-    }
-
     return await db.transaction(async (tx) => {
-      // 1. Create Community
+      // 1. Check slug uniqueness inside transaction
+      const [existing] = await tx
+        .select()
+        .from(communities)
+        .where(eq(communities.slug, slug))
+        .limit(1);
+
+      if (existing) {
+        throw new ConflictException('A community with this slug already exists.');
+      }
+
+      // 2. Create Community
       const [newCommunity] = await tx
         .insert(communities)
         .values({
@@ -75,14 +83,14 @@ export class StudentCommunitiesService {
         })
         .returning();
 
-      // 2. Add Owner as OWNER in community_members
+      // 3. Add Owner as OWNER in community_members
       await tx.insert(communityMembers).values({
         communityId: newCommunity.id,
         userId,
         role: 'OWNER',
       });
 
-      // 3. Create default channels: #general and #announcements
+      // 4. Create default channels: #general and #announcements
       await tx.insert(communityChannels).values([
         {
           communityId: newCommunity.id,
@@ -112,8 +120,8 @@ export class StudentCommunitiesService {
 
   async getCommunities(userId: string | undefined, dto: QueryCommunitiesDto) {
     try {
-      const page = Number(dto?.page) || 1;
-      const limit = Number(dto?.limit) || 20;
+      const page = Math.max(1, Number(dto?.page) || 1);
+      const limit = Math.min(Math.max(1, Number(dto?.limit) || 20), 100);
       const offset = (page - 1) * limit;
 
       const conditions = [];
@@ -207,25 +215,29 @@ export class StudentCommunitiesService {
   async getMyCommunities(userId: string | undefined) {
     if (!userId) return [];
     try {
-      const memberships = await db
-        .select()
+      const items = await db
+        .select({
+          id: communities.id,
+          name: communities.name,
+          slug: communities.slug,
+          description: communities.description,
+          avatarUrl: communities.avatarUrl,
+          bannerUrl: communities.bannerUrl,
+          ownerId: communities.ownerId,
+          visibility: communities.visibility,
+          category: communities.category,
+          createdAt: communities.createdAt,
+          updatedAt: communities.updatedAt,
+          userRole: communityMembers.role,
+        })
         .from(communityMembers)
+        .innerJoin(communities, eq(communities.id, communityMembers.communityId))
         .where(eq(communityMembers.userId, userId))
         .orderBy(desc(communityMembers.joinedAt));
 
-      if (memberships.length === 0) return [];
-
-      const communityIds = memberships.map((m) => m.communityId);
-      const commList = await db
-        .select()
-        .from(communities)
-        .where(inArray(communities.id, communityIds));
-
-      const roleMap = new Map(memberships.map((m) => [m.communityId, m.role]));
-
-      return commList.map((c) => ({
-        ...c,
-        userRole: roleMap.get(c.id) || 'MEMBER',
+      return items.map((item) => ({
+        ...item,
+        isMember: true,
       }));
     } catch (error) {
       console.error('[StudentCommunitiesService.getMyCommunities Error]:', error);
@@ -307,7 +319,7 @@ export class StudentCommunitiesService {
   }
 
   async updateCommunity(userId: string, communityId: string, dto: UpdateCommunityDto) {
-    const member = await this.requireMemberRole(communityId, userId, ['OWNER']);
+    await this.requireMemberRole(communityId, userId, ['OWNER']);
 
     const [updated] = await db
       .update(communities)
@@ -329,8 +341,87 @@ export class StudentCommunitiesService {
   async deleteCommunity(userId: string, communityId: string) {
     await this.requireMemberRole(communityId, userId, ['OWNER']);
 
-    await db.delete(communities).where(eq(communities.id, communityId));
+    await db.transaction(async (tx) => {
+      await tx.delete(communities).where(eq(communities.id, communityId));
+    });
+
+    await this.publishEvent('community_events', {
+      type: 'community:deleted',
+      communityId,
+    });
+
     return { success: true, message: 'Community deleted successfully' };
+  }
+
+  async transferOwnership(actorId: string, communityId: string, targetUserId: string) {
+    if (actorId === targetUserId) {
+      throw new BadRequestException('You are already the owner of this community');
+    }
+
+    await this.requireMemberRole(communityId, actorId, ['OWNER']);
+
+    const [targetMember] = await db
+      .select()
+      .from(communityMembers)
+      .where(
+        and(
+          eq(communityMembers.communityId, communityId),
+          eq(communityMembers.userId, targetUserId),
+        ),
+      )
+      .limit(1);
+
+    if (!targetMember) {
+      throw new BadRequestException('Target user must be an active member of the community to receive ownership');
+    }
+
+    await db.transaction(async (tx) => {
+      // 1. Demote actor to MODERATOR
+      await tx
+        .update(communityMembers)
+        .set({ role: 'MODERATOR' })
+        .where(
+          and(
+            eq(communityMembers.communityId, communityId),
+            eq(communityMembers.userId, actorId),
+          ),
+        );
+
+      // 2. Promote target to OWNER
+      await tx
+        .update(communityMembers)
+        .set({ role: 'OWNER' })
+        .where(
+          and(
+            eq(communityMembers.communityId, communityId),
+            eq(communityMembers.userId, targetUserId),
+          ),
+        );
+
+      // 3. Update community ownerId
+      await tx
+        .update(communities)
+        .set({ ownerId: targetUserId, updatedAt: new Date() })
+        .where(eq(communities.id, communityId));
+
+      // 4. Log moderation event
+      await tx.insert(communityModerationEvents).values({
+        communityId,
+        actorId,
+        targetUserId,
+        action: 'OWNERSHIP_TRANSFERRED',
+        reason: 'Ownership transferred by community owner',
+      });
+    });
+
+    await this.publishEvent('community_events', {
+      type: 'community:ownership:transferred',
+      communityId,
+      previousOwnerId: actorId,
+      newOwnerId: targetUserId,
+    });
+
+    return { success: true, message: 'Ownership transferred successfully' };
   }
 
   // --- MEMBERSHIP & ROLES ---
@@ -361,6 +452,7 @@ export class StudentCommunitiesService {
         ),
       )
       .limit(1);
+
     if (ban) {
       throw new ForbiddenException('You are banned from joining this community');
     }
@@ -380,11 +472,14 @@ export class StudentCommunitiesService {
       return { success: true, message: 'Already a member', role: existing.role };
     }
 
-    await db.insert(communityMembers).values({
-      communityId,
-      userId,
-      role: 'MEMBER',
-    });
+    await db
+      .insert(communityMembers)
+      .values({
+        communityId,
+        userId,
+        role: 'MEMBER',
+      })
+      .onConflictDoNothing();
 
     // Broadcast realtime member joined event
     await this.publishEvent('community_events', {
@@ -436,8 +531,24 @@ export class StudentCommunitiesService {
     return { success: true, message: 'Left community successfully' };
   }
 
-  async getMembers(communityId: string, page = 1, limit = 50) {
-    const offset = (page - 1) * limit;
+  async getMembers(requesterId: string | undefined, communityId: string, page = 1, limit = 50) {
+    const [community] = await db
+      .select()
+      .from(communities)
+      .where(eq(communities.id, communityId))
+      .limit(1);
+
+    if (!community) {
+      throw new NotFoundException('Community not found');
+    }
+
+    if (community.visibility === 'PRIVATE') {
+      await this.requireMembership(communityId, requesterId);
+    }
+
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(Math.max(1, limit), 100);
+    const offset = (safePage - 1) * safeLimit;
 
     const memberList = await db
       .select({
@@ -446,7 +557,8 @@ export class StudentCommunitiesService {
         joinedAt: communityMembers.joinedAt,
         profile: {
           fullName: profiles.displayName,
-          avatarUrl: profiles.avatarKey,
+          username: profiles.username,
+          avatarKey: profiles.avatarKey,
           bio: profiles.bio,
           department: profiles.department,
         },
@@ -456,10 +568,21 @@ export class StudentCommunitiesService {
       .leftJoin(profiles, eq(profiles.userId, communityMembers.userId))
       .where(eq(communityMembers.communityId, communityId))
       .orderBy(asc(communityMembers.joinedAt))
-      .limit(limit)
+      .limit(safeLimit)
       .offset(offset);
 
-    return memberList;
+    return memberList.map((m) => ({
+      ...m,
+      profile: m.profile
+        ? {
+            fullName: m.profile.fullName,
+            username: m.profile.username,
+            avatarUrl: this.formatAvatarUrl(m.profile.avatarKey),
+            bio: m.profile.bio,
+            department: m.profile.department,
+          }
+        : null,
+    }));
   }
 
   async updateMemberRole(
@@ -470,8 +593,12 @@ export class StudentCommunitiesService {
   ) {
     await this.requireMemberRole(communityId, actorId, ['OWNER']);
 
+    if (dto.role === 'OWNER') {
+      throw new BadRequestException('Use the /transfer-ownership endpoint to transfer community ownership');
+    }
+
     if (actorId === targetUserId) {
-      throw new BadRequestException('Cannot change your own owner role directly');
+      throw new BadRequestException('Cannot change your own role directly');
     }
 
     const [updated] = await db
@@ -498,7 +625,7 @@ export class StudentCommunitiesService {
     targetUserId: string,
     dto: BanMemberDto,
   ) {
-    await this.requireMemberRole(communityId, actorId, ['OWNER', 'MODERATOR']);
+    const actorMember = await this.requireMemberRole(communityId, actorId, ['OWNER', 'MODERATOR']);
 
     if (actorId === targetUserId) {
       throw new BadRequestException('Cannot ban yourself');
@@ -520,6 +647,10 @@ export class StudentCommunitiesService {
       throw new ForbiddenException('Cannot ban community owner');
     }
 
+    if (actorMember.role === 'MODERATOR' && targetMembership?.role === 'MODERATOR') {
+      throw new ForbiddenException('Moderators cannot ban other moderators');
+    }
+
     return await db.transaction(async (tx) => {
       // 1. Remove from members
       await tx
@@ -538,11 +669,21 @@ export class StudentCommunitiesService {
           communityId,
           userId: targetUserId,
           bannedBy: actorId,
-          reason: dto.reason,
+          reason: dto.reason || null,
         })
+        .onConflictDoNothing()
         .returning();
 
-      return ban;
+      // 3. Insert moderation log event
+      await tx.insert(communityModerationEvents).values({
+        communityId,
+        actorId,
+        targetUserId,
+        action: 'MEMBER_BANNED',
+        reason: dto.reason || null,
+      });
+
+      return ban || { communityId, userId: targetUserId, bannedBy: actorId, reason: dto.reason || null };
     });
   }
 
@@ -556,24 +697,40 @@ export class StudentCommunitiesService {
     await this.requireMemberRole(communityId, actorId, ['OWNER', 'MODERATOR']);
 
     const slug = dto.slug || this.generateSlug(dto.name);
-
-    const [existing] = await db
-      .select()
-      .from(communityChannels)
-      .where(
-        and(
-          eq(communityChannels.communityId, communityId),
-          eq(communityChannels.slug, slug),
-        ),
-      )
-      .limit(1);
-
-    if (existing) {
-      throw new ConflictException('A channel with this name/slug already exists');
+    if (!slug) {
+      throw new BadRequestException('Channel name must produce a valid slug');
     }
 
-    const [channel] = await txInsertChannel(communityId, dto, slug);
-    return channel;
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(communityChannels)
+        .where(
+          and(
+            eq(communityChannels.communityId, communityId),
+            eq(communityChannels.slug, slug),
+          ),
+        )
+        .limit(1);
+
+      if (existing) {
+        throw new ConflictException('A channel with this name/slug already exists in this community');
+      }
+
+      const [channel] = await tx
+        .insert(communityChannels)
+        .values({
+          communityId,
+          name: dto.name,
+          slug,
+          type: dto.type || 'TEXT',
+          description: dto.description || null,
+          isPrivate: dto.isPrivate || false,
+        })
+        .returning();
+
+      return channel;
+    });
   }
 
   async getChannelMessages(
@@ -593,11 +750,28 @@ export class StudentCommunitiesService {
       throw new NotFoundException('Community not found');
     }
 
-    if (community.visibility === 'PRIVATE') {
+    const [channel] = await db
+      .select()
+      .from(communityChannels)
+      .where(
+        and(
+          eq(communityChannels.id, channelId),
+          eq(communityChannels.communityId, communityId),
+        ),
+      )
+      .limit(1);
+
+    if (!channel) {
+      throw new NotFoundException('Channel not found in this community');
+    }
+
+    if (community.visibility === 'PRIVATE' || channel.isPrivate) {
       await this.requireMembership(communityId, userId);
     }
 
-    const offset = (page - 1) * limit;
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(Math.max(1, limit), 100);
+    const offset = (safePage - 1) * safeLimit;
 
     const messageList = await db
       .select({
@@ -608,7 +782,7 @@ export class StudentCommunitiesService {
         content: communityMessages.content,
         createdAt: communityMessages.createdAt,
         senderName: profiles.displayName,
-        senderAvatar: profiles.avatarKey,
+        senderAvatarKey: profiles.avatarKey,
       })
       .from(communityMessages)
       .leftJoin(profiles, eq(profiles.userId, communityMessages.senderId))
@@ -619,10 +793,19 @@ export class StudentCommunitiesService {
         ),
       )
       .orderBy(asc(communityMessages.createdAt))
-      .limit(limit)
+      .limit(safeLimit)
       .offset(offset);
 
-    return messageList;
+    return messageList.map((msg) => ({
+      id: msg.id,
+      channelId: msg.channelId,
+      communityId: msg.communityId,
+      senderId: msg.senderId,
+      content: msg.content,
+      createdAt: msg.createdAt,
+      senderName: msg.senderName,
+      senderAvatar: this.formatAvatarUrl(msg.senderAvatarKey),
+    }));
   }
 
   async sendChannelMessage(
@@ -635,6 +818,10 @@ export class StudentCommunitiesService {
       throw new ForbiddenException('Authentication required');
     }
 
+    if (!dto.content || !dto.content.trim()) {
+      throw new BadRequestException('Message content cannot be empty');
+    }
+
     const [community] = await db
       .select()
       .from(communities)
@@ -643,30 +830,6 @@ export class StudentCommunitiesService {
 
     if (!community) {
       throw new NotFoundException('Community not found');
-    }
-
-    const [membership] = await db
-      .select()
-      .from(communityMembers)
-      .where(
-        and(
-          eq(communityMembers.communityId, communityId),
-          eq(communityMembers.userId, senderId),
-        ),
-      )
-      .limit(1);
-
-    if (!membership) {
-      if (community.visibility === 'PUBLIC') {
-        // Auto-join public community on sending first message
-        await db.insert(communityMembers).values({
-          communityId,
-          userId: senderId,
-          role: 'MEMBER',
-        }).onConflictDoNothing();
-      } else {
-        throw new ForbiddenException('You must be a member of this community to post messages');
-      }
     }
 
     const [channel] = await db
@@ -681,7 +844,46 @@ export class StudentCommunitiesService {
       .limit(1);
 
     if (!channel) {
-      throw new NotFoundException('Channel not found');
+      throw new NotFoundException('Channel not found in this community');
+    }
+
+    const [ban] = await db
+      .select()
+      .from(communityBans)
+      .where(
+        and(
+          eq(communityBans.communityId, communityId),
+          eq(communityBans.userId, senderId),
+        ),
+      )
+      .limit(1);
+
+    if (ban) {
+      throw new ForbiddenException('Banned users cannot post messages');
+    }
+
+    const [membership] = await db
+      .select()
+      .from(communityMembers)
+      .where(
+        and(
+          eq(communityMembers.communityId, communityId),
+          eq(communityMembers.userId, senderId),
+        ),
+      )
+      .limit(1);
+
+    if (!membership) {
+      if (community.visibility === 'PUBLIC' && !channel.isPrivate) {
+        // Auto-join public community on sending first message
+        await db.insert(communityMembers).values({
+          communityId,
+          userId: senderId,
+          role: 'MEMBER',
+        }).onConflictDoNothing();
+      } else {
+        throw new ForbiddenException('You must be a member of this community to post messages');
+      }
     }
 
     const [message] = await db
@@ -690,19 +892,34 @@ export class StudentCommunitiesService {
         channelId,
         communityId,
         senderId,
-        content: dto.content,
+        content: dto.content.trim(),
       })
       .returning();
+
+    const [senderProfile] = await db
+      .select({
+        displayName: profiles.displayName,
+        avatarKey: profiles.avatarKey,
+      })
+      .from(profiles)
+      .where(eq(profiles.userId, senderId))
+      .limit(1);
+
+    const fullMessage = {
+      ...message,
+      senderName: senderProfile?.displayName || 'Student Member',
+      senderAvatar: this.formatAvatarUrl(senderProfile?.avatarKey),
+    };
 
     // Broadcast realtime event
     await this.publishEvent('community_events', {
       type: 'community:message:new',
       communityId,
       channelId,
-      payload: message,
+      payload: fullMessage,
     });
 
-    return message;
+    return fullMessage;
   }
 
   // --- HELPER GUARDS & REUSABLES ---
@@ -748,18 +965,4 @@ export class StudentCommunitiesService {
       console.error(`[StudentCommunitiesService] Redis publish error on ${channel}:`, err);
     }
   }
-}
-
-async function txInsertChannel(communityId: string, dto: CreateChannelDto, slug: string) {
-  return db
-    .insert(communityChannels)
-    .values({
-      communityId,
-      name: dto.name,
-      slug,
-      type: dto.type || 'TEXT',
-      description: dto.description || null,
-      isPrivate: dto.isPrivate || false,
-    })
-    .returning();
 }

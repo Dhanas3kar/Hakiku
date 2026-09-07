@@ -22,6 +22,7 @@ import {
   BanMemberDto,
   SendChannelMessageDto,
   QueryCommunitiesDto,
+  TransferOwnershipDto,
 } from './dto/student-communities.dto';
 
 interface AuthenticatedRequest {
@@ -95,6 +96,17 @@ export class StudentCommunitiesController {
     return this.communitiesService.deleteCommunity(userId, id);
   }
 
+  @Post(':id/transfer-ownership')
+  @HttpCode(HttpStatus.OK)
+  async transferOwnership(
+    @Req() req: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Body() body: TransferOwnershipDto,
+  ) {
+    const userId = req.user?.sub || (req.user as any)?.id;
+    return this.communitiesService.transferOwnership(userId, id, body.targetUserId);
+  }
+
   @Post(':id/join')
   @HttpCode(HttpStatus.OK)
   async joinCommunity(
@@ -117,11 +129,14 @@ export class StudentCommunitiesController {
 
   @Get(':id/members')
   async getMembers(
+    @Req() req: AuthenticatedRequest,
     @Param('id') id: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
   ) {
+    const userId = req.user?.sub || (req.user as any)?.id;
     return this.communitiesService.getMembers(
+      userId,
       id,
       Number(page || 1),
       Number(limit || 50),

@@ -302,6 +302,16 @@ export class MessageService {
       throw new BadRequestException('Message too long');
     }
 
+    const isUuid =
+      typeof messageId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        messageId,
+      );
+
+    if (!isUuid) {
+      throw new NotFoundException('Message not found');
+    }
+
     const [message] = await db
       .select()
       .from(messages)
@@ -370,6 +380,16 @@ export class MessageService {
    * Soft delete a message
    */
   async deleteMessage(userId: string, messageId: string) {
+    const isUuid =
+      typeof messageId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        messageId,
+      );
+
+    if (!isUuid) {
+      throw new NotFoundException('Message not found');
+    }
+
     const [message] = await db
       .select()
       .from(messages)
