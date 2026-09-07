@@ -23,7 +23,7 @@ function DiscoverPage() {
   return (
     <div className="flex-1 w-full flex flex-col items-center bg-surface">
       <div
-        className="w-full max-w-2xl flex flex-col bg-surface border-x border-border shadow-sm"
+        className="w-full max-w-full md:max-w-2xl lg:max-w-3xl flex flex-col bg-surface border-x-0 sm:border-x border-border shadow-none sm:shadow-sm"
         style={{ minHeight: 'calc(100dvh - 3.5rem - env(safe-area-inset-bottom, 0px))' }}
       >
         {/* Header */}

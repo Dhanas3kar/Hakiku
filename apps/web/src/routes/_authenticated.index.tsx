@@ -72,7 +72,7 @@ function Home() {
   }
 
   return (
-    <div className="flex flex-col max-w-2xl mx-auto w-full pb-16">
+    <div className="flex flex-col w-full min-w-0 pb-16">
       <PostComposer />
       <ConfessionHero />
 

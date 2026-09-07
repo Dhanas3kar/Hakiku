@@ -1,141 +1,129 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /**
- * SplashScreen — shown on initial app load while auth/session is resolving.
+ * SplashScreen
  *
- * Design decisions:
- * - Uses CSS variables from the existing design system (background, primary, foreground)
- * - Theme is applied server-side via THEME_INIT_SCRIPT in __root.tsx so the splash
- *   inherits the correct theme immediately without a flash.
- * - Minimum display time: 600ms to avoid a jarring flash on fast connections.
- * - Safety timeout: 5s — if auth never resolves, the splash exits gracefully.
- * - Fades out with a CSS transition; removed from DOM after fade completes.
- * - Uses sessionStorage to ensure it only shows on first load, never on SPA navigations.
+ * Shown during initial application bootstrap while authentication/session
+ * state is being resolved.
+ *
+ * Behaviour:
+ * - Respects the existing application theme immediately.
+ * - Minimum display time prevents a visual flash on fast loads.
+ * - Safety timeout prevents the splash from getting stuck forever.
+ * - Smooth CSS fade-out.
+ * - Removed from the DOM after the fade completes.
+ * - Only intended for initial application bootstrap.
  */
 
 interface SplashScreenProps {
-  /** Signal from the app that critical initialization is done */
+  /** True when critical application initialization is complete. */
   ready: boolean
 }
 
 const MIN_DISPLAY_MS = 600
 const SAFETY_TIMEOUT_MS = 5000
+const FADE_DURATION_MS = 500
 
 export function SplashScreen({ ready }: SplashScreenProps) {
   const [visible, setVisible] = useState(true)
   const [fading, setFading] = useState(false)
-  const startTimeRef = useRef(Date.now())
-  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const startTimeRef = useRef(Date.now())
+  const hasStartedFadeRef = useRef(false)
+  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const startFadeOut = useCallback(() => {
+    // Prevent multiple fade-out calls from competing with each other.
+    if (hasStartedFadeRef.current) return
+
+    hasStartedFadeRef.current = true
+
+    if (safetyTimerRef.current) {
+      clearTimeout(safetyTimerRef.current)
+      safetyTimerRef.current = null
+    }
+
+    setFading(true)
+
+    fadeTimerRef.current = setTimeout(() => {
+      setVisible(false)
+      fadeTimerRef.current = null
+    }, FADE_DURATION_MS)
+  }, [])
+
+  /**
+   * Safety timeout.
+   *
+   * Even if authentication/bootstrap gets stuck, the application should
+   * eventually become usable instead of remaining behind the splash.
+   */
   useEffect(() => {
-    // Safety valve: always exit after SAFETY_TIMEOUT_MS regardless of state
     safetyTimerRef.current = setTimeout(() => {
       startFadeOut()
     }, SAFETY_TIMEOUT_MS)
 
     return () => {
-      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current)
-    }
-  }, [])
+      if (safetyTimerRef.current) {
+        clearTimeout(safetyTimerRef.current)
+        safetyTimerRef.current = null
+      }
 
+      if (fadeTimerRef.current) {
+        clearTimeout(fadeTimerRef.current)
+        fadeTimerRef.current = null
+      }
+    }
+  }, [startFadeOut])
+
+  /**
+   * Hide once initialization is complete, while respecting the minimum
+   * splash duration.
+   */
   useEffect(() => {
-    if (!ready) return
+    if (!ready || hasStartedFadeRef.current) return
 
     const elapsed = Date.now() - startTimeRef.current
     const remaining = Math.max(0, MIN_DISPLAY_MS - elapsed)
 
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       startFadeOut()
     }, remaining)
 
-    return () => clearTimeout(t)
-  }, [ready])
-
-  function startFadeOut() {
-    if (safetyTimerRef.current) {
-      clearTimeout(safetyTimerRef.current)
-      safetyTimerRef.current = null
-    }
-    setFading(true)
-    // Remove from DOM after the CSS transition completes (500ms)
-    setTimeout(() => setVisible(false), 500)
-  }
+    return () => clearTimeout(timer)
+  }, [ready, startFadeOut])
 
   if (!visible) return null
 
-  const splashContent = (
+  return (
     <div
       aria-hidden="true"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 999999, // Ensure it's above everything
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'var(--background)',
-        transition: 'opacity 500ms ease, visibility 500ms ease',
-        opacity: fading ? 0 : 1,
-        visibility: fading ? 'hidden' : 'visible',
-        pointerEvents: fading ? 'none' : 'all',
-      }}
+      className="splash-screen"
     >
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '24px',
-          animation: 'splashEntrance 400ms ease forwards',
-        }}
-      >
-        {/* Logo — switches between dark/light versions using CSS media + data-theme */}
-        <div style={{ width: 'clamp(140px, 35vw, 200px)', height: 'auto' }}>
-          {/* Dark theme logo (shown when :root has data-theme="dark" or prefers-color-scheme dark) */}
+      <div className="splash-content">
+        {/* Theme-aware logo */}
+        <div className="splash-logo-container">
           <img
             src="/Dark_theme_logo.png"
-            alt="HAKIKU"
-            className="splash-logo-dark"
-            style={{
-              width: '100%',
-              height: 'auto',
-              objectFit: 'contain',
-              display: 'none',
-            }}
+            alt=""
+            className="splash-logo splash-logo-dark"
           />
-          {/* Light theme logo */}
+
           <img
             src="/light_theme_logo.png"
-            alt="HAKIKU"
-            className="splash-logo-light"
-            style={{
-              width: '100%',
-              height: 'auto',
-              objectFit: 'contain',
-              display: 'none',
-            }}
+            alt=""
+            className="splash-logo splash-logo-light"
           />
         </div>
 
-        {/* Subtle pulsing indicator */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '6px',
-            alignItems: 'center',
-          }}
-        >
-          {[0, 1, 2].map((i) => (
+        {/* Loading indicator */}
+        <div className="splash-loader" aria-hidden="true">
+          {[0, 1, 2].map((index) => (
             <span
-              key={i}
+              key={index}
+              className="splash-dot"
               style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                backgroundColor: 'var(--primary)',
-                animation: `splashDot 1.2s ease-in-out ${i * 0.2}s infinite`,
-                opacity: 0.5,
+                animationDelay: `${index * 0.2}s`,
               }}
             />
           ))}
@@ -143,50 +131,157 @@ export function SplashScreen({ ready }: SplashScreenProps) {
       </div>
 
       <style>{`
-        @keyframes splashEntrance {
-          from { opacity: 0; transform: scale(0.92) translateY(8px); }
-          to   { opacity: 1; transform: scale(1) translateY(0); }
-        }
-        @keyframes splashDot {
-          0%, 80%, 100% { transform: scale(0.8); opacity: 0.4; }
-          40%            { transform: scale(1.2); opacity: 1; }
+        .splash-screen {
+          position: fixed;
+          inset: 0;
+          z-index: 999999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--background);
+
+          opacity: ${fading ? 0 : 1};
+          visibility: ${fading ? 'hidden' : 'visible'};
+          pointer-events: ${fading ? 'none' : 'all'};
+
+          transition:
+            opacity ${FADE_DURATION_MS}ms ease,
+            visibility ${FADE_DURATION_MS}ms ease;
         }
 
-        /* Show dark logo when dark theme is active */
+        .splash-content {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 24px;
+
+          animation: splashEntrance 400ms ease forwards;
+        }
+
+        .splash-logo-container {
+          width: clamp(140px, 35vw, 200px);
+          position: relative;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .splash-logo {
+          width: 100%;
+          height: auto;
+          object-fit: contain;
+        }
+
+        /*
+         * Default: light logo.
+         */
+        .splash-logo-dark {
+          display: none;
+        }
+
+        .splash-logo-light {
+          display: block;
+        }
+
+        /*
+         * Explicit dark theme.
+         */
         html.dark .splash-logo-dark,
         html[data-theme="dark"] .splash-logo-dark {
-          display: block !important;
+          display: block;
         }
+
         html.dark .splash-logo-light,
         html[data-theme="dark"] .splash-logo-light {
-          display: none !important;
+          display: none;
         }
 
-        /* Show light logo by default (light theme) */
-        html:not(.dark):not([data-theme="dark"]) .splash-logo-light {
-          display: block !important;
-        }
-        html:not(.dark):not([data-theme="dark"]) .splash-logo-dark {
-          display: none !important;
+        /*
+         * Explicit light theme always wins over system preference.
+         */
+        html[data-theme="light"] .splash-logo-dark {
+          display: none;
         }
 
-        /* System preference: dark */
+        html[data-theme="light"] .splash-logo-light {
+          display: block;
+        }
+
+        /*
+         * System theme.
+         *
+         * When there is no explicit light/dark selection, follow the OS.
+         */
         @media (prefers-color-scheme: dark) {
           html:not([data-theme="light"]) .splash-logo-dark {
-            display: block !important;
+            display: block;
           }
+
           html:not([data-theme="light"]) .splash-logo-light {
-            display: none !important;
+            display: none;
+          }
+        }
+
+        .splash-loader {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+        }
+
+        .splash-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 9999px;
+          background: var(--primary);
+
+          opacity: 0.5;
+
+          animation:
+            splashDot 1.2s ease-in-out infinite;
+        }
+
+        @keyframes splashEntrance {
+          from {
+            opacity: 0;
+            transform: scale(0.92) translateY(8px);
+          }
+
+          to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+          }
+        }
+
+        @keyframes splashDot {
+          0%,
+          80%,
+          100% {
+            transform: scale(0.8);
+            opacity: 0.4;
+          }
+
+          40% {
+            transform: scale(1.2);
+            opacity: 1;
           }
         }
 
         @media (prefers-reduced-motion: reduce) {
-          @keyframes splashEntrance { from { opacity: 1; } to { opacity: 1; } }
-          @keyframes splashDot { 0%, 100% { opacity: 0.5; } }
+          .splash-content {
+            animation: none;
+          }
+
+          .splash-dot {
+            animation: none;
+            opacity: 0.5;
+          }
+
+          .splash-screen {
+            transition: none;
+          }
         }
       `}</style>
     </div>
   )
-
-  return splashContent
 }

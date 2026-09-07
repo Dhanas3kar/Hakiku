@@ -70,7 +70,7 @@ function MessagesLayout() {
 
   return (
     <div className="flex w-full overflow-hidden bg-surface border-border-subtle
-      h-[calc(100dvh-3.375rem-3.5rem-env(safe-area-inset-bottom,0px))]
+      h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))]
       md:h-[100dvh] md:border-l relative">
       {createConvMutation.isPending && (
         <div className="absolute inset-0 bg-background/60 backdrop-blur-sm z-50 flex items-center justify-center gap-3 text-foreground font-medium">

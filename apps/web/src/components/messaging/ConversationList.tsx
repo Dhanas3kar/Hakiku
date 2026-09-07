@@ -1,10 +1,21 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+} from '@tanstack/react-query'
 import { messagingApi } from '../../api/messaging'
 import { useSocket } from '../../hooks/useSocket'
 import { formatDistanceToNow } from 'date-fns'
-import { Loader2, Plus, MessageSquare, Search, Trash2 } from 'lucide-react'
+import {
+  Loader2,
+  Plus,
+  MessageSquare,
+  Search,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useIntersectionObserver } from 'usehooks-ts'
 import { Avatar } from '../ui/Avatar'
 import { EmptyState } from '../ui/EmptyState'
@@ -12,19 +23,18 @@ import { ErrorState } from '../ui/ErrorState'
 import { NewChatModal } from './NewChatModal'
 
 export function ConversationList() {
-  const { isConnected, messagingSocket } = useSocket()
+  const { messagingSocket } = useSocket()
   const queryClient = useQueryClient()
+
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isNewChatOpen, setIsNewChatOpen] = useState(false)
   const [filterQuery, setFilterQuery] = useState('')
 
-  const deleteConversationMutation = useMutation({
-    mutationFn: (conversationId: string) => messagingApi.deleteConversation(conversationId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['conversations'] })
-      setDeletingId(null)
-    }
-  })
+  /*
+   * --------------------------------------------------------------------------
+   * Conversations Query
+   * --------------------------------------------------------------------------
+   */
 
   const {
     data,
@@ -34,75 +44,187 @@ export function ConversationList() {
     status,
   } = useInfiniteQuery({
     queryKey: ['conversations'],
-    queryFn: ({ pageParam }) => messagingApi.getConversations({ cursorAt: pageParam }),
+    queryFn: ({ pageParam }) =>
+      messagingApi.getConversations({
+        cursorAt: pageParam,
+      }),
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => lastPage.nextCursor || undefined,
+    getNextPageParam: (lastPage) =>
+      lastPage.nextCursor || undefined,
   })
+
+  /*
+   * --------------------------------------------------------------------------
+   * Infinite Scroll
+   * --------------------------------------------------------------------------
+   */
 
   const { isIntersecting, ref: bottomRef } = useIntersectionObserver({
     threshold: 0.1,
   })
 
   useEffect(() => {
-    if (isIntersecting && hasNextPage && !isFetchingNextPage && status !== 'pending') {
+    if (
+      isIntersecting &&
+      hasNextPage &&
+      !isFetchingNextPage &&
+      status !== 'pending'
+    ) {
       fetchNextPage()
     }
-  }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage, status])
+  }, [
+    isIntersecting,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+    status,
+  ])
+
+  /*
+   * --------------------------------------------------------------------------
+   * Delete Conversation
+   * --------------------------------------------------------------------------
+   */
+
+  const deleteConversationMutation = useMutation({
+    mutationFn: (conversationId: string) =>
+      messagingApi.deleteConversation(conversationId),
+
+    onMutate: (conversationId) => {
+      setDeletingId(conversationId)
+    },
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['conversations'],
+      })
+    },
+
+    onSettled: () => {
+      setDeletingId(null)
+    },
+  })
+
+  /*
+   * --------------------------------------------------------------------------
+   * Socket: New Message
+   *
+   * When a new message arrives:
+   * 1. Find the conversation.
+   * 2. Update latestMessage.
+   * 3. Move that conversation to the top.
+   *
+   * If the conversation is not currently loaded, invalidate the query so the
+   * server can return the correct conversation list.
+   * --------------------------------------------------------------------------
+   */
 
   useEffect(() => {
     if (!messagingSocket) return
 
     const handleNewMessage = (payload: any) => {
-      const oldData: any = queryClient.getQueryData(['conversations'])
+      const oldData: any = queryClient.getQueryData([
+        'conversations',
+      ])
+
       if (!oldData || !Array.isArray(oldData.pages)) {
-        queryClient.invalidateQueries({ queryKey: ['conversations'] })
+        queryClient.invalidateQueries({
+          queryKey: ['conversations'],
+        })
         return
       }
-      
+
       let found = false
-      const newPages = oldData.pages.map((page: any) => {
+
+      const updatedPages = oldData.pages.map((page: any) => {
         const items = page.items || []
-        const existingIndex = items.findIndex((c: any) => c.id === payload.conversationId)
-        
-        if (existingIndex !== -1) {
-          found = true
-          const updatedItems = [...items]
-          const updatedConv = {
-            ...updatedItems[existingIndex],
-            latestMessage: payload
-          }
-          updatedItems[existingIndex] = updatedConv
-          return { ...page, items: updatedItems, updatedConv }
+
+        const existingIndex = items.findIndex(
+          (conversation: any) =>
+            conversation.id === payload.conversationId,
+        )
+
+        if (existingIndex === -1) {
+          return page
         }
-        return page
+
+        found = true
+
+        const updatedItems = [...items]
+
+        updatedItems[existingIndex] = {
+          ...updatedItems[existingIndex],
+          latestMessage: payload,
+        }
+
+        return {
+          ...page,
+          items: updatedItems,
+        }
       })
-      
+
+      /*
+       * Conversation isn't in the currently loaded pages.
+       * Let the server provide the correct data.
+       */
       if (!found) {
-        queryClient.invalidateQueries({ 
-          queryKey: ['conversations']
+        queryClient.invalidateQueries({
+          queryKey: ['conversations'],
         })
         return
       }
 
-      queryClient.setQueryData(['conversations'], (old: any) => {
-        if (!old) return old
-        const allItems = newPages.flatMap((page: any) => page.items || [])
-        allItems.sort((a: any, b: any) => {
-          const timeA = new Date(a.latestMessage?.createdAt || 0).getTime()
-          const timeB = new Date(b.latestMessage?.createdAt || 0).getTime()
-          return timeB - timeA
-        })
+      /*
+       * Flatten → sort → redistribute into the existing page sizes.
+       *
+       * This keeps infinite-query pagination intact while ensuring the
+       * conversation with the newest message appears first.
+       */
+      const allItems = updatedPages
+        .flatMap((page: any) => page.items || [])
+        .filter(Boolean)
 
-        let currentIdx = 0
-        const sortedPages = newPages.map((page: any) => {
-          const pageLength = (page.items || []).length
-          const items = allItems.slice(currentIdx, currentIdx + pageLength)
-          currentIdx += pageLength
-          return { ...page, items }
-        })
-        
-        return { ...old, pages: sortedPages }
+      allItems.sort((a: any, b: any) => {
+        const timeA = new Date(
+          a.latestMessage?.createdAt || 0,
+        ).getTime()
+
+        const timeB = new Date(
+          b.latestMessage?.createdAt || 0,
+        ).getTime()
+
+        return timeB - timeA
       })
+
+      let currentIndex = 0
+
+      const sortedPages = updatedPages.map((page: any) => {
+        const pageLength = (page.items || []).length
+
+        const items = allItems.slice(
+          currentIndex,
+          currentIndex + pageLength,
+        )
+
+        currentIndex += pageLength
+
+        return {
+          ...page,
+          items,
+        }
+      })
+
+      queryClient.setQueryData(
+        ['conversations'],
+        (old: any) => {
+          if (!old) return old
+
+          return {
+            ...old,
+            pages: sortedPages,
+          }
+        },
+      )
     }
 
     messagingSocket.on('message:new', handleNewMessage)
@@ -112,41 +234,97 @@ export function ConversationList() {
     }
   }, [messagingSocket, queryClient])
 
-  const conversations = (data?.pages.flatMap((page) => page.items || []) ?? []).filter(Boolean).filter((conv) => 
-    conv.targetUser?.displayName?.toLowerCase().includes(filterQuery.toLowerCase())
-  )
+  /*
+   * --------------------------------------------------------------------------
+   * Derived Conversation List
+   * --------------------------------------------------------------------------
+   */
+
+  const conversations = useMemo(() => {
+    const query = filterQuery.trim().toLowerCase()
+
+    const allConversations =
+      data?.pages
+        .flatMap((page) => page.items || [])
+        .filter(Boolean) ?? []
+
+    if (!query) {
+      return allConversations
+    }
+
+    return allConversations.filter((conversation) =>
+      conversation.targetUser?.displayName
+        ?.toLowerCase()
+        .includes(query),
+    )
+  }, [data, filterQuery])
+
+  /*
+   * --------------------------------------------------------------------------
+   * Render
+   * --------------------------------------------------------------------------
+   */
 
   return (
-    <div className="flex flex-col h-full bg-surface border-r border-border-subtle w-full">
-      {/* Header */}
-      <div className="px-4 py-4 border-b border-border-subtle flex items-center justify-between shrink-0">
-        <h2 className="font-semibold text-xl tracking-tight text-foreground">Messages</h2>
-        <button 
+    <div className="flex h-full w-full flex-col border-r border-border-subtle bg-surface">
+      {/* ------------------------------------------------------------------ */}
+      {/* Header                                                             */}
+      {/* ------------------------------------------------------------------ */}
+
+      <header className="flex shrink-0 items-center justify-between border-b border-border-subtle px-4 py-3.5 sm:px-4 sm:py-4">
+        <h2 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+          Messages
+        </h2>
+
+        <button
+          type="button"
           onClick={() => setIsNewChatOpen(true)}
-          className="p-2 rounded-full hover:bg-surface-muted text-foreground transition-colors cursor-pointer"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition-colors hover:bg-surface-muted active:scale-95"
           title="New Conversation"
           aria-label="New Conversation"
         >
           <Plus className="h-5 w-5" />
         </button>
-      </div>
+      </header>
 
-      {/* Search */}
-      <div className="p-3 border-b border-border-subtle shrink-0">
+      {/* ------------------------------------------------------------------ */}
+      {/* Search                                                             */}
+      {/* ------------------------------------------------------------------ */}
+
+      <div className="shrink-0 border-b border-border-subtle p-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground-subtle" />
-          <input 
-            type="text" 
-            placeholder="Search messages..." 
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-subtle"
+            aria-hidden="true"
+          />
+
+          <input
+            type="search"
             value={filterQuery}
             onChange={(e) => setFilterQuery(e.target.value)}
-            className="hk-input h-10 pl-9 text-sm"
+            placeholder="Search messages..."
+            aria-label="Search conversations"
+            className="hk-input h-10 w-full pl-9 pr-9 text-sm"
           />
+
+          {filterQuery && (
+            <button
+              type="button"
+              onClick={() => setFilterQuery('')}
+              className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-foreground-subtle hover:bg-surface-muted hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto min-h-0">
+      {/* ------------------------------------------------------------------ */}
+      {/* Conversation List                                                  */}
+      {/* ------------------------------------------------------------------ */}
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {status === 'pending' ? (
           <div className="flex justify-center p-8">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -155,78 +333,208 @@ export function ConversationList() {
           <ErrorState
             title="Couldn’t load messages"
             description="Please try again in a moment."
-            onRetry={() => queryClient.invalidateQueries({ queryKey: ['conversations'] })}
+            onRetry={() =>
+              queryClient.invalidateQueries({
+                queryKey: ['conversations'],
+              })
+            }
           />
         ) : conversations.length === 0 ? (
-          <EmptyState
-            icon={<MessageSquare className="h-5 w-5" />}
-            title="No messages yet"
-            description="When you connect with someone, conversations will appear here."
-          />
+          filterQuery ? (
+            <EmptyState
+              icon={<Search className="h-5 w-5" />}
+              title="No conversations found"
+              description={`No conversations match "${filterQuery}".`}
+            />
+          ) : (
+            <EmptyState
+              icon={<MessageSquare className="h-5 w-5" />}
+              title="No messages yet"
+              description="When you connect with someone, conversations will appear here."
+            />
+          )
         ) : (
-          <ul>
+          <ul className="divide-y divide-border-subtle">
             {conversations.map((conv) => {
               const otherUser = conv.targetUser
               const latestMsg = conv.latestMessage
+              const isDeleting = deletingId === conv.id
+              const unreadCount = conv.unreadCount ?? 0
+
+              const latestMessageTime =
+                latestMsg?.createdAt &&
+                  !Number.isNaN(
+                    new Date(latestMsg.createdAt).getTime(),
+                  )
+                  ? formatDistanceToNow(
+                    new Date(latestMsg.createdAt),
+                    {
+                      addSuffix: false,
+                    },
+                  )
+                  : null
+
+              const preview =
+                latestMsg?.content ||
+                (latestMsg?.messageType &&
+                  latestMsg.messageType !== 'TEXT'
+                  ? `Sent a ${latestMsg.messageType.toLowerCase()}`
+                  : 'No messages yet')
 
               return (
-                <li key={conv.id} className="group relative">
+                <li
+                  key={conv.id}
+                  className="group relative"
+                >
                   <Link
                     to="/messages/$conversationId"
-                    params={{ conversationId: conv.id }}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-surface-muted transition-colors duration-150 focus-visible:outline-none focus-visible:bg-surface-muted pr-10"
-                    activeProps={{ className: 'bg-surface-muted' }}
+                    params={{
+                      conversationId: conv.id,
+                    }}
+                    className="
+                      flex min-h-[72px] items-center gap-3
+                      px-3.5 py-3 pr-12
+                      transition-colors duration-150
+                      hover:bg-surface-muted
+                      focus-visible:outline-none
+                      focus-visible:ring-2
+                      focus-visible:ring-inset
+                      focus-visible:ring-primary/40
+                      sm:px-4
+                    "
+                    activeProps={{
+                      className:
+                        'bg-surface-muted',
+                    }}
                   >
-                    <Avatar src={otherUser?.avatarUrl} name={otherUser?.displayName || 'User'} size="lg" />
+                    {/* Avatar */}
+                    <Avatar
+                      src={otherUser?.avatarUrl}
+                      name={
+                        otherUser?.displayName ||
+                        'User'
+                      }
+                      size="lg"
+                    />
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="font-semibold text-foreground truncate">
-                          {otherUser?.displayName || 'Unknown User'}
+                    {/* Conversation Content */}
+                    <div className="min-w-0 flex-1">
+                      {/* Name + Time */}
+                      <div className="mb-0.5 flex items-center justify-between gap-2">
+                        <span className="min-w-0 truncate text-sm font-semibold text-foreground sm:text-[15px]">
+                          {otherUser?.displayName ||
+                            'Unknown User'}
                         </span>
-                        {latestMsg && latestMsg.createdAt && !isNaN(new Date(latestMsg.createdAt).getTime()) && (
-                          <span className="text-xs text-foreground-muted shrink-0 whitespace-nowrap ml-2">
-                            {formatDistanceToNow(new Date(latestMsg.createdAt), { addSuffix: false })}
+
+                        {latestMessageTime && (
+                          <span className="shrink-0 whitespace-nowrap text-[11px] text-foreground-muted sm:text-xs">
+                            {latestMessageTime}
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className={`text-sm truncate ${conv.unreadCount ? 'font-semibold text-foreground' : 'text-foreground-muted'}`}>
-                          {latestMsg?.content || (latestMsg?.messageType && latestMsg.messageType !== 'TEXT' ? `Sent a ${latestMsg?.messageType.toLowerCase()}` : 'No messages yet')}
+
+                      {/* Message + Unread Count */}
+                      <div className="flex items-center gap-2">
+                        <p
+                          className={`
+                            min-w-0 flex-1 truncate text-sm
+                            ${unreadCount > 0
+                              ? 'font-semibold text-foreground'
+                              : 'text-foreground-muted'
+                            }
+                          `}
+                        >
+                          {preview}
                         </p>
-                        {!!conv.unreadCount && conv.unreadCount > 0 && (
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
-                            {conv.unreadCount > 99 ? '99+' : conv.unreadCount}
+
+                        {unreadCount > 0 && (
+                          <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                            {unreadCount > 99
+                              ? '99+'
+                              : unreadCount}
                           </span>
                         )}
                       </div>
                     </div>
                   </Link>
 
+                  {/* Delete */}
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.preventDefault()
                       e.stopPropagation()
-                      if (confirm('Delete this conversation?')) {
-                        deleteConversationMutation.mutate(conv.id)
+
+                      if (
+                        deleteConversationMutation.isPending
+                      ) {
+                        return
+                      }
+
+                      const confirmed = window.confirm(
+                        'Delete this conversation?',
+                      )
+
+                      if (confirmed) {
+                        deleteConversationMutation.mutate(
+                          conv.id,
+                        )
                       }
                     }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-foreground-subtle hover:text-red-500 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                    disabled={
+                      deleteConversationMutation.isPending
+                    }
+                    className="
+                      absolute right-2.5 top-1/2
+                      flex h-8 w-8
+                      -translate-y-1/2
+                      items-center justify-center
+                      rounded-lg
+                      text-foreground-subtle
+                      opacity-0
+                      transition-all
+                      hover:bg-danger/10
+                      hover:text-danger
+                      focus-visible:opacity-100
+                      focus-visible:outline-none
+                      focus-visible:ring-2
+                      focus-visible:ring-danger/30
+                      group-hover:opacity-100
+                      disabled:cursor-not-allowed
+                    "
                     title="Delete Chat"
-                    aria-label="Delete Chat"
+                    aria-label={`Delete conversation with ${otherUser?.displayName ||
+                      'user'
+                      }`}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
                   </button>
                 </li>
               )
             })}
-            <div ref={bottomRef} className="h-10 flex items-center justify-center">
-              {isFetchingNextPage && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
-            </div>
+
+            {/* Infinite Scroll Sentinel */}
+            <li
+              ref={bottomRef}
+              className="flex h-12 items-center justify-center"
+              aria-hidden="true"
+            >
+              {isFetchingNextPage && (
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              )}
+            </li>
           </ul>
         )}
       </div>
-      {/* New Conversation Modal */}
+
+      {/* ------------------------------------------------------------------ */}
+      {/* New Conversation Modal                                             */}
+      {/* ------------------------------------------------------------------ */}
+
       <NewChatModal
         isOpen={isNewChatOpen}
         onClose={() => setIsNewChatOpen(false)}

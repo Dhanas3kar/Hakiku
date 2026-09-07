@@ -1,4 +1,4 @@
-import { type Community, type CommunityChannel } from '../../api/communities';
+import { type Community } from '../../api/communities';
 import { Hash, X, Plus, Lock, Check } from 'lucide-react';
 
 interface ChannelDrawerProps {

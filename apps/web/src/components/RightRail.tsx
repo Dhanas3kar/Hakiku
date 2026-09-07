@@ -16,7 +16,7 @@ export function RightRail() {
   const people = (data?.pages.flatMap((page) => page.items) ?? []).slice(0, 5)
 
   return (
-    <aside className="hidden w-72 shrink-0 xl:block">
+    <aside className="hidden w-72 2xl:w-80 shrink-0 xl:block">
       <div className="sticky top-8 flex flex-col gap-8">
         <section>
           <h3 className="mb-4 text-xs font-semibold uppercase tracking-[0.14em] text-foreground-muted">

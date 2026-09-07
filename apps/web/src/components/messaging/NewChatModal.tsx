@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { getApiBaseUrl } from '../../api/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { profileApi } from '../../api/profile'
@@ -46,7 +46,7 @@ export function NewChatModal({ isOpen, onClose, onSelectConversation }: Props) {
       if (onSelectConversation) {
         onSelectConversation(newConv.id)
       } else {
-        navigate({ to: '/messages', search: { conversationId: newConv.id } })
+        navigate({ to: '/messages/$conversationId', params: { conversationId: newConv.id } })
       }
     },
     onError: (err: any) => {

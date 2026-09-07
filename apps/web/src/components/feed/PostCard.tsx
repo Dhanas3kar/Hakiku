@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { postsApi, type PostItem, type PostVisibility } from '../../api/posts'
 import { FormattedContent } from '@/components/ui/FormattedContent'
@@ -44,34 +44,92 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
   const [showComments, setShowComments] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
+  const [isPopping, setIsPopping] = useState(false)
+  const [showBurstHeart, setShowBurstHeart] = useState(false)
+  const lastTapRef = useRef<number>(0)
 
   const isOwner = (user?.userId || user?.id) === post.authorId
   const VisibilityIcon = VISIBILITY_ICONS[post.visibility] || Globe
 
+  const updatePostInCache = (targetPostId: string, updater: (p: PostItem) => PostItem) => {
+    queryClient.setQueriesData(
+      {
+        predicate: (query: any) => {
+          const key = query.queryKey
+          if (!Array.isArray(key)) return false
+          return (
+            key[0] === 'feed' ||
+            (key[0] === 'profile' && key[1] === 'posts') ||
+            key[0] === 'posts' ||
+            (key[0] === 'post' && key[1] === targetPostId) ||
+            key[0] === 'community'
+          )
+        },
+      },
+      (old: any) => {
+        if (!old) return old
+        if (old.pages && Array.isArray(old.pages)) {
+          return {
+            ...old,
+            pages: old.pages.map((page: any) => {
+              if (!page || !Array.isArray(page.items)) return page
+              return {
+                ...page,
+                items: page.items.map((p: PostItem) =>
+                  p.id === targetPostId ? updater(p) : p,
+                ),
+              }
+            }),
+          }
+        }
+        if (old.id === targetPostId) {
+          return updater(old)
+        }
+        if (Array.isArray(old)) {
+          return old.map((p: PostItem) => (p.id === targetPostId ? updater(p) : p))
+        }
+        return old
+      },
+    )
+  }
+
   const likeMutation = useMutation({
     mutationFn: (liked: boolean) => (liked ? postsApi.likePost(post.id) : postsApi.unlikePost(post.id)),
     onMutate: async (liked) => {
-      await queryClient.cancelQueries({ queryKey: ['feed'] })
-      const previousQueries = queryClient.getQueriesData({ queryKey: ['feed'] })
-      queryClient.setQueriesData({ queryKey: ['feed'] }, (old: any) => {
-        if (!old || !old.pages) return old
-        return {
-          ...old,
-          pages: old.pages.map((page: any) => ({
-            ...page,
-            items: (page.items || []).map((p: PostItem) => {
-              if (p.id === post.id) {
-                return {
-                  ...p,
-                  isLikedByViewer: liked,
-                  likesCount: liked ? p.likesCount + 1 : p.likesCount - 1,
-                }
-              }
-              return p
-            }),
-          })),
-        }
+      await queryClient.cancelQueries({
+        predicate: (query: any) => {
+          const key = query.queryKey
+          return (
+            Array.isArray(key) &&
+            (key[0] === 'feed' ||
+              (key[0] === 'profile' && key[1] === 'posts') ||
+              key[0] === 'posts' ||
+              (key[0] === 'post' && key[1] === post.id) ||
+              key[0] === 'community')
+          )
+        },
       })
+
+      const previousQueries = queryClient.getQueriesData({
+        predicate: (query: any) => {
+          const key = query.queryKey
+          return (
+            Array.isArray(key) &&
+            (key[0] === 'feed' ||
+              (key[0] === 'profile' && key[1] === 'posts') ||
+              key[0] === 'posts' ||
+              (key[0] === 'post' && key[1] === post.id) ||
+              key[0] === 'community')
+          )
+        },
+      })
+
+      updatePostInCache(post.id, (p) => ({
+        ...p,
+        isLikedByViewer: liked,
+        likesCount: liked ? p.likesCount + 1 : Math.max(0, p.likesCount - 1),
+      }))
+
       return { previousQueries }
     },
     onError: (_err, _newLike, context) => {
@@ -82,8 +140,14 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
       }
       toast.error(_err.message || 'Failed to like post')
     },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['feed'] })
+    onSuccess: (res: any) => {
+      if (res?.likesCount !== undefined) {
+        updatePostInCache(post.id, (p) => ({
+          ...p,
+          isLikedByViewer: res.isLiked ?? p.isLikedByViewer,
+          likesCount: res.likesCount,
+        }))
+      }
     },
   })
 
@@ -91,6 +155,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
     mutationFn: () => postsApi.deletePost(post.id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
+      queryClient.invalidateQueries({ queryKey: ['profile', 'posts'] })
     },
     onError: (err) => {
       toast.error(err.message || 'Failed to delete post')
@@ -98,7 +163,31 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
   })
 
   const handleLikeClick = () => {
+    setIsPopping(true)
+    setTimeout(() => setIsPopping(false), 450)
     likeMutation.mutate(!post.isLikedByViewer)
+  }
+
+  const handleMediaContainerClick = (media: any[], index: number) => {
+    const now = Date.now()
+    const timeSinceLastTap = now - lastTapRef.current
+
+    if (timeSinceLastTap > 0 && timeSinceLastTap < 300) {
+      // Double tap detected! Show big heart burst effect and like post
+      setShowBurstHeart(true)
+      setTimeout(() => setShowBurstHeart(false), 800)
+      if (!post.isLikedByViewer) {
+        handleLikeClick()
+      } else {
+        setIsPopping(true)
+        setTimeout(() => setIsPopping(false), 450)
+      }
+      lastTapRef.current = 0
+      return
+    }
+
+    lastTapRef.current = now
+    onMediaClick?.(media, index)
   }
 
   const handleDelete = () => {
@@ -128,14 +217,14 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
 
   return (
     <article className="border-b border-border-subtle bg-surface sm:bg-transparent">
-      <div className="px-4 py-5 sm:px-1 sm:py-6">
+      <div className="px-3.5 py-4 sm:px-1 sm:py-6">
         {/* Header – perfectly aligned avatar + meta + menu */}
-        <div className="flex items-start gap-3 mb-3">
+        <div className="flex items-start gap-2.5 sm:gap-3 mb-3">
           <Avatar src={avatarUrl} alt={authorName} name={authorName} />
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="font-semibold text-foreground text-[15px] leading-tight truncate max-w-[160px] sm:max-w-none">
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <span className="font-semibold text-foreground text-[15px] leading-tight truncate max-w-full">
                 {authorName}
               </span>
               {isUserVerified(post.author) && <VerifiedBadge />}
@@ -156,7 +245,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
               {department && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="truncate max-w-[120px] sm:max-w-[180px]">{department}</span>
+                  <span className="truncate max-w-[140px] sm:max-w-none">{department}</span>
                 </>
               )}
             </div>
@@ -166,7 +255,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
           <div className="relative shrink-0">
             <button
               onClick={() => setShowMenu(!showMenu)}
-              className="p-1.5 rounded-full text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-colors"
+              className="p-1.5 rounded-full text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-colors cursor-pointer"
               aria-label="More options"
               aria-expanded={showMenu}
             >
@@ -182,7 +271,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
                         setShowMenu(false)
                         onEdit?.(post)
                       }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-surface-muted transition-colors"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-foreground hover:bg-surface-muted transition-colors cursor-pointer"
                     >
                       <Edit2 className="h-4 w-4" />
                       Edit Post
@@ -192,7 +281,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
                         setShowMenu(false)
                         handleDelete()
                       }}
-                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-danger hover:bg-surface-muted transition-colors"
+                      className="flex w-full items-center gap-2 px-4 py-2 text-sm text-danger hover:bg-surface-muted transition-colors cursor-pointer"
                     >
                       <Trash2 className="h-4 w-4" />
                       Delete
@@ -204,7 +293,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
                       setShowMenu(false)
                       setReportOpen(true)
                     }}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-danger hover:bg-surface-muted transition-colors"
+                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-danger hover:bg-surface-muted transition-colors cursor-pointer"
                   >
                     <Flag className="h-4 w-4" />
                     Report
@@ -221,7 +310,7 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
         {/* Media Grid */}
         {post.media && post.media.length > 0 && (
           <div
-            className={`mt-3.5 -mx-4 sm:mx-0 overflow-hidden sm:rounded-xl border-y sm:border border-border-subtle bg-surface-muted/40 ${
+            className={`relative mt-3.5 -mx-4 sm:mx-0 overflow-hidden sm:rounded-xl border-y sm:border border-border-subtle bg-surface-muted/40 ${
               post.media.length === 1
                 ? 'flex items-center justify-center bg-black/5 dark:bg-black/40 rounded-xl overflow-hidden'
                 : post.media.length === 2
@@ -229,11 +318,18 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
                   : 'grid grid-cols-2 grid-rows-2 gap-1 rounded-xl overflow-hidden'
             }`}
           >
+            {/* Double Tap Floating Burst Heart Overlay */}
+            {showBurstHeart && (
+              <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center bg-black/25 backdrop-blur-[1px] rounded-xl transition-all">
+                <Heart className="h-24 w-24 sm:h-32 sm:w-32 fill-rose-500 text-rose-500 drop-shadow-2xl animate-heart-burst" />
+              </div>
+            )}
+
             {(post.media ?? []).slice(0, 4).map((m, i) => (
               <div
                 key={m.id || i}
-                onClick={() => onMediaClick?.(post.media ?? [], i)}
-                className={`relative cursor-pointer overflow-hidden group ${
+                onClick={() => handleMediaContainerClick(post.media ?? [], i)}
+                className={`relative cursor-pointer overflow-hidden group select-none ${
                   post.media!.length === 1
                     ? 'w-full flex justify-center items-center'
                     : post.media!.length === 3 && i === 0
@@ -283,24 +379,35 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
       </div>
 
       {/* Actions – single perfectly aligned row */}
-      <div className="flex items-center justify-between px-4 pb-4 sm:px-1 sm:pb-5">
+      <div className="flex items-center justify-between px-3.5 pb-4 sm:px-1 sm:pb-5">
         <div className="flex items-center gap-1 sm:gap-2">
           <button
+            type="button"
             onClick={handleLikeClick}
-            disabled={likeMutation.isPending}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-all ${post.isLikedByViewer
-                ? 'text-primary'
-                : 'text-foreground-muted hover:text-foreground hover:bg-surface-muted active:scale-95'
-              }`}
+            className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all cursor-pointer select-none active:scale-95 ${
+              post.isLikedByViewer
+                ? 'text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/15'
+                : 'text-foreground-muted hover:text-foreground hover:bg-surface-muted'
+            }`}
             aria-pressed={post.isLikedByViewer}
+            aria-label={post.isLikedByViewer ? 'Unlike post' : 'Like post'}
           >
-            <Heart className={`h-4 w-4 ${post.isLikedByViewer ? 'fill-current' : ''}`} />
-            <span>{post.likesCount > 0 ? post.likesCount : 'Like'}</span>
+            <Heart
+              className={`h-4 w-4 transition-transform duration-150 ${
+                post.isLikedByViewer
+                  ? 'fill-rose-500 text-rose-500 dark:fill-rose-400 dark:text-rose-400'
+                  : 'group-hover:scale-110'
+              } ${isPopping ? 'animate-heart-pop' : ''}`}
+            />
+            <span className="transition-all duration-150">
+              {post.likesCount > 0 ? post.likesCount : 'Like'}
+            </span>
           </button>
 
           <button
+            type="button"
             onClick={() => setShowComments(!showComments)}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95 cursor-pointer"
             aria-expanded={showComments}
           >
             <MessageCircle className="h-4 w-4" />
@@ -309,7 +416,8 @@ export function PostCard({ post, onEdit, onMediaClick }: PostCardProps) {
         </div>
 
         <button
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95"
+          type="button"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium text-foreground-muted hover:text-foreground hover:bg-surface-muted transition-all active:scale-95 cursor-pointer"
           aria-label="Share post"
         >
           <Share2 className="h-4 w-4" />

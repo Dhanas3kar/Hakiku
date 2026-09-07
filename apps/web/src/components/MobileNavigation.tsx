@@ -16,7 +16,7 @@ export function MobileNavigation() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-surface/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-lg md:hidden">
-      <div className="flex h-14 items-center justify-around px-2">
+      <div className="flex h-14 max-w-lg mx-auto items-center justify-around px-2">
         {navItems.map((item) => (
           <Link
             key={item.to}

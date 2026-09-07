@@ -280,7 +280,8 @@ function NotificationItemRow({ notification }: { notification: NotificationItem 
         case 'POST_COMMENT':
         case 'COMMENT_REPLY':
         case 'COMMENT_LIKE': {
-          const postId = notification.payload?.postId || notification.entityId;
+          const rawPostId = notification.payload?.postId || notification.entityId;
+          const postId = typeof rawPostId === 'string' ? rawPostId : rawPostId ? String(rawPostId) : '';
           if (postId) {
             try {
               const post = await (await import('../api/posts')).postsApi.getPost(postId)
@@ -355,9 +356,9 @@ function NotificationItemRow({ notification }: { notification: NotificationItem 
           )}{' '}
           {(notification.content || '').replace(notification.actor?.displayName || '', '').trim()}
         </p>
-        {notification.payload?.previewText && (
+        {Boolean(notification.payload?.previewText) && (
           <p className="mt-1 text-xs italic text-foreground-muted line-clamp-1 bg-surface-muted/50 p-1.5 rounded border border-border/50">
-            "{notification.payload.previewText}"
+            "{String(notification.payload?.previewText)}"
           </p>
         )}
         <p className="mt-1 text-xs text-foreground-muted">

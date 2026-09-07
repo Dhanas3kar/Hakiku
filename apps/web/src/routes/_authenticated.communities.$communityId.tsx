@@ -12,7 +12,8 @@ import { MemberSidebar } from '../components/community/MemberSidebar';
 import { MemberDrawer } from '../components/community/MemberDrawer';
 import { CommunityInfoSheet } from '../components/community/CommunityInfoSheet';
 import { CommunitySettingsModal } from '../components/community/CommunitySettingsModal';
-import { Hash, Search } from 'lucide-react';
+import { MemberProfileModal } from '../components/community/MemberProfileModal';
+import { Hash } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const Route = createFileRoute('/_authenticated/communities/$communityId')({
@@ -26,6 +27,7 @@ function CommunityWorkspacePage() {
   const [isMemberDrawerOpen, setIsMemberDrawerOpen] = useState(false);
   const [isInfoSheetOpen, setIsInfoSheetOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -138,7 +140,7 @@ function CommunityWorkspacePage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-64px)] md:h-[calc(100dvh-64px)] overflow-hidden bg-background text-foreground pb-14 md:pb-0">
+    <div className="flex flex-col h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))] md:h-dvh overflow-hidden bg-background text-foreground">
       {/* TOP RESPONSIVE HEADER */}
       <CommunityHeader
         community={community}
@@ -178,7 +180,7 @@ function CommunityWorkspacePage() {
           </div>
 
           {/* Message Stream */}
-          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-1">
             {isMessagesLoading ? (
               <div className="flex h-full items-center justify-center">
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -189,7 +191,24 @@ function CommunityWorkspacePage() {
                 onSelectPrompt={(text) => sendMessageMutation.mutate(text)}
               />
             ) : (
-              messages.map((msg) => <MessageItem key={msg.id} message={msg} />)
+              messages.map((msg, index) => {
+                const previousMsg = index > 0 ? messages[index - 1] : null;
+                const isSameSender = previousMsg && previousMsg.senderId === msg.senderId;
+                const isWithinFiveMinutes =
+                  previousMsg &&
+                  new Date(msg.createdAt).getTime() - new Date(previousMsg.createdAt).getTime() < 5 * 60 * 1000;
+                
+                const isGrouped = Boolean(isSameSender && isWithinFiveMinutes);
+
+                return (
+                  <MessageItem
+                    key={msg.id}
+                    message={msg}
+                    isGrouped={isGrouped}
+                    onSelectSender={(userId) => setSelectedMemberId(userId)}
+                  />
+                );
+              })
             )}
             <div ref={messagesEndRef} />
           </div>
@@ -207,6 +226,7 @@ function CommunityWorkspacePage() {
           <MemberSidebar
             members={membersList}
             totalCount={community.memberCount || 1}
+            onSelectMember={(userId) => setSelectedMemberId(userId)}
           />
         </div>
       </div>
@@ -229,6 +249,7 @@ function CommunityWorkspacePage() {
         onClose={() => setIsMemberDrawerOpen(false)}
         members={membersList}
         totalCount={community.memberCount || 1}
+        onSelectMember={(userId) => setSelectedMemberId(userId)}
       />
 
       {/* Community Info Sheet */}
@@ -249,6 +270,14 @@ function CommunityWorkspacePage() {
         onCreateChannel={(name, desc) => createChannelMutation.mutate({ name, description: desc })}
         onDeleteCommunity={() => deleteCommunityMutation.mutate()}
       />
+
+      {/* Member Profile Quick-View Modal */}
+      <MemberProfileModal
+        userId={selectedMemberId}
+        isOpen={Boolean(selectedMemberId)}
+        onClose={() => setSelectedMemberId(null)}
+      />
     </div>
   );
 }
+

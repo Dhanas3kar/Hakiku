@@ -5,7 +5,7 @@ import type { MessageItem } from '../../api/messaging'
 import { useSocket } from '../../hooks/useSocket'
 import { useAuth } from '../../hooks/useAuth'
 import { format } from 'date-fns'
-import { Loader2, Send, Image as ImageIcon, ArrowLeft, MoreVertical, Trash2, Flag, AlertTriangle, X } from 'lucide-react'
+import { Loader2, Send, Image as ImageIcon, ArrowLeft, MoreVertical, Trash2, Flag, AlertTriangle } from 'lucide-react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useIntersectionObserver } from 'usehooks-ts'
 import { Avatar } from '../ui/Avatar'
@@ -201,7 +201,7 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
   })
 
   const rawMessages = (data?.pages ? [...data.pages].reverse() : [])
-    .flatMap((page) => page.items || page.data || []) ?? []
+    .flatMap((page) => page.items || []) ?? []
 
   const messages = Array.from(new Map(rawMessages.filter(Boolean).map(m => [m.id, m])).values())
 

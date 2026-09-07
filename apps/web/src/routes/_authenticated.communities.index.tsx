@@ -18,9 +18,6 @@ import {
   Building2,
   Bot,
   Laptop,
-  Rocket,
-  Gamepad2,
-  Trophy,
   Palette,
   Layers,
 } from 'lucide-react';
@@ -202,7 +199,7 @@ function CommunitiesDiscoveryPage() {
         {activeTab === 'discover' && (
           <>
             {isDiscoverLoading ? (
-              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {[1, 2, 3, 4, 5, 6].map((i) => (
                   <div
                     key={i}
@@ -227,7 +224,7 @@ function CommunitiesDiscoveryPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {discoverData?.items.map((comm) => (
                   <CommunityCardItem
                     key={comm.id}
@@ -245,7 +242,7 @@ function CommunitiesDiscoveryPage() {
         {activeTab === 'my' && (
           <>
             {isMyLoading ? (
-              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {[1, 2, 3].map((i) => (
                   <div
                     key={i}
@@ -270,7 +267,7 @@ function CommunitiesDiscoveryPage() {
                 </button>
               </div>
             ) : (
-              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                 {myCommunities?.map((comm) => (
                   <CommunityCardItem key={comm.id} community={comm} />
                 ))}

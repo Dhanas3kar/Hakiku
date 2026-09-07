@@ -1,5 +1,5 @@
-import { type Community, type CommunityChannel } from '../../api/communities';
-import { Hash, Plus, Users, Crown, ChevronRight, Lock } from 'lucide-react';
+import { type Community } from '../../api/communities';
+import { Hash, Plus, Users, Crown, Lock } from 'lucide-react';
 
 interface ChannelListProps {
   community: Community;

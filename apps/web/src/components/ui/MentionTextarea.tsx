@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef } from 'react'
 import { profileApi } from '../../api/profile'
 import type { UserProfile } from '../../api/profile'
 import { Avatar } from './Avatar'
-import { CheckCircle2, Loader2 } from 'lucide-react'
+import { VerifiedBadge } from './VerifiedBadge'
+import { isUserVerified } from '../../utils/user'
+import { Loader2 } from 'lucide-react'
+
+
 
 interface MentionTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   value: string
@@ -171,7 +175,7 @@ export function MentionTextarea({
             <div className="max-h-48 overflow-y-auto">
               {suggestions.map((user, idx) => {
                 const isSelected = idx === selectedIndex
-                const isOfficial = user.username?.toLowerCase() === 'hakiku_official'
+                const verified = isUserVerified(user)
 
                 return (
                   <button
@@ -188,17 +192,17 @@ export function MentionTextarea({
                         <span className="font-semibold text-xs truncate">
                           {user.displayName || user.username}
                         </span>
-                        {isOfficial && (
-                          <CheckCircle2 className="h-3.5 w-3.5 text-primary fill-primary/20 shrink-0" />
-                        )}
+                        {verified && <VerifiedBadge className="h-3.5 w-3.5 shrink-0" />}
                       </div>
-                      <span className="text-[11px] text-foreground-subtle truncate block">
+                      <span className="text-[11px] text-foreground-subtle truncate block flex items-center gap-1">
                         @{user.username}
+                        {verified && <VerifiedBadge className="h-3 w-3 shrink-0" />}
                       </span>
                     </div>
                   </button>
                 )
               })}
+
             </div>
           )}
         </div>

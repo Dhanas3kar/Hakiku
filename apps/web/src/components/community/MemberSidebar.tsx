@@ -1,20 +1,22 @@
 import { type CommunityMember } from '../../api/communities';
-import { Users, Crown, Shield, X, Sparkles } from 'lucide-react';
+import { Avatar } from '../ui/Avatar';
+import { VerifiedBadge } from '../ui/VerifiedBadge';
+import { isUserVerified } from '../../utils/user';
+import { Crown, Shield, X } from 'lucide-react';
 
 interface MemberSidebarProps {
   members?: CommunityMember[];
   totalCount?: number;
   onClose?: () => void;
+  onSelectMember?: (userId: string) => void;
 }
 
-function getInitials(name?: string | null) {
-  if (!name) return 'SM';
-  const parts = name.trim().split(' ');
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.substring(0, 2).toUpperCase();
-}
-
-export function MemberSidebar({ members = [], totalCount = 1, onClose }: MemberSidebarProps) {
+export function MemberSidebar({
+  members = [],
+  totalCount = 1,
+  onClose,
+  onSelectMember,
+}: MemberSidebarProps) {
   return (
     <div className="flex h-full w-60 shrink-0 flex-col border-l border-border/80 bg-surface/90 select-none">
       {/* Header */}
@@ -37,26 +39,36 @@ export function MemberSidebar({ members = [], totalCount = 1, onClose }: MemberS
         <div className="space-y-1">
           {members.length > 0 ? (
             members.map((mem) => {
-              const initials = getInitials(mem.profile?.fullName);
+              const verified = isUserVerified({
+                username: mem.profile?.username,
+                fullName: mem.profile?.fullName,
+                isVerifiedIdentity: mem.profile?.isVerifiedIdentity,
+                role: mem.role === 'OWNER' || mem.role === 'MODERATOR' ? 'ADMIN' : mem.profile?.systemRole,
+              });
+
               return (
                 <div
                   key={mem.id || mem.userId}
-                  className="flex items-center gap-2.5 rounded-xl p-2 transition-colors hover:bg-surface-muted/60"
+                  onClick={() => onSelectMember?.(mem.userId)}
+                  className="flex items-center gap-2.5 rounded-xl p-2 transition-colors hover:bg-surface-muted/80 cursor-pointer"
                 >
                   {/* Avatar & Online Dot */}
                   <div className="relative shrink-0">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 font-bold text-xs text-white shadow-2xs">
-                      {initials}
-                    </div>
+                    <Avatar
+                      src={mem.profile?.avatarUrl}
+                      name={mem.profile?.fullName || 'Student Member'}
+                      size="sm"
+                    />
                     <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-surface" />
                   </div>
 
                   {/* Name & Role */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1 min-w-0">
-                      <span className="text-xs font-bold text-foreground truncate">
+                      <span className="text-xs font-bold text-foreground truncate group-hover:underline">
                         {mem.profile?.fullName || 'Student Member'}
                       </span>
+                      {verified && <VerifiedBadge className="h-3.5 w-3.5 shrink-0" />}
                       {mem.role === 'OWNER' && <Crown className="h-3 w-3 text-amber-500 shrink-0" />}
                       {mem.role === 'MODERATOR' && <Shield className="h-3 w-3 text-purple-500 shrink-0" />}
                     </div>
@@ -68,6 +80,7 @@ export function MemberSidebar({ members = [], totalCount = 1, onClose }: MemberS
                 </div>
               );
             })
+
           ) : (
             <div className="text-xs text-foreground-muted italic py-4 text-center">
               Loading members...
@@ -78,3 +91,4 @@ export function MemberSidebar({ members = [], totalCount = 1, onClose }: MemberS
     </div>
   );
 }
+

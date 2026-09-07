@@ -3,7 +3,7 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { networkingApi } from '../../api/networking'
 import type { FollowUserItem } from '../../api/networking'
 import { useAuth } from '../../hooks/useAuth'
-import { X, Search, User, UserPlus, UserCheck, Loader2 } from 'lucide-react'
+import { X, Search, User, Loader2 } from 'lucide-react'
 import { VerifiedBadge } from '../ui/VerifiedBadge'
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
@@ -25,7 +25,6 @@ export function FollowersModal({
 }: Props) {
   const { user: currentUser } = useAuth()
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'followers' | 'following'>(initialTab)
   const [searchQuery, setSearchQuery] = useState('')
 

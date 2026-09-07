@@ -28,7 +28,7 @@ export function Dialog({
         <DialogPanel
           transition
           className={cn(
-            'w-full max-w-lg max-h-[92dvh] overflow-hidden rounded-t-xl sm:rounded-xl border border-border bg-surface shadow-md flex flex-col duration-200 data-closed:translate-y-4 data-closed:opacity-0 sm:data-closed:translate-y-0 sm:data-closed:scale-95',
+            'w-full max-w-lg max-h-[92dvh] overflow-hidden rounded-t-2xl sm:rounded-2xl border border-border bg-surface shadow-2xl flex flex-col [overscroll-behavior:contain] duration-200 data-closed:translate-y-4 data-closed:opacity-0 sm:data-closed:translate-y-0 sm:data-closed:scale-95',
             className,
           )}
         >

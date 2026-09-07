@@ -112,7 +112,7 @@ export function OnboardingForm() {
               {s}
             </div>
             {s < 3 && (
-              <div className={`mx-2 h-1 w-12 rounded-full transition-colors ${step > s ? 'bg-primary' : 'bg-surface-muted'}`} />
+              <div className={`mx-2 h-1 flex-1 min-w-4 max-w-12 rounded-full transition-colors ${step > s ? 'bg-primary' : 'bg-surface-muted'}`} />
             )}
           </div>
         ))}

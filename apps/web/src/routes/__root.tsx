@@ -80,7 +80,7 @@ function RootDocument() {
                   fontSize: '0.8125rem',
                   padding: '6px 14px',
                 },
-              }}
+              } as any}
             />
           </Providers>
         </GlobalErrorBoundary>
