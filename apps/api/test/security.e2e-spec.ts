@@ -35,11 +35,11 @@ describe('Security Hardening (e2e)', () => {
       }),
     );
 
-    await app.register(fastifyCookie, {
+    await (app as any).register(fastifyCookie as any, {
       secret: 'test-cookie-secret',
     });
 
-    await app.register(fastifyCsrf, {
+    await (app as any).register(fastifyCsrf as any, {
       cookieOpts: { signed: true },
     });
 
@@ -98,12 +98,12 @@ describe('Security Hardening (e2e)', () => {
         if (i <= 5) {
           // The first 5 should succeed (or return 429 if we run tests concurrently, but we cleared redis)
           // Wait, the default rate limiter uses IP. Since it's all from 127.0.0.1 in tests, they share the bucket.
-          expect([HttpStatus.OK, HttpStatus.TOO_MANY_REQUESTS]).toContain(lastResponse.status);
+          expect([HttpStatus.OK, HttpStatus.TOO_MANY_REQUESTS]).toContain(lastResponse?.status);
         }
       }
 
       // The 6th request MUST be rate limited by the ThrottlerGuard
-      expect(lastResponse.status).toBe(HttpStatus.TOO_MANY_REQUESTS);
+      expect(lastResponse?.status).toBe(HttpStatus.TOO_MANY_REQUESTS);
     });
   });
 });

@@ -25,7 +25,7 @@ describe('Error Contract & Correlation ID (e2e)', () => {
 
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter({
-        genReqId: (req) => {
+        genReqId: (req: any) => {
           return (req.headers['x-correlation-id'] as string) || crypto.randomUUID();
         },
       }),

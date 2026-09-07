@@ -10,7 +10,7 @@ import fastifyCookie from '@fastify/cookie';
 import fastifyCsrf from '@fastify/csrf-protection';
 import { JwtService } from '@nestjs/jwt';
 import postgres from 'postgres';
-import { drizzle, NodePgDatabase } from 'drizzle-orm/postgres-js';
+import { drizzle, PostgresJsDatabase } from 'drizzle-orm/postgres-js';
 import { clearTestDatabase, getE2eJwtSignOptions } from './test-utils';
 import * as schema from '../src/db/schema';
 import {
@@ -40,7 +40,7 @@ import Redis from 'ioredis';
 
 describe('Posts Module (e2e)', () => {
   let app: INestApplication;
-  let db: NodePgDatabase<typeof schema>;
+  let db: any;
   let redis: Redis;
   let client: any;
   let jwtService: JwtService;
@@ -213,8 +213,8 @@ describe('Posts Module (e2e)', () => {
       new FastifyAdapter(),
     );
 
-    await app.register(fastifyCookie, { secret: 'test-secret' });
-    await app.register(fastifyCsrf, { cookieOpts: { signed: true } });
+    await (app as any).register(fastifyCookie as any, { secret: 'test-secret' });
+    await (app as any).register(fastifyCsrf as any, { cookieOpts: { signed: true } });
 
     app
       .getHttpAdapter()

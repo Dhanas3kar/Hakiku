@@ -116,8 +116,8 @@ describe('Networking Module (e2e)', () => {
       new FastifyAdapter(),
     );
 
-    await app.register(fastifyCookie, { secret: 'test-secret' });
-    await app.register(fastifyCsrf, { cookieOpts: { signed: true } });
+    await (app as any).register(fastifyCookie as any, { secret: 'test-secret' });
+    await (app as any).register(fastifyCsrf as any, { cookieOpts: { signed: true } });
 
     await app.init();
     await app.getHttpAdapter().getInstance().ready();

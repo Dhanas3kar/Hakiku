@@ -40,18 +40,18 @@ describe('AuthController (e2e)', () => {
       new FastifyAdapter(),
     );
 
-    await app.register(fastifyCookie, {
+    await app.register(fastifyCookie as any, {
       secret: 'test-cookie-secret',
     });
 
-    await app.register(fastifyCsrf, {
+    await app.register(fastifyCsrf as any, {
       cookieOpts: { signed: true },
     });
 
     app
       .getHttpAdapter()
       .getInstance()
-      .addHook('onRequest', (req, reply, done) => {
+      .addHook('onRequest', (req: any, reply: any, done: any) => {
         if (req.url.includes('/logout') && req.method === 'POST') {
           if (typeof req.csrfProtect === 'function') {
             req.csrfProtect(reply, done);

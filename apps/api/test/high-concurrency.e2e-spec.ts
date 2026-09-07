@@ -206,7 +206,7 @@ describe('High Concurrency & Stress Verification (e2e)', () => {
         console.log('Failing statuses:', responses.map(r => r.statusCode).reduce((acc, code) => {
           acc[code] = (acc[code] || 0) + 1;
           return acc;
-        }, {}));
+        }, {} as Record<number, number>));
         const failedResponse = responses.find(r => r.statusCode !== 409 && r.statusCode !== 200);
         if (failedResponse) console.log('Failed body:', failedResponse.body);
       }

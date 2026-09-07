@@ -45,7 +45,7 @@ describe('CommunityModule (e2e)', () => {
     app = moduleFixture.createNestApplication<NestFastifyApplication>(
       new FastifyAdapter(),
     );
-    await app.register(fastifyCookie as any, { secret: 'test-secret' });
+    await (app as any).register(fastifyCookie as any, { secret: 'test-secret' });
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
     await app.init();
     await app.getHttpAdapter().getInstance().ready();
@@ -67,9 +67,6 @@ describe('CommunityModule (e2e)', () => {
       .insert(users)
       .values({
         email: 'communitya@srmist.edu.in',
-        fullName: 'Community User A',
-        authProvider: 'EMAIL',
-        providerId: 'commA',
         isVerified: true,
         status: 'ACTIVE',
         role: 'STUDENT',
@@ -83,7 +80,7 @@ describe('CommunityModule (e2e)', () => {
       displayName: 'Community A',
       campus: 'KTR',
       degreeProgram: 'B.Tech',
-      batchYear: '2025',
+      batchYear: 2025,
       graduationYear: 2029,
       department: 'CSE',
     });
@@ -98,9 +95,6 @@ describe('CommunityModule (e2e)', () => {
       .insert(users)
       .values({
         email: 'communityb@srmist.edu.in',
-        fullName: 'Community User B',
-        authProvider: 'EMAIL',
-        providerId: 'commB',
         isVerified: true,
         status: 'ACTIVE',
         role: 'STUDENT',
@@ -129,9 +123,6 @@ describe('CommunityModule (e2e)', () => {
       .insert(users)
       .values({
         email: 'communitymod@srmist.edu.in',
-        fullName: 'Community Moderator',
-        authProvider: 'EMAIL',
-        providerId: 'commMod',
         isVerified: true,
         status: 'ACTIVE',
         role: 'MODERATOR',
@@ -160,9 +151,6 @@ describe('CommunityModule (e2e)', () => {
       .insert(users)
       .values({
         email: 'communityadmin@srmist.edu.in',
-        fullName: 'Community Admin',
-        authProvider: 'EMAIL',
-        providerId: 'commAdmin',
         isVerified: true,
         status: 'ACTIVE',
         role: 'ADMIN',

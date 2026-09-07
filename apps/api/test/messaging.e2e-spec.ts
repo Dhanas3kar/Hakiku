@@ -148,10 +148,10 @@ describe('Messaging Module (e2e)', () => {
     );
 
     // Setup matching auth.e2e-spec.ts
-    await app.register(fastifyCookie, {
+    await (app as any).register(fastifyCookie as any, {
       secret: process.env.COOKIE_SECRET || 'cookie-secret',
     });
-    await app.register(fastifyCsrf, { cookieOpts: { signed: true } });
+    await (app as any).register(fastifyCsrf as any, { cookieOpts: { signed: true } });
 
     app.useGlobalPipes(
       new ValidationPipe({
