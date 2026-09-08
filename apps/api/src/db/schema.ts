@@ -33,6 +33,8 @@ export const users = pgTable('users', {
   emailVerifiedAt: timestamp('email_verified_at'),
   role: roleEnum('role').default('STUDENT').notNull(),
   status: statusEnum('status').default('ACTIVE'),
+  suspendedUntil: timestamp('suspended_until'),
+  suspensionReason: varchar('suspension_reason', { length: 500 }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -1368,7 +1370,7 @@ export const hackathonTeamRoles = pgTable(
     teamId: uuid('team_id')
       .notNull()
       .references(() => hackathonTeams.id, { onDelete: 'cascade' }),
-    roleCategory: teamRoleCategoryEnum('role_category').notNull(),
+    roleCategory: text('role_category').notNull(),
     title: varchar('title', { length: 100 }).notNull(),
     description: text('description'),
     isFilled: boolean('is_filled').default(false).notNull(),
