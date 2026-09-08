@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import { ResolveReportDto } from './dto/resolve-report.dto';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
@@ -66,13 +67,20 @@ export class AdminController {
   async setUserStatus(
     @Req() req: any,
     @Param('id') targetId: string,
-    @Body() body: UpdateUserStatusDto,
+    @Body() body: { status: string; reason?: string; durationHours?: number },
   ) {
+    const validStatuses = ['ACTIVE', 'BANNED', 'SUSPENDED'];
+    if (!body.status || !validStatuses.includes(body.status)) {
+      throw new BadRequestException(
+        `status must be one of: ${validStatuses.join(', ')}`
+      );
+    }
     return this.adminService.setUserStatus(
       req.user.sub,
       targetId,
-      body.status,
-      body.reason,
+      body.status as 'ACTIVE' | 'BANNED' | 'SUSPENDED',
+      body.reason || 'Admin action',
+      body.durationHours,
     );
   }
 

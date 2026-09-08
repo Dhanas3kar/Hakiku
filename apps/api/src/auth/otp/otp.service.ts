@@ -48,6 +48,10 @@ export class OtpService {
     const otpKey = `auth:otp:${email}`;
     await this.redis.set(otpKey, hashedOtp, 'EX', this.OTP_TTL);
 
+    // Reset attempts for the new OTP
+    const attemptsKey = `auth:otp_attempts:${email}`;
+    await this.redis.del(attemptsKey);
+
     // Set 60s cooldown
     await this.redis.set(cooldownKey, '1', 'EX', 60);
 
@@ -55,6 +59,7 @@ export class OtpService {
   }
 
   async verifyOtp(email: string, otp: string): Promise<boolean> {
+    otp = otp.trim();
     const attemptsKey = `auth:otp_attempts:${email}`;
     const attempts = await this.redis.incr(attemptsKey);
     if (attempts === 1) {
@@ -69,11 +74,18 @@ export class OtpService {
     const otpKey = `auth:otp:${email}`;
     const hashedOtp = await this.redis.get(otpKey);
 
+    console.log(`[VERIFY OTP] Email: ${email}, Typed OTP: ${otp}, Attempts: ${attempts}`);
+
     if (!hashedOtp) {
+      console.log(`[VERIFY OTP] Hashed OTP not found in Redis (expired or deleted)`);
       throw new UnauthorizedException('OTP expired or invalid');
     }
 
-    if (this.hashOtp(otp) !== hashedOtp) {
+    const computedHash = this.hashOtp(otp);
+    console.log(`[VERIFY OTP] Computed Hash: ${computedHash}, Stored Hash: ${hashedOtp}`);
+
+    if (computedHash !== hashedOtp) {
+      console.log(`[VERIFY OTP] Hash mismatch!`);
       throw new UnauthorizedException('Invalid OTP');
     }
 

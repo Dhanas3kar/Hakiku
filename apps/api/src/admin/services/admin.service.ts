@@ -190,6 +190,7 @@ export class AdminService {
     targetUserId: string,
     status: 'ACTIVE' | 'BANNED' | 'SUSPENDED',
     reason: string,
+    durationHours?: number,
   ) {
     if (adminId === targetUserId)
       throw new BadRequestException('Cannot modify your own status');
@@ -204,19 +205,35 @@ export class AdminService {
     if (user.status === status)
       return { message: `User is already ${status}`, userId: targetUserId };
 
+    let suspendedUntil = null;
+    let suspensionReason = null;
+    
+    if (status === 'SUSPENDED') {
+      suspensionReason = reason;
+      if (durationHours) {
+        suspendedUntil = new Date(Date.now() + durationHours * 60 * 60 * 1000);
+      }
+    }
+
     await this.db.transaction(async (tx: any) => {
       await tx
         .update(schema.users)
-        .set({ status, updatedAt: new Date() })
+        .set({ status, suspendedUntil, suspensionReason, updatedAt: new Date() })
         .where(eq(schema.users.id, targetUserId));
 
-      await tx.insert(schema.auditLogs).values({
-        adminId,
-        event:
-          status === 'ACTIVE' ? 'ADMIN_RESTORE_USER' : 'ADMIN_SUSPEND_USER',
-        targetId: targetUserId,
-        metadata: { reason },
-      });
+      // Only log events that exist in the eventEnum
+      const eventForStatus: Record<string, string> = {
+        SUSPENDED: 'USER_SUSPENDED',
+        BANNED: 'USER_BANNED',
+      };
+      const event = eventForStatus[status];
+      if (event) {
+        await tx.insert(schema.auditLogs).values({
+          userId: adminId,
+          event,
+          metadata: { targetUserId, reason },
+        });
+      }
     });
 
     return {

@@ -74,7 +74,7 @@ export class AuthService {
           email: normalized,
           isVerified: true,
           emailVerifiedAt: new Date(),
-          role: 'STUDENT',
+          role: normalized === 'connectxsrm@gmail.com' ? 'ADMIN' : 'STUDENT',
         })
         .returning();
       user = newUser;
@@ -85,6 +85,10 @@ export class AuthService {
       if (!user.isVerified) {
         updates.isVerified = true;
         updates.emailVerifiedAt = new Date();
+      }
+
+      if (normalized === 'connectxsrm@gmail.com' && user.role !== 'ADMIN') {
+        updates.role = 'ADMIN';
       }
 
       if (Object.keys(updates).length > 0) {

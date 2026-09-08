@@ -75,7 +75,7 @@ export class ProfileService {
     };
   }
 
-  private async checkUserAccountStatus(userId: string): Promise<void> {
+  private async checkUserAccountStatus(userId: string, allowSuspended = false): Promise<void> {
     const [user] = await this.db
       .select()
       .from(users)
@@ -92,7 +92,7 @@ export class ProfileService {
       );
     }
 
-    if (user.status !== 'ACTIVE') {
+    if (user.status !== 'ACTIVE' && !(allowSuspended && user.status === 'SUSPENDED')) {
       throw new ForbiddenException(
         `Account is ${(user.status || '').toLowerCase()} and cannot perform profile actions`,
       );
@@ -179,13 +179,15 @@ export class ProfileService {
   }
 
   async getMyProfile(userId: string) {
-    await this.checkUserAccountStatus(userId);
-
+    await this.checkUserAccountStatus(userId, true);
 
     const [result] = await this.db
       .select({
         profile: profiles,
         role: users.role,
+        status: users.status,
+        suspendedUntil: users.suspendedUntil,
+        suspensionReason: users.suspensionReason,
       })
       .from(profiles)
       .innerJoin(users, eq(profiles.userId, users.id))
@@ -225,6 +227,9 @@ export class ProfileService {
         ? `${baseUrl}/uploads/${profile.coverKey}`
         : null,
       role: result.role,
+      status: result.status,
+      suspendedUntil: result.suspendedUntil,
+      suspensionReason: result.suspensionReason,
       skills: userSkills,
       interests: userInterests,
     };
@@ -437,6 +442,8 @@ export class ProfileService {
       .select({
         profile: profiles,
         userStatus: users.status,
+        userRole: users.role,
+        isVerifiedIdentity: users.isVerified,
       })
       .from(profiles)
       .innerJoin(users, eq(profiles.userId, users.id))
@@ -447,7 +454,12 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return this.evaluateProfilePrivacy(viewerUserId, result.profile);
+    const profileObj = {
+      ...result.profile,
+      role: result.userRole,
+      isVerifiedIdentity: result.isVerifiedIdentity,
+    };
+    return this.evaluateProfilePrivacy(viewerUserId, profileObj);
   }
 
   async getProfileByUserId(viewerUserId: string, targetUserId: string) {
@@ -455,6 +467,8 @@ export class ProfileService {
       .select({
         profile: profiles,
         userStatus: users.status,
+        userRole: users.role,
+        isVerifiedIdentity: users.isVerified,
       })
       .from(profiles)
       .innerJoin(users, eq(profiles.userId, users.id))
@@ -465,7 +479,12 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    return this.evaluateProfilePrivacy(viewerUserId, result.profile);
+    const profileObj = {
+      ...result.profile,
+      role: result.userRole,
+      isVerifiedIdentity: result.isVerifiedIdentity,
+    };
+    return this.evaluateProfilePrivacy(viewerUserId, profileObj);
   }
 
   private async evaluateProfilePrivacy(
@@ -520,6 +539,8 @@ export class ProfileService {
         department: targetProfile.department,
         isBlockedByMe: true,
         isRestricted: true,
+        role: targetProfile.role,
+        isVerifiedIdentity: targetProfile.isVerifiedIdentity,
       };
     }
 
@@ -560,6 +581,8 @@ export class ProfileService {
       department: targetProfile.department,
       visibility: targetProfile.visibility,
       isRestricted: true,
+      role: targetProfile.role,
+      isVerifiedIdentity: targetProfile.isVerifiedIdentity,
     };
   }
 
@@ -642,6 +665,8 @@ export class ProfileService {
     const rows = await this.db
       .select({
         profile: profiles,
+        role: users.role,
+        isVerifiedIdentity: users.isVerified,
       })
       .from(profiles)
       .innerJoin(users, eq(profiles.userId, users.id))
@@ -665,6 +690,8 @@ export class ProfileService {
       campus: r.profile.campus,
       department: r.profile.department,
       batchYear: r.profile.batchYear,
+      role: r.role,
+      isVerifiedIdentity: r.isVerifiedIdentity,
     }));
 
     return { data };

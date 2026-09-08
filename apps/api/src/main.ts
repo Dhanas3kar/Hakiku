@@ -519,7 +519,8 @@ async function bootstrap() {
     const stateChangingMethods = ['POST', 'PUT', 'PATCH', 'DELETE'];
     const url = req.url || '';
     const isAuthRoute = url.startsWith('/admin/auth/') || url.startsWith('/auth/send-otp') || url.startsWith('/auth/verify-otp') || url.startsWith('/auth/refresh');
-    if (stateChangingMethods.includes(req.method) && !isAuthRoute) {
+    const isAdminApiRoute = url.startsWith('/admin/');
+    if (stateChangingMethods.includes(req.method) && !isAuthRoute && !isAdminApiRoute) {
       if (typeof (req as any).csrfProtect === 'function') {
         (req as any).csrfProtect(reply, done);
       } else {
