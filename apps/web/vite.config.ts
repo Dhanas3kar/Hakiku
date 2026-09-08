@@ -5,7 +5,11 @@ import tailwindcss from '@tailwindcss/vite'
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
-  plugins: [tailwindcss(), tanstackStart(), viteReact()],
+  plugins: [
+    tailwindcss(), 
+    tanstackStart(), 
+    viteReact(),
+  ],
   server: {
     host: '0.0.0.0',
     port: 3000,
