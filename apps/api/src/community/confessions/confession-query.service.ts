@@ -63,8 +63,19 @@ export class ConfessionQueryService {
       const results = await db
         .select()
         .from(confessions)
-        .where(eq(confessions.status, 'PUBLISHED'))
-        .orderBy(desc(sql`COALESCE(${confessions.publishedAt}, ${confessions.createdAt})`))
+        .where(
+          and(
+            eq(confessions.status, 'PUBLISHED'),
+            or(
+              sql`COALESCE(${confessions.publishedAt}, ${confessions.createdAt}) >= NOW() - INTERVAL '12 hours'`,
+              sql`${confessions.upvoteCount} >= 3`
+            )
+          )
+        )
+        .orderBy(
+          desc(confessions.upvoteCount),
+          desc(sql`COALESCE(${confessions.publishedAt}, ${confessions.createdAt})`)
+        )
         .limit(100);
 
       const safeResults = results.filter((c) => !activeBlocks.has(c.authorId));

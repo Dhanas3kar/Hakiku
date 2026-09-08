@@ -99,7 +99,8 @@ export class FeedQueryService {
         prof.avatar_key, prof.campus as author_campus,
         prof.department as author_department, prof.batch_year as author_batch_year,
         prof.is_verified_identity,
-        u.status as author_status
+        u.status as author_status,
+        u.role as author_role
       FROM posts p
       INNER JOIN users u ON p.author_id = u.id
       LEFT JOIN profiles prof ON u.id = prof.user_id
@@ -291,6 +292,7 @@ export class FeedQueryService {
           department: p.author_department,
           batchYear: p.author_batch_year,
           isVerifiedIdentity: p.is_verified_identity || false,
+          role: p.author_role,
         } as any,
         viewerState: {
           isLiked: likedPostIds.has(p.id),

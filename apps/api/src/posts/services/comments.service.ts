@@ -157,8 +157,10 @@ export class CommentsService {
         displayName: profiles.displayName,
         avatarKey: profiles.avatarKey,
         isVerifiedIdentity: profiles.isVerifiedIdentity,
+        role: users.role,
       })
       .from(profiles)
+      .leftJoin(users, eq(profiles.userId, users.id))
       .where(eq(profiles.userId, authorId))
       .limit(1);
 
@@ -174,6 +176,7 @@ export class CommentsService {
           ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
           : null,
         isVerifiedIdentity: authorProfile?.isVerifiedIdentity || false,
+        role: authorProfile?.role,
       },
     };
   }
@@ -258,8 +261,10 @@ export class CommentsService {
             displayName: profiles.displayName,
             avatarKey: profiles.avatarKey,
             isVerifiedIdentity: profiles.isVerifiedIdentity,
+            role: users.role,
           })
           .from(profiles)
+          .leftJoin(users, eq(profiles.userId, users.id))
           .where(eq(profiles.userId, c.authorId))
           .limit(1);
 
@@ -275,6 +280,7 @@ export class CommentsService {
               ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
               : null,
             isVerifiedIdentity: authorProfile?.isVerifiedIdentity || false,
+            role: authorProfile?.role,
           },
         };
       }),

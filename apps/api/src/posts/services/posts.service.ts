@@ -199,8 +199,10 @@ export class PostsService {
         displayName: profiles.displayName,
         avatarKey: profiles.avatarKey,
         isVerifiedIdentity: profiles.isVerifiedIdentity,
+        role: users.role,
       })
       .from(profiles)
+      .leftJoin(users, eq(profiles.userId, users.id))
       .where(eq(profiles.userId, authorId))
       .limit(1);
 
@@ -214,6 +216,7 @@ export class PostsService {
           ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
           : null,
         isVerifiedIdentity: authorProfile?.isVerifiedIdentity || false,
+        role: authorProfile?.role,
       },
       media: attachedMedia,
     };
@@ -234,8 +237,10 @@ export class PostsService {
         displayName: profiles.displayName,
         avatarKey: profiles.avatarKey,
         isVerifiedIdentity: profiles.isVerifiedIdentity,
+        role: users.role,
       })
       .from(profiles)
+      .leftJoin(users, eq(profiles.userId, users.id))
       .where(eq(profiles.userId, post.authorId))
       .limit(1);
 
@@ -257,6 +262,7 @@ export class PostsService {
           ? `${process.env.BASE_URL || 'http://localhost:3001'}/uploads/${authorProfile.avatarKey}`
           : null,
         isVerifiedIdentity: authorProfile?.isVerifiedIdentity || false,
+        role: authorProfile?.role,
       },
       media,
       isLikedByViewer: !!likeRecord,

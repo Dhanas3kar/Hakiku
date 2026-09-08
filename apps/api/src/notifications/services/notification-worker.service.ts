@@ -191,6 +191,7 @@ export class NotificationWorkerService
 
   private async handleEvent(tx: any, outboxEvent: any) {
     const { eventId, type, payload } = outboxEvent;
+    const { recipientId, actorId, entityType, entityId, data } = payload || {};
 
     // Idempotency check
     const [existingEvent] = await tx
