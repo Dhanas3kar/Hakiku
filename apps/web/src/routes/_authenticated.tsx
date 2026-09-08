@@ -5,6 +5,7 @@ import { useAuth, AUTH_QUERY_KEY } from '../hooks/useAuth'
 import { Loader2 } from 'lucide-react'
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import { SuspendedScreen } from '../components/SuspendedScreen'
 
 export const Route = createFileRoute('/_authenticated')({
   component: AuthenticatedLayout,
@@ -89,6 +90,10 @@ function AuthenticatedLayout() {
     )
   }
 
+  if (status === 'suspended') {
+    return <SuspendedScreen />
+  }
+
   if (status === 'unauthenticated' || !isAuthenticated) {
     return null
   }
@@ -104,3 +109,4 @@ function AuthenticatedLayout() {
     </ShellLayout>
   )
 }
+

@@ -27,10 +27,11 @@ export function useAuth() {
       if (err.status === 401 || err.status === 403 || err.status === 404 || err.status === 429) return false
       return failureCount < 3
     },
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000, // 1 minute
     gcTime: 10 * 60 * 1000,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    refetchInterval: 15000, // Poll every 15 seconds to catch status updates immediately
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   })
 
@@ -43,40 +44,46 @@ export function useAuth() {
       await queryClient.cancelQueries({ queryKey: AUTH_QUERY_KEY })
     },
     onSettled: async () => {
+      logoutGuardRef.current = true
       queryClient.setQueryData(AUTH_QUERY_KEY, null)
-      queryClient.removeQueries({
-        predicate: (query) => query.queryKey[0] !== 'auth'
-      })
+      queryClient.removeQueries()
+      queryClient.clear()
       logoutGuardRef.current = false
       navigate({ to: '/login', replace: true })
     },
   })
 
-  let status: 'loading' | 'authenticated' | 'unauthenticated' | 'needs_onboarding' | 'error' = 'loading'
+  let status: 'loading' | 'authenticated' | 'unauthenticated' | 'needs_onboarding' | 'error' | 'suspended' = 'loading'
   if (logoutGuardRef.current) {
     status = 'unauthenticated'
   } else if (isPending) {
     status = 'loading'
   } else if (isError) {
-    if (error?.status === 401) {
+    if (error?.status === 401 || error?.status === 403) {
       status = 'unauthenticated'
     } else if (error?.status === 404) {
       status = 'needs_onboarding'
     } else {
-      status = profile ? 'authenticated' : 'error'
+      status = profile ? 'authenticated' : 'unauthenticated'
     }
-  } else if (profile === null) {
-    status = 'needs_onboarding'
+  } else if (!profile) {
+    status = 'unauthenticated'
+  } else if (profile.status === 'SUSPENDED') {
+    status = 'suspended'
   } else if (profile) {
-    status = 'authenticated'
+    const isIncomplete = !profile.username || (profile as any).isOnboarded === false
+    status = isIncomplete ? 'needs_onboarding' : 'authenticated'
   }
+
+  const isAuthenticated = status === 'authenticated' || status === 'needs_onboarding' || status === 'suspended'
+  const isUnauthenticated = status === 'unauthenticated' || status === 'error'
 
   return {
     status,
     user: profile || null,
     profile: profile || null,
-    isAuthenticated: status === 'authenticated' || status === 'needs_onboarding',
-    isUnauthenticated: status === 'unauthenticated',
+    isAuthenticated,
+    isUnauthenticated,
     needsOnboarding: status === 'needs_onboarding',
     isLoading,
     isPending,

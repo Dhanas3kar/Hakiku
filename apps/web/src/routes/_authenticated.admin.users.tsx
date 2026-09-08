@@ -11,6 +11,33 @@ export const Route = createFileRoute('/_authenticated/admin/users')({
   component: AdminUsers,
 });
 
+function SuspendAction({ user, onSuspend }: { user: any, onSuspend: (durationHours: number) => void }) {
+  const [duration, setDuration] = useState(24);
+  return (
+    <div className="flex items-center gap-2">
+      <select 
+        className="text-xs bg-surface border border-border rounded-xl px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-danger/50"
+        value={duration}
+        onChange={(e) => setDuration(Number(e.target.value))}
+      >
+        <option value={1}>1 Hour</option>
+        <option value={6}>6 Hours</option>
+        <option value={24}>24 Hours</option>
+        <option value={72}>3 Days</option>
+        <option value={168}>7 Days</option>
+        <option value={720}>30 Days</option>
+      </select>
+      <button
+        className="inline-flex items-center px-3 py-1.5 border border-danger/30 bg-danger/10 text-danger hover:bg-danger/20 text-xs font-semibold rounded-xl transition-colors disabled:opacity-50"
+        onClick={() => onSuspend(duration)}
+        title="Suspend account access for guideline violations"
+      >
+        <Ban className="w-3.5 h-3.5 mr-1" /> Suspend
+      </button>
+    </div>
+  );
+}
+
 function AdminUsers() {
   const { isAuthenticated, user } = useAuth();
   const isAdmin = Boolean(isAuthenticated && user?.role === 'ADMIN');
@@ -25,11 +52,11 @@ function AdminUsers() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: 'ACTIVE' | 'BANNED' | 'SUSPENDED' }) =>
-      api.patch(`/admin/users/${id}/status`, { status, reason: 'Admin action' }),
+    mutationFn: ({ id, status, durationHours }: { id: string; status: 'ACTIVE' | 'BANNED' | 'SUSPENDED'; durationHours?: number }) =>
+      api.patch(`/admin/users/${id}/status`, { status, reason: 'Admin action', durationHours }),
     onSuccess: () => {
       toast.success('User status updated');
-      queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+      return queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
     onError: (err: any) => {
       toast.error(err.response?.data?.message || 'Failed to update user');
@@ -121,14 +148,10 @@ function AdminUsers() {
                             <Unlock className="w-3.5 h-3.5 mr-1" /> Revoke Suspension
                           </button>
                         ) : (
-                          <button
-                            className="inline-flex items-center px-3 py-1.5 border border-danger/30 bg-danger/10 text-danger hover:bg-danger/20 text-xs font-semibold rounded-xl transition-colors disabled:opacity-50"
-                            onClick={() => statusMutation.mutate({ id: user.id, status: 'SUSPENDED' })}
-                            disabled={statusMutation.isPending}
-                            title="Suspend account access for guideline violations"
-                          >
-                            <Ban className="w-3.5 h-3.5 mr-1" /> Suspend Account
-                          </button>
+                          <SuspendAction 
+                            user={user} 
+                            onSuspend={(durationHours) => statusMutation.mutate({ id: user.id, status: 'SUSPENDED', durationHours })} 
+                          />
                         )
                       )}
                     </td>
