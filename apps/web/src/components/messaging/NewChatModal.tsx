@@ -7,6 +7,7 @@ import { messagingApi } from '../../api/messaging'
 import { useAuth } from '../../hooks/useAuth'
 import { X, Search, User, MessageSquare, Loader2 } from 'lucide-react'
 import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { isUserVerified } from '../../utils/user'
 import { useNavigate } from '@tanstack/react-router'
 import { toast } from 'sonner'
 
@@ -139,7 +140,7 @@ export function NewChatModal({ isOpen, onClose, onSelectConversation }: Props) {
               const displayName = user.displayName || user.fullName || user.username || 'User'
               const username = user.username || ''
               const avatarUrl = user.avatarUrl || (user.avatarKey ? `${getApiBaseUrl()}/uploads/${user.avatarKey}` : null)
-              const isVerified = Boolean(user.isVerifiedIdentity)
+              const isVerified = Boolean(user.isVerifiedIdentity) || isUserVerified(user)
 
               return (
                 <div

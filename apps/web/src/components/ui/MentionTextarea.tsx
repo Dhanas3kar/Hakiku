@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { profileApi } from '../../api/profile'
 import type { UserProfile } from '../../api/profile'
 import { Avatar } from './Avatar'
@@ -48,6 +49,46 @@ export function MentionTextarea({
       setMentionQuery(null)
     }
   }
+
+  // Calculate popup positioning
+  const [coords, setCoords] = useState<{ top: number; left: number; placeBelow: boolean; maxHeight: number } | null>(null)
+
+  useEffect(() => {
+    if (mentionQuery === null) {
+      setCoords(null)
+      return
+    }
+
+    const updateCoords = () => {
+      if (!textareaRef.current) return
+      const rect = textareaRef.current.getBoundingClientRect()
+      
+      const spaceAbove = rect.top
+      const spaceBelow = window.innerHeight - rect.bottom
+      const popupHeightEstimate = 250 // roughly max-h-48 + header
+
+      const placeBelow = spaceAbove < popupHeightEstimate && spaceBelow > spaceAbove
+      const safeLeft = Math.max(16, Math.min(rect.left, window.innerWidth - 288 - 16)) // 288 is w-72 (18rem)
+      
+      const availableSpace = placeBelow ? spaceBelow - 16 : spaceAbove - 16
+      
+      setCoords({
+        top: placeBelow ? rect.bottom + 8 : rect.top - 8,
+        left: safeLeft,
+        placeBelow,
+        maxHeight: Math.max(200, availableSpace) // Ensure minimum height to avoid cutting off
+      })
+    }
+
+    updateCoords()
+    window.addEventListener('resize', updateCoords)
+    window.addEventListener('scroll', updateCoords, true) // capture phase for any scrollable parent
+
+    return () => {
+      window.removeEventListener('resize', updateCoords)
+      window.removeEventListener('scroll', updateCoords, true)
+    }
+  }, [mentionQuery])
 
   // Fetch suggestions when mentionQuery is active
   useEffect(() => {
@@ -160,19 +201,27 @@ export function MentionTextarea({
       />
 
       {/* Autocomplete Popup */}
-      {mentionQuery !== null && (
-        <div className="absolute left-0 bottom-full mb-2 z-50 w-72 rounded-xl border border-border bg-surface shadow-2xl overflow-hidden py-1">
+      {mentionQuery !== null && coords !== null && typeof document !== 'undefined' && createPortal(
+        <div 
+          className="fixed z-[9999] w-72 rounded-xl border border-border bg-surface shadow-2xl py-1 flex flex-col"
+          style={{
+            top: coords.top,
+            left: coords.left,
+            transform: coords.placeBelow ? 'none' : 'translateY(-100%)',
+            maxHeight: coords.maxHeight,
+          }}
+        >
           <div className="px-3 py-1.5 border-b border-border-subtle flex items-center justify-between text-[11px] font-medium text-foreground-muted">
             <span>Tag someone</span>
             {loading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
 
           {suggestions.length === 0 && !loading ? (
-            <div className="px-3 py-2 text-xs text-foreground-muted text-center">
+            <div className="px-3 py-2 text-xs text-foreground-muted text-center shrink-0">
               No matching user handles
             </div>
           ) : (
-            <div className="max-h-48 overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               {suggestions.map((user, idx) => {
                 const isSelected = idx === selectedIndex
                 const verified = isUserVerified(user)
@@ -205,7 +254,8 @@ export function MentionTextarea({
 
             </div>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )

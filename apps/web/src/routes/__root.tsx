@@ -16,10 +16,30 @@ export const Route = createRootRoute({
       },
       {
         name: 'viewport',
-        content: 'width=device-width, initial-scale=1, viewport-fit=cover',
+        content: 'width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no',
       },
       {
         title: 'HAKIKU',
+      },
+      {
+        name: 'application-name',
+        content: 'HAKIKU',
+      },
+      {
+        name: 'mobile-web-app-capable',
+        content: 'yes',
+      },
+      {
+        name: 'apple-mobile-web-app-status-bar-style',
+        content: 'black-translucent',
+      },
+      {
+        name: 'apple-mobile-web-app-title',
+        content: 'HAKIKU',
+      },
+      {
+        name: 'theme-color',
+        content: '#000000',
       },
     ],
     links: [
@@ -27,17 +47,41 @@ export const Route = createRootRoute({
         rel: 'stylesheet',
         href: appCss,
       },
+      {
+        rel: 'manifest',
+        href: '/manifest.json',
+      },
+      {
+        rel: 'apple-touch-icon',
+        href: '/Dark_theme_logo.png',
+      },
     ],
   }),
   component: RootDocument,
   notFoundComponent: NotFound,
 })
 
+const SW_REGISTER_SCRIPT = `
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(
+      (registration) => {
+        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+      },
+      (err) => {
+        console.log('ServiceWorker registration failed: ', err);
+      }
+    );
+  });
+}
+`;
+
 function RootDocument() {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: SW_REGISTER_SCRIPT }} />
         <HeadContent />
       </head>
       <body suppressHydrationWarning className="font-sans antialiased [overflow-wrap:anywhere] selection:bg-primary/20">

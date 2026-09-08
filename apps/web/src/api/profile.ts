@@ -23,6 +23,8 @@ export interface UserProfile {
   followingCount?: number;
   role?: UserRole;
   status?: 'ACTIVE' | 'SUSPENDED' | 'BANNED' | 'DEACTIVATED' | null;
+  suspendedUntil?: string | null;
+  suspensionReason?: string | null;
   adminHandle?: string | null;
   isVerifiedIdentity?: boolean;
   skillIds?: string[];

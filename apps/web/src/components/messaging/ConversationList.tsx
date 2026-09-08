@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
   useInfiniteQuery,
   useMutation,
@@ -21,10 +21,13 @@ import { Avatar } from '../ui/Avatar'
 import { EmptyState } from '../ui/EmptyState'
 import { ErrorState } from '../ui/ErrorState'
 import { NewChatModal } from './NewChatModal'
+import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { isUserVerified } from '../../utils/user'
 
 export function ConversationList() {
   const { messagingSocket } = useSocket()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [isNewChatOpen, setIsNewChatOpen] = useState(false)
@@ -408,22 +411,35 @@ export function ConversationList() {
                     }}
                   >
                     {/* Avatar */}
-                    <Avatar
-                      src={otherUser?.avatarUrl}
-                      name={
-                        otherUser?.displayName ||
-                        'User'
-                      }
-                      size="lg"
-                    />
+                    <div 
+                      onClick={(e) => {
+                        if (otherUser?.username) {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          navigate({ to: '/profile/$username', params: { username: otherUser.username } })
+                        }
+                      }}
+                      className={otherUser?.username ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}
+                    >
+                      <Avatar
+                        src={otherUser?.avatarUrl}
+                        name={
+                          otherUser?.displayName ||
+                          'User'
+                        }
+                        size="lg"
+                      />
+                    </div>
 
                     {/* Conversation Content */}
                     <div className="min-w-0 flex-1">
                       {/* Name + Time */}
                       <div className="mb-0.5 flex items-center justify-between gap-2">
-                        <span className="min-w-0 truncate text-sm font-semibold text-foreground sm:text-[15px]">
-                          {otherUser?.displayName ||
-                            'Unknown User'}
+                        <span className="min-w-0 flex items-center gap-1.5 truncate text-sm font-semibold text-foreground sm:text-[15px]">
+                          <span className="truncate">
+                            {otherUser?.displayName || 'Unknown User'}
+                          </span>
+                          {isUserVerified(otherUser) && <VerifiedBadge />}
                         </span>
 
                         {latestMessageTime && (

@@ -11,6 +11,8 @@ import { useIntersectionObserver } from 'usehooks-ts'
 import { Avatar } from '../ui/Avatar'
 import { ReportDialog } from '../community/ReportDialog'
 import { toast } from 'sonner'
+import { VerifiedBadge } from '../ui/VerifiedBadge'
+import { isUserVerified } from '../../utils/user'
 
 // --- Zero-Crash Utilities ---
 class ErrorBoundary extends React.Component<{ children: React.ReactNode, fallback?: React.ReactNode }, { hasError: boolean }> {
@@ -434,15 +436,41 @@ export function ChatWindow({ conversationId }: { conversationId: string }) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <Avatar src={otherUser?.avatarUrl} name={otherUser?.displayName || 'User'} />
-          <div className="flex flex-col min-w-0">
-            <span className="font-semibold text-foreground truncate">
-              {otherUser?.displayName || 'Unknown User'}
-            </span>
-            <span className="text-[11px] text-foreground-subtle">
-              {isConnected.messaging ? 'Connected' : 'Reconnecting…'}
-            </span>
-          </div>
+          {otherUser?.username ? (
+            <Link 
+              to="/profile/$username" 
+              params={{ username: otherUser.username }}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
+              <Avatar src={otherUser?.avatarUrl} name={otherUser?.displayName || 'User'} />
+              <div className="flex flex-col min-w-0">
+                <span className="font-semibold text-foreground flex items-center gap-1.5 truncate">
+                  <span className="truncate">
+                    {otherUser?.displayName || 'Unknown User'}
+                  </span>
+                  {isUserVerified(otherUser) && <VerifiedBadge className="w-4 h-4 shrink-0" />}
+                </span>
+                <span className="text-[11px] text-foreground-subtle">
+                  {isConnected.messaging ? 'Connected' : 'Reconnecting…'}
+                </span>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Avatar src={otherUser?.avatarUrl} name={otherUser?.displayName || 'User'} />
+              <div className="flex flex-col min-w-0">
+                <span className="font-semibold text-foreground flex items-center gap-1.5 truncate">
+                  <span className="truncate">
+                    {otherUser?.displayName || 'Unknown User'}
+                  </span>
+                  {isUserVerified(otherUser) && <VerifiedBadge className="w-4 h-4 shrink-0" />}
+                </span>
+                <span className="text-[11px] text-foreground-subtle">
+                  {isConnected.messaging ? 'Connected' : 'Reconnecting…'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Chat Options Dropdown */}

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { MouseEvent as ReactMouseEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { confessionsApi, type HeroConfession } from '../../api/confessions'
 import { useAuth } from '../../hooks/useAuth'
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react'
 import { ConfessionComposer } from '../community/ConfessionComposer'
 import { Dialog } from '../ui/Dialog'
+import { Link } from '@tanstack/react-router'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export interface ConfessionHeroProps {
@@ -24,23 +26,33 @@ export interface ConfessionHeroProps {
 
 /* ─── local SRM campus photographs ─── */
 const FALLBACK_CAMPUS_IMAGES = [
-  '/images/Golden hourss SRM.jpg',
-  '/images/SRM UNIVERSITY.jpg',
-  '/images/srm ktr.jpg',
-  '/images/download (1).jpg',
-  '/images/Log in to Foursquare.jpg',
-  '/images/SRM UNIVERSITY AP.jpg',
-  '/images/uni!!!.jpg',
-  '/images/SRM Institute of Science and Technology Admission.jpg',
-  '/images/SRMIST-BANNER-5.jpg',
-  '/images/SaveClip_App_748231415_18134455357578669_6154616745790124350_n.jpg',
-  '/images/SaveClip_App_748232007_18134455354578669_7507357941153173886_n.jpg',
-  '/images/SaveClip_App_748242935_18134455336578669_2181690689649073789_n.jpg',
-  '/images/SaveClip_App_748787214_18134455324578669_8936722940320199570_n.jpg',
-  '/images/download (1).webp',
-  '/images/images (13).jpeg',
-  '/images/images (14).jpeg',
+  '/images/Campus-gallery (1).jpeg',
+  '/images/Campus-gallery (1).jpg',
+  '/images/Campus-gallery (1).png',
+  '/images/Campus-gallery (1).webp',
+  '/images/Campus-gallery (10).jpg',
+  '/images/Campus-gallery (11).jpg',
+  '/images/Campus-gallery (12).jpg',
+  '/images/Campus-gallery (13).jpg',
+  '/images/Campus-gallery (14).jpg',
+  '/images/Campus-gallery (15).jpg',
+  '/images/Campus-gallery (16).jpg',
+  '/images/Campus-gallery (17).jpg',
+  '/images/Campus-gallery (2).jpeg',
+  '/images/Campus-gallery (2).jpg',
+  '/images/Campus-gallery (2).webp',
+  '/images/Campus-gallery (3).jpg',
+  '/images/Campus-gallery (3).webp',
+  '/images/Campus-gallery (4).jpg',
+  '/images/Campus-gallery (5).jpg',
+  '/images/Campus-gallery (6).jpg',
+  '/images/Campus-gallery (7).jpg',
+  '/images/Campus-gallery (8).jpg',
+  '/images/Campus-gallery (9).jpg',
 ]
+
+/* last-resort image if every source in the pool fails to load */
+const ULTIMATE_FALLBACK_IMAGE = '/images/Campus-gallery (1).jpg'
 
 /* ─── motion settings ─── */
 const fadeVariants = {
@@ -59,21 +71,37 @@ const fadeVariants = {
   },
 }
 
+/** safe modulo that never divides by zero / never returns NaN */
+function safeMod(value: number, length: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(length) || length <= 0) return 0
+  return ((value % length) + length) % length
+}
+
 export function ConfessionHero({ customImages }: ConfessionHeroProps) {
   const [composerOpen, setComposerOpen] = useState(false)
   const [selectedConfessionId, setSelectedConfessionId] = useState<string | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [imageIndex, setImageIndex] = useState(0)
   const [isHovered, setIsHovered] = useState(false)
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set())
 
   const { isAuthenticated } = useAuth()
   const queryClient = useQueryClient()
 
-  const { data: result, isLoading } = useQuery({
+  // remember what triggered a modal open so focus can return to it on close
+  const lastFocusedRef = useRef<HTMLElement | null>(null)
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
+
+  const {
+    data: result,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ['confessions', 'hero'],
     queryFn: () => confessionsApi.getHeroConfession(),
     enabled: isAuthenticated,
     staleTime: 5 * 1000,
+    retry: 2,
     refetchInterval: (query) =>
       query.state.status === 'error' ? false : 10 * 1000,
   })
@@ -134,60 +162,144 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
     },
   })
 
-  const rawConfessions = result?.items || []
-  const confessions = rawConfessions.filter((item) => {
-    const pubDate = item.publishedAt || item.createdAt
-    if (!pubDate) return true
-    const timestamp = new Date(pubDate).getTime()
-    if (isNaN(timestamp)) return true
-    return Date.now() - timestamp < 24 * 60 * 60 * 1000
-  })
+  // Defensive parsing: tolerate malformed dates, missing fields, non-array payloads
+  const confessions = useMemo(() => {
+    const rawConfessions = Array.isArray(result?.items) ? result.items : []
+    return rawConfessions.filter((item): item is HeroConfession => {
+      if (!item || typeof item !== 'object' || !item.id) return false
+      const pubDate = item.publishedAt || item.createdAt
+      if (!pubDate) return true
+      const timestamp = new Date(pubDate).getTime()
+      if (Number.isNaN(timestamp)) return true
+      return Date.now() - timestamp < 24 * 60 * 60 * 1000
+    })
+  }, [result?.items])
 
-  const imagePool =
-    customImages && customImages.length > 0
-      ? customImages
-      : FALLBACK_CAMPUS_IMAGES
+  const imagePool = useMemo(() => {
+    const pool = customImages && customImages.length > 0 ? customImages : FALLBACK_CAMPUS_IMAGES
+    return pool.length > 0 ? pool : [ULTIMATE_FALLBACK_IMAGE]
+  }, [customImages])
+
+  // Keep activeIndex/imageIndex in bounds whenever the underlying arrays change size
+  useEffect(() => {
+    setActiveIndex((prev) => (confessions.length === 0 ? 0 : safeMod(prev, confessions.length)))
+  }, [confessions.length])
 
   useEffect(() => {
-    if (confessions.length > 0 && activeIndex >= confessions.length) {
-      setActiveIndex(0)
-    }
-  }, [activeIndex, confessions.length])
+    setImageIndex((prev) => safeMod(prev, imagePool.length))
+  }, [imagePool.length])
 
+  // Preload images defensively, track failures, and clean up properly on unmount
   useEffect(() => {
+    let cancelled = false
+    const loaders: HTMLImageElement[] = []
+
     imagePool.forEach((src) => {
       const img = new Image()
+      img.onerror = () => {
+        if (cancelled) return
+        setFailedImages((prev) => {
+          if (prev.has(src)) return prev
+          const next = new Set(prev)
+          next.add(src)
+          return next
+        })
+      }
       img.src = src
+      loaders.push(img)
     })
+
+    return () => {
+      cancelled = true
+      loaders.forEach((img) => {
+        img.onload = null
+        img.onerror = null
+        img.src = ''
+      })
+    }
   }, [imagePool])
 
-  /* silent 6-second rotation when not hovered */
+  // silent rotation when not hovered — pauses when the tab isn't visible, and
+  // is torn down cleanly on unmount so it can never fire against an unmounted component
   useEffect(() => {
     if (isHovered) return
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
 
     const timer = window.setInterval(() => {
-      setImageIndex((prev) => (prev + 1) % imagePool.length)
+      setImageIndex((prev) => safeMod(prev + 1, imagePool.length))
       if (confessions.length > 1) {
-        setActiveIndex((prev) => (prev + 1) % confessions.length)
+        setActiveIndex((prev) => safeMod(prev + 1, confessions.length))
       }
     }, 6000)
 
     return () => window.clearInterval(timer)
   }, [isHovered, imagePool.length, confessions.length])
 
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (confessions.length === 0) return
-    setActiveIndex((prev) => (prev - 1 + confessions.length) % confessions.length)
-    setImageIndex((prev) => (prev - 1 + imagePool.length) % imagePool.length)
-  }
+  // pause/resume autoplay based on tab visibility, independent of hover state
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        setIsHovered(true) // reuse the pause path
+      } else {
+        setIsHovered(false)
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
 
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (confessions.length === 0) return
-    setActiveIndex((prev) => (prev + 1) % confessions.length)
-    setImageIndex((prev) => (prev + 1) % imagePool.length)
-  }
+  const handlePrev = useCallback(
+    (e: ReactMouseEvent) => {
+      e.stopPropagation()
+      if (confessions.length === 0) return
+      setActiveIndex((prev) => safeMod(prev - 1, confessions.length))
+      setImageIndex((prev) => safeMod(prev - 1, imagePool.length))
+    },
+    [confessions.length, imagePool.length],
+  )
+
+  const handleNext = useCallback(
+    (e: ReactMouseEvent) => {
+      e.stopPropagation()
+      if (confessions.length === 0) return
+      setActiveIndex((prev) => safeMod(prev + 1, confessions.length))
+      setImageIndex((prev) => safeMod(prev + 1, imagePool.length))
+    },
+    [confessions.length, imagePool.length],
+  )
+
+  const openConfession = useCallback((id: string, trigger?: HTMLElement | null) => {
+    lastFocusedRef.current = trigger ?? (document.activeElement as HTMLElement | null)
+    setSelectedConfessionId(id)
+  }, [])
+
+  const closeConfession = useCallback(() => {
+    setSelectedConfessionId(null)
+  }, [])
+
+  // Escape key + body scroll lock + focus handling for the detail modal
+  useEffect(() => {
+    if (!selectedConfessionId) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeConfession()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+
+    // move focus into the modal
+    const focusTimer = window.setTimeout(() => closeButtonRef.current?.focus(), 0)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', handleKeyDown)
+      window.clearTimeout(focusTimer)
+      // return focus to whatever opened the modal
+      lastFocusedRef.current?.focus?.()
+    }
+  }, [selectedConfessionId, closeConfession])
 
   if (isLoading) {
     return (
@@ -198,6 +310,8 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
           min-h-[220px] sm:min-h-[250px]
           p-6 flex flex-col justify-between animate-pulse
         "
+        aria-busy="true"
+        aria-label="Loading campus confession"
       >
         <div className="flex items-center justify-between">
           <div className="h-4 w-40 rounded-full bg-surface-muted" />
@@ -216,13 +330,20 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
     )
   }
 
-  const currentConfession = confessions[activeIndex] || null
+  const currentConfession = confessions[activeIndex] ?? null
   // Derive the modal confession live from the cache (never stale)
   const selectedConfession = selectedConfessionId
     ? confessions.find((c) => c.id === selectedConfessionId) ?? null
     : null
+
+  const preferredBg = currentConfession?.imageUrl
+  const poolBg = imagePool[safeMod(imageIndex, imagePool.length)]
   const bgImage =
-    currentConfession?.imageUrl || imagePool[imageIndex % imagePool.length]
+    preferredBg && !failedImages.has(preferredBg)
+      ? preferredBg
+      : !failedImages.has(poolBg)
+        ? poolBg
+        : ULTIMATE_FALLBACK_IMAGE
 
   return (
     <>
@@ -241,18 +362,30 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
           "
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
-          onClick={() => currentConfession && setSelectedConfessionId(currentConfession.id)}
+          onClick={(e) =>
+            currentConfession && openConfession(currentConfession.id, e.currentTarget)
+          }
+          role="button"
+          tabIndex={currentConfession ? 0 : -1}
+          onKeyDown={(e) => {
+            if (!currentConfession) return
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              openConfession(currentConfession.id, e.currentTarget)
+            }
+          }}
+          aria-label={currentConfession ? 'Open confession details' : undefined}
         >
           {/* Photographic background with smooth crossfade */}
-          <AnimatePresence mode="wait">
+          <AnimatePresence>
             <motion.img
               key={bgImage}
               src={bgImage}
               alt="Campus atmosphere"
-              initial={{ opacity: 0.3 }}
+              initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0.3 }}
-              transition={{ duration: 0.6, ease: 'easeInOut' }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 1.5, ease: 'easeInOut' }}
               className="
                 absolute inset-0 h-full w-full
                 object-cover object-center
@@ -261,6 +394,14 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
                 group-hover:scale-105
               "
               aria-hidden="true"
+              onError={() => {
+                setFailedImages((prev) => {
+                  if (prev.has(bgImage)) return prev
+                  const next = new Set(prev)
+                  next.add(bgImage)
+                  return next
+                })
+              }}
             />
           </AnimatePresence>
 
@@ -300,6 +441,7 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
+                  lastFocusedRef.current = e.currentTarget
                   setComposerOpen(true)
                 }}
                 className="
@@ -319,8 +461,17 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
           </div>
 
           {/* ── Main Content Area ── */}
-          <div className="relative z-10 px-5 sm:px-6 py-2 flex-1 flex flex-col justify-center">
-            {currentConfession ? (
+          <div className="relative z-10 px-5 sm:px-6 py-2 flex-1 flex flex-col justify-center" aria-live="polite">
+            {isError && confessions.length === 0 ? (
+              <div className="text-left space-y-1.5 py-2">
+                <p className="text-lg sm:text-xl font-bold text-white drop-shadow-md">
+                  Couldn&apos;t load confessions.
+                </p>
+                <p className="text-xs sm:text-sm text-white/80">
+                  Check your connection — we&apos;ll keep retrying in the background.
+                </p>
+              </div>
+            ) : currentConfession ? (
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={currentConfession.id ?? activeIndex}
@@ -342,9 +493,20 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
                   </p>
 
                   <div className="flex items-center gap-2">
-                    <p className="text-xs sm:text-sm font-semibold text-white/80 drop-shadow-xs">
-                      @{currentConfession.authorName || 'anonymous'}
-                    </p>
+                    {currentConfession.authorName && currentConfession.authorName !== 'anonymous' ? (
+                      <Link
+                        to="/profile/$username"
+                        params={{ username: currentConfession.authorName }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-xs sm:text-sm font-semibold text-white/80 drop-shadow-xs hover:underline cursor-pointer"
+                      >
+                        @{currentConfession.authorName}
+                      </Link>
+                    ) : (
+                      <p className="text-xs sm:text-sm font-semibold text-white/80 drop-shadow-xs">
+                        @anonymous
+                      </p>
+                    )}
                   </div>
                 </motion.div>
               </AnimatePresence>
@@ -389,11 +551,13 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
                         : 'bg-white/15 text-white/90 border-white/25 backdrop-blur-md hover:bg-white/25 hover:text-white'
                       }
                     `}
+                    aria-pressed={!!currentConfession.isUpvoted}
+                    aria-label={currentConfession.isUpvoted ? 'Remove upvote' : 'Upvote confession'}
                   >
                     <Heart
                       className={`h-3.5 w-3.5 transition-transform duration-200 ${currentConfession.isUpvoted
-                          ? 'fill-rose-500 text-rose-500 scale-110'
-                          : 'group-hover:scale-110'
+                        ? 'fill-rose-500 text-rose-500 scale-110'
+                        : 'group-hover:scale-110'
                         }`}
                     />
                     <span>{currentConfession.upvoteCount || 0}</span>
@@ -414,15 +578,21 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
                     )
 
                     return (
-                      <div className="hidden sm:flex items-center gap-1.5 bg-black/30 backdrop-blur-md rounded-full px-2 py-1.5 sm:px-2.5 border border-white/10">
+                      <div
+                        className="hidden sm:flex items-center gap-1.5 bg-black/30 backdrop-blur-md rounded-full px-2 py-1.5 sm:px-2.5 border border-white/10"
+                        role="tablist"
+                        aria-label="Confession navigation"
+                      >
                         {visibleDots.map((idx) => (
                           <button
                             key={idx}
                             type="button"
+                            role="tab"
+                            aria-selected={idx === activeIndex}
                             onClick={(e) => {
                               e.stopPropagation()
                               setActiveIndex(idx)
-                              setImageIndex(idx % imagePool.length)
+                              setImageIndex(safeMod(idx, imagePool.length))
                             }}
                             className={`
                               h-1.5 rounded-full transition-all duration-300 cursor-pointer
@@ -483,6 +653,7 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation()
+                  lastFocusedRef.current = e.currentTarget
                   setComposerOpen(true)
                 }}
                 className="
@@ -521,7 +692,8 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
               p-4 sm:p-6
               bg-black/70 backdrop-blur-md
             "
-            onClick={() => setSelectedConfessionId(null)}
+            onClick={closeConfession}
+            role="presentation"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 12 }}
@@ -536,6 +708,9 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
                 overflow-hidden
               "
               onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Confession details"
             >
               {/* Modal Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-border/40 shrink-0">
@@ -553,8 +728,9 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
                 </div>
 
                 <button
+                  ref={closeButtonRef}
                   type="button"
-                  onClick={() => setSelectedConfessionId(null)}
+                  onClick={closeConfession}
                   className="
                     p-2 rounded-full
                     text-foreground-muted hover:bg-surface-muted hover:text-foreground
@@ -603,11 +779,12 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
                         : 'bg-surface-muted text-foreground-muted hover:text-foreground border-border'
                       }
                     `}
+                    aria-pressed={!!selectedConfession.isUpvoted}
                   >
                     <Heart
                       className={`h-4 w-4 ${selectedConfession.isUpvoted
-                          ? 'fill-rose-500 text-rose-500'
-                          : ''
+                        ? 'fill-rose-500 text-rose-500'
+                        : ''
                         }`}
                     />
                     <span>{selectedConfession.upvoteCount || 0} Upvotes</span>
@@ -621,4 +798,3 @@ export function ConfessionHero({ customImages }: ConfessionHeroProps) {
     </>
   )
 }
-

@@ -19,6 +19,7 @@ export interface PostAuthor {
   department: string | null
   batch: string | null
   isVerifiedIdentity?: boolean
+  role?: string
 }
 
 export interface PostItem {

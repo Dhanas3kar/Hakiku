@@ -1,13 +1,26 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 import { useAuth } from '../hooks/useAuth'
 import { Home, Compass, MessageSquare, Bell, User } from 'lucide-react'
 import { useUnreadCounts } from '../hooks/useUnreadCounts'
+import { useQueryClient } from '@tanstack/react-query'
 
 export function MobileNavigation() {
   const { user } = useAuth()
   const unreadCounts = useUnreadCounts()
+  const location = useLocation()
+  const queryClient = useQueryClient()
+
+  const handleHomeClick = (e: React.MouseEvent) => {
+    if (location.pathname === '/') {
+      e.preventDefault()
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      // Reset the feed to clear all pages and start fresh from page 1
+      queryClient.resetQueries({ queryKey: ['feed'] })
+    }
+  }
+
   const navItems = [
-    { label: 'Home', to: '/', icon: Home, badge: 0 },
+    { label: 'Home', to: '/', icon: Home, badge: 0, onClick: handleHomeClick },
     { label: 'Discover', to: '/discover', icon: Compass, badge: 0 },
     { label: 'Messages', to: '/messages', icon: MessageSquare, badge: unreadCounts.messages },
     { label: 'Notifications', to: '/notifications', icon: Bell, badge: unreadCounts.notifications },
@@ -22,6 +35,7 @@ export function MobileNavigation() {
             key={item.to}
             to={item.to}
             aria-label={item.label}
+            onClick={item.onClick}
             className="relative flex min-h-11 min-w-11 flex-col items-center justify-center rounded-lg p-2 text-foreground-muted transition-all duration-150 hover:text-foreground"
             activeProps={{ className: 'text-primary font-semibold' }}
           >

@@ -9,6 +9,8 @@ export interface Confession {
   createdAt?: string
   publishedAt?: string
   isAuthor?: boolean
+  upvoteCount?: number
+  isUpvoted?: boolean
   _count?: {
     comments?: number
   }

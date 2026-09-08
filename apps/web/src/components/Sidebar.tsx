@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 import {
   Home,
   Compass,
@@ -17,10 +17,13 @@ import { BrandLogo } from './ui/BrandLogo'
 import { Avatar } from './ui/Avatar'
 import { cn } from '../lib/cn'
 import { toast } from 'sonner'
+import { useQueryClient } from '@tanstack/react-query'
 
 export function Sidebar() {
   const { logout, user } = useAuth()
   const unreadCounts = useUnreadCounts()
+  const location = useLocation()
+  const queryClient = useQueryClient()
 
   const profilePath = `/profile/${user?.username || ''}`
 
@@ -114,6 +117,14 @@ export function Sidebar() {
               key={item.to}
               to={item.to}
               title={item.label}
+              onClick={(e) => {
+                if (item.to === '/' && location.pathname === '/') {
+                  e.preventDefault()
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                  // Reset the feed to clear all pages and start fresh from page 1
+                  queryClient.resetQueries({ queryKey: ['feed'] })
+                }
+              }}
               className={cn(
                 'group relative flex items-center justify-center lg:justify-start gap-3 rounded-lg px-2.5 py-2.5 lg:px-3.5',
                 'text-sm font-medium text-foreground-muted',

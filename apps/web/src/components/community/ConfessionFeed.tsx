@@ -1,41 +1,30 @@
 import { useState, useEffect } from 'react'
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { communityApi } from '../../api/community'
 import type { Confession } from '../../api/community'
 import { ConfessionComposer } from './ConfessionComposer'
-import { useIntersectionObserver } from 'usehooks-ts'
+// Removed useIntersectionObserver
 import { formatDistanceToNow } from 'date-fns'
-import { Loader2, MoreHorizontal, Flag, Trash2 } from 'lucide-react'
+import { Loader2, MoreHorizontal, Flag, Trash2, Heart } from 'lucide-react'
 import { ReportDialog } from './ReportDialog'
+import { confessionsApi } from '../../api/confessions'
 
 export function ConfessionFeed() {
   const {
     data,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
     status,
-  } = useInfiniteQuery({
-    queryKey: ['confessions'],
-    queryFn: ({ pageParam }) => communityApi.listConfessions({ offset: pageParam ? Number(pageParam) : 0, limit: 15 }),
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage, allPages) => {
-      if (lastPage.items.length < 15) return undefined
-      return String(allPages.length * 15)
-    },
+  } = useQuery({
+    queryKey: ['confessions', 'top'],
+    queryFn: () => communityApi.listConfessions({ offset: 0, limit: 50 }),
   })
 
-  const confessions = data?.pages.flatMap((page) => page.items) ?? []
+  // Get all fetched confessions, sort by upvoteCount descending, and take the first one
+  const allConfessions = data?.items ?? []
+  const topConfession = allConfessions.length > 0 
+    ? [...allConfessions].sort((a, b) => (b.upvoteCount || 0) - (a.upvoteCount || 0))[0]
+    : null
 
-  const { isIntersecting, ref: bottomRef } = useIntersectionObserver({
-    threshold: 0.1,
-  })
-
-  useEffect(() => {
-    if (isIntersecting && hasNextPage && !isFetchingNextPage && status !== 'pending') {
-      fetchNextPage()
-    }
-  }, [isIntersecting, hasNextPage, isFetchingNextPage, fetchNextPage, status])
+  const confessions = topConfession ? [topConfession] : []
 
   return (
     <div className="space-y-6">
@@ -56,10 +45,6 @@ export function ConfessionFeed() {
           {confessions.map((confession) => (
             <ConfessionCard key={confession.id} confession={confession} />
           ))}
-          
-          <div ref={bottomRef} className="h-10 flex items-center justify-center">
-            {isFetchingNextPage && <Loader2 className="h-5 w-5 animate-spin text-primary" />}
-          </div>
         </div>
       )}
     </div>
@@ -75,6 +60,43 @@ function ConfessionCard({ confession }: { confession: Confession }) {
   const deleteMutation = useMutation({
     mutationFn: () => communityApi.deleteConfession(confession.id),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['confessions'] })
+    }
+  })
+
+  const upvoteMutation = useMutation({
+    mutationFn: () => confessionsApi.upvoteConfession(confession.id),
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['confessions'] })
+      const previousConfessions = queryClient.getQueryData(['confessions'])
+      
+      queryClient.setQueryData(['confessions'], (old: any) => {
+        if (!old) return old
+        return {
+          ...old,
+          pages: old.pages.map((page: any) => ({
+            ...page,
+            items: page.items.map((item: any) => {
+              if (item.id === confession.id) {
+                const isCurrentlyUpvoted = item.isUpvoted
+                return {
+                  ...item,
+                  isUpvoted: !isCurrentlyUpvoted,
+                  upvoteCount: (item.upvoteCount || 0) + (isCurrentlyUpvoted ? -1 : 1)
+                }
+              }
+              return item
+            })
+          }))
+        }
+      })
+      
+      return { previousConfessions }
+    },
+    onError: (_err, _newVal, context) => {
+      queryClient.setQueryData(['confessions'], context?.previousConfessions)
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['confessions'] })
     }
   })
@@ -131,6 +153,18 @@ function ConfessionCard({ confession }: { confession: Confession }) {
         <p className="text-foreground text-sm leading-relaxed whitespace-pre-wrap break-words">
           {confession.content}
         </p>
+
+        <div className="mt-4 flex items-center gap-4 border-t border-border-subtle pt-3">
+          <button
+            onClick={() => upvoteMutation.mutate()}
+            className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+              confession.isUpvoted ? 'text-rose-500' : 'text-foreground-muted hover:text-rose-500'
+            }`}
+          >
+            <Heart className={`h-4 w-4 ${confession.isUpvoted ? 'fill-current' : ''}`} />
+            {confession.upvoteCount || 0}
+          </button>
+        </div>
 
         {/* Keeping UI simple. Confession comments can be an expansion later if desired. */}
       </div>
